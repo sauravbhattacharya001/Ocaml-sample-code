@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="OcamlProjectSettings">
+	<section name="OcamlbuildSettings">
+		<item value="" key="ocamlbuildProjectLinkerFlags"/>
+		<item value="" key="ocamlbuildProjectLibs"/>
+		<item value="true" key="ocamlbuildGenerateTypeInfo"/>
+		<item value="" key="ocamlbuildProjectOtherFlags"/>
+		<item value="a.byte" key="ocamlbuildProjectTargets"/>
+		<item value="" key="ocamlbuildProjectCompilerFlags"/>
+	</section>
+</section>

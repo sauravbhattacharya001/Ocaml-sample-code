@@ -1,0 +1,18 @@
+"a.ml" 1 0 0 "a.ml" 1 0 13
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_endline
+)
+"a.ml" 1 0 14 "a.ml" 1 0 57
+type(
+  string
+)
+"a.ml" 1 0 0 "a.ml" 1 0 57
+call(
+  stack
+)
+type(
+  unit
+)
