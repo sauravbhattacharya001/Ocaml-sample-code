@@ -22,9 +22,14 @@ let rec member x = function
     else member x right
 
 (* In-order traversal returns a sorted list *)
-let rec inorder = function
-  | Leaf -> []
-  | Node (left, v, right) -> inorder left @ [v] @ inorder right
+(* Uses an accumulator to avoid O(n) list concatenation at each node,
+   giving O(n) overall instead of O(n²) with naive @ approach *)
+let inorder tree =
+  let rec aux acc = function
+    | Leaf -> acc
+    | Node (left, v, right) -> aux (v :: aux acc right) left
+  in
+  aux [] tree
 
 (* Find the minimum element *)
 let rec min_elem = function
