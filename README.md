@@ -16,9 +16,24 @@ A collection of small OCaml programs demonstrating core language features.
 
 Requires [OCaml](https://ocaml.org/) installed on your system.
 
+### Using Make
+
 ```bash
-# Compile and run a file
-ocamlfind ocamlc -o factor factor.ml && ./factor
+# Build all programs
+make
+
+# Build and run all programs
+make run
+
+# Clean build artifacts
+make clean
+```
+
+### Manual
+
+```bash
+# Compile and run a single file
+ocamlopt -o factor factor.ml && ./factor
 
 # Or use the OCaml toplevel (REPL)
 ocaml
