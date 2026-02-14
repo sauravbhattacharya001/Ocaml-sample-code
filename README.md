@@ -10,7 +10,7 @@ A collection of small OCaml programs demonstrating core language features.
 | `b.ml` | Second hello world example |
 | `factor.ml` | Prime factorization using recursive trial division |
 | `list_last_elem.ml` | Find the last element of a list using pattern matching |
-| `bst.ml` | Binary search tree with algebraic data types and pattern matching |
+| `bst.ml` | Binary search tree with algebraic data types and pattern matching (insert, member, min/max, size, depth) |
 
 ## Building & Running
 

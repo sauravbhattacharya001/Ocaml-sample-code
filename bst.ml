@@ -32,6 +32,17 @@ let rec min_elem = function
   | Node (Leaf, v, _) -> Some v
   | Node (left, _, _) -> min_elem left
 
+(* Find the maximum element *)
+let rec max_elem = function
+  | Leaf -> None
+  | Node (_, v, Leaf) -> Some v
+  | Node (_, _, right) -> max_elem right
+
+(* Count the number of nodes *)
+let rec size = function
+  | Leaf -> 0
+  | Node (left, _, right) -> 1 + size left + size right
+
 (* Tree depth *)
 let rec depth = function
   | Leaf -> 0
@@ -50,6 +61,10 @@ let () =
   Printf.printf "Contains 4: %b\n" (member 4 t);
   Printf.printf "Contains 9: %b\n" (member 9 t);
   Printf.printf "Depth: %d\n" (depth t);
-  match min_elem t with
+  Printf.printf "Size: %d\n" (size t);
+  (match min_elem t with
   | None -> print_endline "Empty tree"
-  | Some m -> Printf.printf "Minimum: %d\n" m;;
+  | Some m -> Printf.printf "Minimum: %d\n" m);
+  (match max_elem t with
+  | None -> ()
+  | Some m -> Printf.printf "Maximum: %d\n" m);;
