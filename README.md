@@ -50,4 +50,4 @@ let rec last = function
 
 ## License
 
-No license specified.
+MIT License — see [LICENSE](LICENSE) for details.
