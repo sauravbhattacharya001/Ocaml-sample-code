@@ -4,7 +4,7 @@
 # Use the native-code compiler for best performance.
 # Change to 'ocamlc' for bytecode if ocamlopt is unavailable.
 OCAML = ocamlopt
-SOURCES = a.ml b.ml factor.ml list_last_elem.ml bst.ml mergesort.ml
+SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml
 TARGETS = $(SOURCES:.ml=)
 
 .PHONY: all clean run
@@ -15,11 +15,11 @@ all: $(TARGETS)
 	$(OCAML) -o $@ $<
 
 run: all
-	@echo "=== a ==="
-	@./a
+	@echo "=== hello ==="
+	@./hello
 	@echo ""
-	@echo "=== b ==="
-	@./b
+	@echo "=== fibonacci ==="
+	@./fibonacci
 	@echo ""
 	@echo "=== factor ==="
 	@./factor

@@ -19,14 +19,14 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features.
 
 ## Programs
 
 | File | Description | Concepts |
 |------|-------------|----------|
-| [`a.ml`](a.ml) | Hello world — basic console output | `print_endline`, I/O |
-| [`b.ml`](b.ml) | Second hello world example | Basic output |
+| [`hello.ml`](hello.ml) | Variables, types, pipes, and pattern matching | Let bindings, type inference, `Printf`, pipe operator |
+| [`fibonacci.ml`](fibonacci.ml) | Fibonacci: naive vs memoized vs iterative | Hash tables, closures, imperative features, benchmarking |
 | [`factor.ml`](factor.ml) | Prime factorization via optimized trial division | Recursion, mutual recursion, input validation |
 | [`list_last_elem.ml`](list_last_elem.ml) | Find the last element of a list safely | Option types, pattern matching |
 | [`bst.ml`](bst.ml) | Binary search tree (insert, delete, traversal, min/max, size, depth) | Algebraic data types, polymorphism, accumulators |
@@ -190,8 +190,8 @@ let rec last = function
 
 ```
 Ocaml-sample-code/
-├── a.ml                  # Hello world
-├── b.ml                  # Hello world (variation)
+├── hello.ml              # Variables, types, pipes, pattern matching
+├── fibonacci.ml          # Fibonacci: naive vs memoized vs iterative
 ├── bst.ml                # Binary search tree
 ├── factor.ml             # Prime factorization
 ├── list_last_elem.ml     # Last element of a list

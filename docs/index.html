@@ -191,20 +191,95 @@
             </div>
         </header>
 
-        <!-- Hello World -->
+        <!-- Hello OCaml -->
         <div class="sample">
             <div class="sample-header">
                 <span class="icon">👋</span>
-                <h2>Hello World</h2>
-                <span class="filename">a.ml</span>
+                <h2>Hello OCaml</h2>
+                <span class="filename">hello.ml</span>
             </div>
             <div class="sample-body">
-                <p>The simplest OCaml program — output a string to the console.</p>
+                <p>Core OCaml building blocks — let bindings, type inference, Printf formatting, the pipe operator, and pattern matching on tuples.</p>
                 <div class="concepts">
-                    <span class="concept">basic I/O</span>
-                    <span class="concept">print_endline</span>
+                    <span class="concept">let bindings</span>
+                    <span class="concept">type inference</span>
+                    <span class="concept">pipe operator</span>
+                    <span class="concept">pattern matching</span>
                 </div>
-                <pre><span class="fn">print_endline</span> <span class="str">"This is the first line of the first file."</span></pre>
+                <pre><span class="cmt">(* Pipe operator for readable data pipelines *)</span>
+<span class="kw">let</span> result =
+  [<span class="num">1</span>; <span class="num">2</span>; <span class="num">3</span>; <span class="num">4</span>; <span class="num">5</span>; <span class="num">6</span>; <span class="num">7</span>; <span class="num">8</span>; <span class="num">9</span>; <span class="num">10</span>]
+  <span class="op">|></span> <span class="fn">List.filter</span> (<span class="kw">fun</span> x <span class="op">-></span> x <span class="kw">mod</span> <span class="num">2</span> = <span class="num">0</span>)
+  <span class="op">|></span> <span class="fn">List.map</span> (<span class="kw">fun</span> x <span class="op">-></span> x * x)
+  <span class="op">|></span> <span class="fn">List.fold_left</span> (+) <span class="num">0</span>
+
+<span class="kw">let</span> <span class="fn">min_max</span> lst =
+  <span class="kw">match</span> lst <span class="kw">with</span>
+  <span class="op">|</span> [] <span class="op">-></span> <span class="type">None</span>
+  <span class="op">|</span> x <span class="op">::</span> rest <span class="op">-></span>
+    <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> lo hi = <span class="kw">function</span>
+      <span class="op">|</span> [] <span class="op">-></span> (lo, hi)
+      <span class="op">|</span> x <span class="op">::</span> xs <span class="op">-></span> <span class="fn">aux</span> (<span class="fn">min</span> lo x) (<span class="fn">max</span> hi x) xs
+    <span class="kw">in</span> <span class="type">Some</span> (<span class="fn">aux</span> x x rest)</pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>Hello, OCaml!
+OCaml version 5
+Area of circle (r=3.0): 28.2743
+Sum of squares of evens 1..10: 220
+Min: 1, Max: 9</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fibonacci -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">🐇</span>
+                <h2>Fibonacci — Naive vs Memoized vs Iterative</h2>
+                <span class="filename">fibonacci.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>Three implementations of Fibonacci: naive exponential recursion, hash-table memoization via closures, and a tail-recursive O(1)-space version. Includes benchmarking.</p>
+                <div class="concepts">
+                    <span class="concept">hash tables</span>
+                    <span class="concept">closures</span>
+                    <span class="concept">memoization</span>
+                    <span class="concept">tail recursion</span>
+                    <span class="concept">imperative OCaml</span>
+                </div>
+                <pre><span class="cmt">(* Memoized Fibonacci — closure over a hash table *)</span>
+<span class="kw">let</span> fib_memo =
+  <span class="kw">let</span> cache = <span class="fn">Hashtbl.create</span> <span class="num">64</span> <span class="kw">in</span>
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">fib</span> n =
+    <span class="kw">match</span> <span class="fn">Hashtbl.find_opt</span> cache n <span class="kw">with</span>
+    <span class="op">|</span> <span class="type">Some</span> v <span class="op">-></span> v
+    <span class="op">|</span> <span class="type">None</span> <span class="op">-></span>
+      <span class="kw">let</span> v = <span class="kw">match</span> n <span class="kw">with</span>
+        <span class="op">|</span> <span class="num">0</span> <span class="op">-></span> <span class="num">0</span> <span class="op">|</span> <span class="num">1</span> <span class="op">-></span> <span class="num">1</span>
+        <span class="op">|</span> _ <span class="op">-></span> <span class="fn">fib</span> (n - <span class="num">1</span>) + <span class="fn">fib</span> (n - <span class="num">2</span>)
+      <span class="kw">in</span>
+      <span class="fn">Hashtbl.replace</span> cache n v; v
+  <span class="kw">in</span> <span class="fn">fib</span>
+
+<span class="cmt">(* Tail-recursive iterative — O(n) time, O(1) space *)</span>
+<span class="kw">let</span> <span class="fn">fib_iter</span> n =
+  <span class="kw">if</span> n &lt;= <span class="num">0</span> <span class="kw">then</span> <span class="num">0</span>
+  <span class="kw">else let</span> <span class="kw">rec</span> <span class="fn">aux</span> a b i =
+    <span class="kw">if</span> i = n <span class="kw">then</span> b
+    <span class="kw">else</span> <span class="fn">aux</span> b (a + b) (i + <span class="num">1</span>)
+  <span class="kw">in</span> <span class="fn">aux</span> <span class="num">0</span> <span class="num">1</span> <span class="num">1</span></pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>First 15 Fibonacci numbers:
+  [0; 1; 1; 2; 3; 5; 8; 13; 21; 34; 55; 89; 144; 233; 377]
+
+fib_naive(35) = 9227465  (0.1842s)
+fib_memo(35)  = 9227465  (0.000001s)
+fib_iter(35)  = 9227465  (0.000001s)
+
+Speedup (memo vs naive): 184200x</pre>
+                </div>
             </div>
         </div>
 
