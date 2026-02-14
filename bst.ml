@@ -71,7 +71,7 @@ let rec delete x = function
 
 (* Build a tree from a list *)
 let tree_of_list lst =
-  List.fold_left (fun acc x -> insert x acc) Leaf lst;;
+  List.fold_left (fun acc x -> insert x acc) Leaf lst
 
 (* Example usage *)
 let () =
@@ -93,4 +93,4 @@ let () =
   Printf.printf "After deleting 3: ";
   List.iter (Printf.printf "%d ") (inorder t2);
   print_newline ();
-  Printf.printf "Contains 3 after delete: %b\n" (member 3 t2);;
+  Printf.printf "Contains 3 after delete: %b\n" (member 3 t2)

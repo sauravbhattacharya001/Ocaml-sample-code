@@ -15,15 +15,15 @@ let factors n =
       else if n mod d = 0 then d :: odd_factors d (n / d)
       else odd_factors (d + 2) n  (* skip even candidates *)
     in
-    extract_twos n;;
+    extract_twos n
 
 (* Pretty-print a list of integers *)
 let string_of_int_list lst =
-  "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]";;
+  "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]"
 
 (* Example usage *)
 let () =
   let test_values = [2; 12; 30; 97; 360] in
   List.iter (fun n ->
     Printf.printf "factors %d = %s\n" n (string_of_int_list (factors n))
-  ) test_values;;
+  ) test_values

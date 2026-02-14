@@ -4,6 +4,7 @@
 /factor
 /list_last_elem
 /bst
+/mergesort
 
 # OCaml build artifacts
 _build/
