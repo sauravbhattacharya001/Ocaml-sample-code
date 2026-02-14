@@ -7,6 +7,7 @@ let factors n =
   else
     let rec aux d n =
       if n = 1 then []
+      else if d * d > n then [n]  (* n is prime; no divisor up to sqrt(n) *)
       else if n mod d = 0 then d :: aux d (n / d)
       else aux (d + 1) n
     in
