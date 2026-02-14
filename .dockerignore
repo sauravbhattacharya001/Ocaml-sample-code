@@ -1,0 +1,11 @@
+.git
+.github
+docs
+*.cmi
+*.cmx
+*.cmo
+*.o
+LICENSE
+README.md
+.editorconfig
+.gitignore

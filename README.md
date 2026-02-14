@@ -70,6 +70,21 @@ make run
 make clean
 ```
 
+### Docker
+
+Run all examples in a container — no local OCaml installation needed:
+
+```bash
+docker build -t ocaml-samples .
+docker run --rm ocaml-samples
+```
+
+Run a single example:
+
+```bash
+docker run --rm ocaml-samples mergesort
+```
+
 ### Run Individual Files
 
 ```bash
@@ -181,6 +196,8 @@ Ocaml-sample-code/
 ├── factor.ml             # Prime factorization
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
+├── Dockerfile            # Multi-stage Docker build
+├── .dockerignore         # Docker build context exclusions
 ├── Makefile              # Build automation
 ├── docs/
 │   └── index.html        # GitHub Pages documentation site
