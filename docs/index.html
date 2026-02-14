@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Sample Code</title>
+    <style>
+        :root {
+            --bg: #1a1b26;
+            --surface: #24283b;
+            --border: #414868;
+            --text: #c0caf5;
+            --text-dim: #565f89;
+            --accent: #f7768e;
+            --accent2: #7aa2f7;
+            --accent3: #9ece6a;
+            --accent4: #e0af68;
+            --code-bg: #1a1b26;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+        }
+
+        .badge-row {
+            margin-top: 1rem;
+        }
+
+        .badge-row img {
+            margin: 0 4px;
+        }
+
+        .sample {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .sample-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sample-header .icon {
+            font-size: 1.5rem;
+        }
+
+        .sample-header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .sample-header .filename {
+            margin-left: auto;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        .sample-body {
+            padding: 1.5rem;
+        }
+
+        .sample-body p {
+            margin-bottom: 1rem;
+            color: var(--text-dim);
+        }
+
+        .concepts {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .concept {
+            font-size: 0.75rem;
+            padding: 2px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--accent2);
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.88rem;
+            line-height: 1.7;
+        }
+
+        .kw { color: var(--accent); }
+        .fn { color: var(--accent2); }
+        .str { color: var(--accent3); }
+        .cmt { color: var(--text-dim); font-style: italic; }
+        .num { color: var(--accent4); }
+        .op { color: var(--text-dim); }
+        .type { color: var(--accent4); }
+
+        .output {
+            margin-top: 0.75rem;
+        }
+
+        .output-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 0.25rem;
+        }
+
+        .output pre {
+            border-color: var(--accent3);
+            color: var(--accent3);
+            font-size: 0.82rem;
+        }
+
+        footer {
+            text-align: center;
+            padding-top: 2rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent2);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.8rem; }
+            .container { padding: 1rem; }
+            .sample-header { flex-wrap: wrap; }
+            .sample-header .filename { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐫 OCaml Sample Code</h1>
+            <p>A collection of idiomatic OCaml programs demonstrating core language features</p>
+            <div class="badge-row">
+                <img src="https://img.shields.io/badge/language-OCaml-EC6813?style=flat-square&logo=ocaml&logoColor=white" alt="OCaml">
+                <img src="https://img.shields.io/github/license/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=7aa2f7" alt="License">
+                <img src="https://img.shields.io/github/stars/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=e0af68" alt="Stars">
+            </div>
+        </header>
+
+        <!-- Hello World -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">👋</span>
+                <h2>Hello World</h2>
+                <span class="filename">a.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>The simplest OCaml program — output a string to the console.</p>
+                <div class="concepts">
+                    <span class="concept">basic I/O</span>
+                    <span class="concept">print_endline</span>
+                </div>
+                <pre><span class="fn">print_endline</span> <span class="str">"This is the first line of the first file."</span></pre>
+            </div>
+        </div>
+
+        <!-- Prime Factorization -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">🔢</span>
+                <h2>Prime Factorization</h2>
+                <span class="filename">factor.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>Decompose integers into prime factors using recursive trial division with an early-exit optimization at √n.</p>
+                <div class="concepts">
+                    <span class="concept">recursion</span>
+                    <span class="concept">pattern matching</span>
+                    <span class="concept">input validation</span>
+                </div>
+                <pre><span class="cmt">(* Recall that d divides n iff [n mod d = 0] *)</span>
+<span class="kw">let</span> <span class="fn">factors</span> n =
+  <span class="kw">if</span> n &lt; <span class="num">2</span> <span class="kw">then</span> <span class="fn">invalid_arg</span> <span class="str">"factors: input must be >= 2"</span>
+  <span class="kw">else</span>
+    <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> d n =
+      <span class="kw">if</span> n = <span class="num">1</span> <span class="kw">then</span> []
+      <span class="kw">else if</span> d * d > n <span class="kw">then</span> [n]
+      <span class="kw">else if</span> n <span class="kw">mod</span> d = <span class="num">0</span> <span class="kw">then</span> d <span class="op">::</span> <span class="fn">aux</span> d (n / d)
+      <span class="kw">else</span> <span class="fn">aux</span> (d + <span class="num">1</span>) n
+    <span class="kw">in</span>
+    <span class="fn">aux</span> <span class="num">2</span> n</pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>factors 12 = [2; 2; 3]
+factors 30 = [2; 3; 5]
+factors 97 = [97]
+factors 360 = [2; 2; 2; 3; 3; 5]</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Element -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">🔍</span>
+                <h2>Last Element of a List</h2>
+                <span class="filename">list_last_elem.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>Find the last element of a list safely using Option types — no exceptions, no crashes.</p>
+                <div class="concepts">
+                    <span class="concept">option types</span>
+                    <span class="concept">pattern matching</span>
+                    <span class="concept">recursion</span>
+                </div>
+                <pre><span class="kw">let</span> <span class="kw">rec</span> <span class="fn">last</span> = <span class="kw">function</span>
+  <span class="op">|</span> [] <span class="op">-></span> <span class="type">None</span>
+  <span class="op">|</span> [x] <span class="op">-></span> <span class="type">Some</span> x
+  <span class="op">|</span> _ <span class="op">::</span> t <span class="op">-></span> <span class="fn">last</span> t</pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>last [1; 2; 3] = Some 3
+last [42] = Some 42
+last [] = None</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Binary Search Tree -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">🌳</span>
+                <h2>Binary Search Tree</h2>
+                <span class="filename">bst.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>Full BST implementation with algebraic data types — insert, delete, membership, min/max, traversal, size, and depth.</p>
+                <div class="concepts">
+                    <span class="concept">algebraic data types</span>
+                    <span class="concept">pattern matching</span>
+                    <span class="concept">recursion</span>
+                    <span class="concept">accumulators</span>
+                </div>
+                <pre><span class="kw">type</span> <span class="type">'a tree</span> =
+  <span class="op">|</span> <span class="type">Leaf</span>
+  <span class="op">|</span> <span class="type">Node</span> <span class="kw">of</span> <span class="type">'a tree</span> * <span class="type">'a</span> * <span class="type">'a tree</span>
+
+<span class="kw">let</span> <span class="kw">rec</span> <span class="fn">insert</span> x = <span class="kw">function</span>
+  <span class="op">|</span> <span class="type">Leaf</span> <span class="op">-></span> <span class="type">Node</span> (<span class="type">Leaf</span>, x, <span class="type">Leaf</span>)
+  <span class="op">|</span> <span class="type">Node</span> (left, v, right) <span class="op">-></span>
+    <span class="kw">if</span> x &lt; v <span class="kw">then</span> <span class="type">Node</span> (<span class="fn">insert</span> x left, v, right)
+    <span class="kw">else if</span> x > v <span class="kw">then</span> <span class="type">Node</span> (left, v, <span class="fn">insert</span> x right)
+    <span class="kw">else</span> <span class="type">Node</span> (left, v, right)
+
+<span class="cmt">(* O(n) in-order traversal with accumulator *)</span>
+<span class="kw">let</span> <span class="fn">inorder</span> tree =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    <span class="op">|</span> <span class="type">Leaf</span> <span class="op">-></span> acc
+    <span class="op">|</span> <span class="type">Node</span> (left, v, right) <span class="op">-></span>
+      <span class="fn">aux</span> (v <span class="op">::</span> <span class="fn">aux</span> acc right) left
+  <span class="kw">in</span> <span class="fn">aux</span> [] tree
+
+<span class="kw">let</span> <span class="kw">rec</span> <span class="fn">delete</span> x = <span class="kw">function</span>
+  <span class="op">|</span> <span class="type">Leaf</span> <span class="op">-></span> <span class="type">Leaf</span>
+  <span class="op">|</span> <span class="type">Node</span> (left, v, right) <span class="op">-></span>
+    <span class="kw">if</span> x &lt; v <span class="kw">then</span> <span class="type">Node</span> (<span class="fn">delete</span> x left, v, right)
+    <span class="kw">else if</span> x > v <span class="kw">then</span> <span class="type">Node</span> (left, v, <span class="fn">delete</span> x right)
+    <span class="kw">else match</span> left, right <span class="kw">with</span>
+      <span class="op">|</span> <span class="type">Leaf</span>, _ <span class="op">-></span> right
+      <span class="op">|</span> _, <span class="type">Leaf</span> <span class="op">-></span> left
+      <span class="op">|</span> _ <span class="op">-></span> <span class="cmt">(* in-order successor *)</span>
+        <span class="kw">let</span> s = <span class="fn">min_elem</span> right <span class="kw">in</span>
+        <span class="type">Node</span> (left, s, <span class="fn">delete</span> s right)</pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>In-order: 1 3 4 5 6 7 8
+Contains 4: true
+Contains 9: false
+Depth: 3  |  Size: 7
+After deleting 3: 1 4 5 6 7 8</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merge Sort -->
+        <div class="sample">
+            <div class="sample-header">
+                <span class="icon">📊</span>
+                <h2>Merge Sort</h2>
+                <span class="filename">mergesort.ml</span>
+            </div>
+            <div class="sample-body">
+                <p>Classic merge sort parameterized by a comparison function — sort anything ascending, descending, or by custom criteria.</p>
+                <div class="concepts">
+                    <span class="concept">higher-order functions</span>
+                    <span class="concept">tuple destructuring</span>
+                    <span class="concept">recursion</span>
+                    <span class="concept">polymorphism</span>
+                </div>
+                <pre><span class="kw">let</span> <span class="kw">rec</span> <span class="fn">split</span> = <span class="kw">function</span>
+  <span class="op">|</span> [] <span class="op">-></span> ([], [])
+  <span class="op">|</span> [x] <span class="op">-></span> ([x], [])
+  <span class="op">|</span> x <span class="op">::</span> y <span class="op">::</span> rest <span class="op">-></span>
+    <span class="kw">let</span> (left, right) = <span class="fn">split</span> rest <span class="kw">in</span>
+    (x <span class="op">::</span> left, y <span class="op">::</span> right)
+
+<span class="kw">let</span> <span class="kw">rec</span> <span class="fn">merge</span> cmp l1 l2 = <span class="kw">match</span> l1, l2 <span class="kw">with</span>
+  <span class="op">|</span> [], l <span class="op">|</span> l, [] <span class="op">-></span> l
+  <span class="op">|</span> h1 <span class="op">::</span> t1, h2 <span class="op">::</span> t2 <span class="op">-></span>
+    <span class="kw">if</span> cmp h1 h2 &lt;= <span class="num">0</span> <span class="kw">then</span> h1 <span class="op">::</span> <span class="fn">merge</span> cmp t1 l2
+    <span class="kw">else</span> h2 <span class="op">::</span> <span class="fn">merge</span> cmp l1 t2
+
+<span class="kw">let</span> <span class="kw">rec</span> <span class="fn">mergesort</span> cmp = <span class="kw">function</span>
+  <span class="op">|</span> ([] <span class="op">|</span> [_]) <span class="kw">as</span> l <span class="op">-></span> l
+  <span class="op">|</span> lst <span class="op">-></span>
+    <span class="kw">let</span> (left, right) = <span class="fn">split</span> lst <span class="kw">in</span>
+    <span class="fn">merge</span> cmp (<span class="fn">mergesort</span> cmp left) (<span class="fn">mergesort</span> cmp right)</pre>
+                <div class="output">
+                    <div class="output-label">▸ Output</div>
+                    <pre>Original:    [38; 27; 43; 3; 9; 82; 10]
+Sorted asc:  [3; 9; 10; 27; 38; 43; 82]
+Sorted desc: [82; 43; 38; 27; 10; 9; 3]
+Words sorted: [apple; banana; cherry; date]</pre>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a>
+                &nbsp;·&nbsp;
+                MIT License
+                &nbsp;·&nbsp;
+                Built by <a href="https://github.com/sauravbhattacharya001">Saurav Bhattacharya</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
