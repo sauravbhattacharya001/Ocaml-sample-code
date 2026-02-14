@@ -2,9 +2,9 @@
 (* Demonstrates: option types, pattern matching, recursion *)
 
 let rec last = function
-	| [] -> None
-	| [x] -> Some x
-	| _:: t -> last t;;
+  | [] -> None
+  | [x] -> Some x
+  | _ :: t -> last t;;
 
 (* Example usage *)
 let () =
