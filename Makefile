@@ -2,7 +2,7 @@
 # Build and run all example programs
 
 OCAMLC = ocamlopt
-SOURCES = a.ml b.ml factor.ml list_last_elem.ml bst.ml
+SOURCES = a.ml b.ml factor.ml list_last_elem.ml bst.ml mergesort.ml
 TARGETS = $(SOURCES:.ml=)
 
 .PHONY: all clean run
@@ -27,6 +27,9 @@ run: all
 	@echo ""
 	@echo "=== bst ==="
 	@./bst
+	@echo ""
+	@echo "=== mergesort ==="
+	@./mergesort
 
 clean:
 	rm -f $(TARGETS) *.cmi *.cmx *.cmo *.o

@@ -11,6 +11,7 @@ A collection of small OCaml programs demonstrating core language features.
 | `factor.ml` | Prime factorization using recursive trial division |
 | `list_last_elem.ml` | Find the last element of a list using pattern matching |
 | `bst.ml` | Binary search tree with algebraic data types and pattern matching (insert, delete, member, min/max, size, depth) |
+| `mergesort.ml` | Merge sort using higher-order functions and list splitting |
 
 ## Building & Running
 
@@ -77,6 +78,21 @@ let rec insert x = function
     if x < v then Node (insert x left, v, right)
     else if x > v then Node (left, v, insert x right)
     else Node (left, v, right)
+```
+
+### Merge Sort (`mergesort.ml`)
+
+```ocaml
+(* Parameterized by a comparison function for flexibility *)
+let rec mergesort cmp = function
+  | ([] | [_]) as l -> l
+  | lst ->
+    let (left, right) = split lst in
+    merge cmp (mergesort cmp left) (mergesort cmp right)
+
+(* Sort ascending or descending by swapping the comparator *)
+mergesort compare [38; 27; 43; 3; 9; 82; 10]
+(* => [3; 9; 10; 27; 38; 43; 82] *)
 ```
 
 ## License
