@@ -23,24 +23,29 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
-RUN useradd --create-home --shell /bin/bash ocaml
+RUN useradd --create-home --shell /bin/bash --no-log-init ocaml
 USER ocaml
 WORKDIR /home/ocaml
 
 # Copy only the compiled native binaries (no source, no compiler)
-COPY --from=builder /home/opam/app/a       ./bin/a
-COPY --from=builder /home/opam/app/b       ./bin/b
-COPY --from=builder /home/opam/app/factor  ./bin/factor
-COPY --from=builder /home/opam/app/list_last_elem ./bin/list_last_elem
-COPY --from=builder /home/opam/app/bst     ./bin/bst
-COPY --from=builder /home/opam/app/mergesort ./bin/mergesort
+# Binary names match the .ml source filenames defined in the Makefile
+COPY --from=builder /home/opam/app/hello           ./bin/hello
+COPY --from=builder /home/opam/app/fibonacci        ./bin/fibonacci
+COPY --from=builder /home/opam/app/factor           ./bin/factor
+COPY --from=builder /home/opam/app/list_last_elem   ./bin/list_last_elem
+COPY --from=builder /home/opam/app/bst              ./bin/bst
+COPY --from=builder /home/opam/app/mergesort        ./bin/mergesort
 
 ENV PATH="/home/ocaml/bin:${PATH}"
 
+# Health check — verify at least one binary is functional
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=1 \
+    CMD hello || exit 1
+
 # Default: run all examples in sequence
 CMD ["sh", "-c", "\
-echo '=== a ===' && a && echo '' && \
-echo '=== b ===' && b && echo '' && \
+echo '=== hello ===' && hello && echo '' && \
+echo '=== fibonacci ===' && fibonacci && echo '' && \
 echo '=== factor ===' && factor && echo '' && \
 echo '=== list_last_elem ===' && list_last_elem && echo '' && \
 echo '=== bst ===' && bst && echo '' && \
