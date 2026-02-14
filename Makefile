@@ -1,7 +1,6 @@
 # OCaml Sample Code - Makefile
 # Build and run all example programs
 
-OCAMLFIND = ocamlfind
 OCAMLC = ocamlopt
 SOURCES = a.ml b.ml factor.ml list_last_elem.ml bst.ml
 TARGETS = $(SOURCES:.ml=)

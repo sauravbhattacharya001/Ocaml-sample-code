@@ -1,3 +1,10 @@
+# Compiled executables (produced by make)
+/a
+/b
+/factor
+/list_last_elem
+/bst
+
 # OCaml build artifacts
 _build/
 *.byte
