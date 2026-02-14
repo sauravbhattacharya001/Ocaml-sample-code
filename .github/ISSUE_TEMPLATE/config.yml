@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: OCaml Documentation
+    url: https://ocaml.org/docs
+    about: Official OCaml language documentation and tutorials
+  - name: 99 OCaml Problems
+    url: https://ocaml.org/exercises
+    about: Practice problems for learning OCaml
