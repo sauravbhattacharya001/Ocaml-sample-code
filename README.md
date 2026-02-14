@@ -19,7 +19,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms.
 
 ## Programs
 
@@ -31,6 +31,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`list_last_elem.ml`](list_last_elem.ml) | Find the last element of a list safely | Option types, pattern matching |
 | [`bst.ml`](bst.ml) | Binary search tree (insert, delete, traversal, min/max, size, depth) | Algebraic data types, polymorphism, accumulators |
 | [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
+| [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
 
 ## Getting Started
 
@@ -175,6 +176,35 @@ Sorted desc: [82; 43; 38; 27; 10; 9; 3]
 Words sorted: [apple; banana; cherry; date]
 ```
 
+### Graph Algorithms — `graph.ml`
+
+Full graph library with adjacency list (Map-based), BFS/DFS traversal, shortest path, connected components, cycle detection (3-color DFS), and topological sort (Kahn's algorithm).
+
+```ocaml
+module IntMap = Map.Make(Int)
+
+type graph = {
+  adj: int list IntMap.t;
+  directed: bool;
+}
+
+let bfs g start =
+  let visited = Hashtbl.create 16 in
+  let queue = Queue.create () in
+  Queue.push start queue;
+  Hashtbl.replace visited start true;
+  (* ... imperative BFS with O(1) queue operations *)
+```
+
+```
+BFS from 1: [1; 2; 3; 4; 5]
+DFS from 1: [1; 2; 4; 3; 5]
+Shortest path 1->5: [1; 2; 4; 5]
+Connected components: 2
+Topological order: [1; 3; 2; 4; 5]
+Has cycle: true  (directed graph with back edge)
+```
+
 ### Last Element — `list_last_elem.ml`
 
 Classic safe list traversal using `Option` — no exceptions, no crashes on empty lists.
@@ -196,6 +226,7 @@ Ocaml-sample-code/
 ├── factor.ml             # Prime factorization
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
+├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
 ├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
@@ -231,8 +262,8 @@ New to OCaml? These resources complement the examples in this repo:
 
 Contributions are welcome! Ideas for new examples:
 
-- **Data structures:** hash tables, heaps, graphs
-- **Algorithms:** binary search, BFS/DFS, dynamic programming
+- **Data structures:** hash tables, heaps, priority queues
+- **Algorithms:** binary search, dynamic programming, shortest path (Dijkstra)
 - **Language features:** modules, functors, GADTs, monads
 - **I/O:** file reading, command-line parsing
 

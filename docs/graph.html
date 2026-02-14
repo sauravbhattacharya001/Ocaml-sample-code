@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Algorithms — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link active">🕸️ Graph Algorithms</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🕸️</span>
+                <h1>Graph Algorithms</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/graph.ml"><code>graph.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">modules</span>
+                <span class="concept-badge">functors</span>
+                <span class="concept-badge">records</span>
+                <span class="concept-badge">BFS / DFS</span>
+                <span class="concept-badge">topological sort</span>
+                <span class="concept-badge">cycle detection</span>
+                <span class="concept-badge">imperative queues</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>A complete graph library built with OCaml's module system. Supports both directed and undirected graphs with adjacency list representation using <code>Map.Make</code> functors. Includes BFS traversal, DFS traversal, shortest path (BFS), connected components, cycle detection (3-color DFS), and topological sort (Kahn's algorithm).</p>
+                <p>This example brings together nearly every concept from the earlier examples — and introduces OCaml modules, functors, record types, and imperative queues.</p>
+            </section>
+
+            <section>
+                <h2>Graph Representation</h2>
+                <p>Use <code>Map.Make(Int)</code> to create a type-safe integer map for adjacency lists. The <code>graph</code> record holds both the adjacency data and whether edges are directed:</p>
+                <pre><code><span class="kw">module</span> <span class="type">IntMap</span> = <span class="type">Map</span>.<span class="fn">Make</span>(<span class="type">Int</span>)
+<span class="kw">module</span> <span class="type">IntSet</span> = <span class="type">Set</span>.<span class="fn">Make</span>(<span class="type">Int</span>)
+
+<span class="kw">type</span> <span class="type">graph</span> = {
+  adj: <span class="type">int list IntMap.t</span>;   <span class="cmt">(* adjacency list *)</span>
+  directed: <span class="type">bool</span>;
+}</code></pre>
+            </section>
+
+            <section>
+                <h2>Key Algorithms</h2>
+
+                <h3>BFS — Breadth-First Search</h3>
+                <p>Uses OCaml's <code>Queue</code> module for O(1) enqueue/dequeue. Returns vertices in discovery order:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">bfs</span> g start =
+  <span class="kw">let</span> visited = <span class="type">Hashtbl</span>.<span class="fn">create</span> <span class="num">16</span> <span class="kw">in</span>
+  <span class="kw">let</span> queue = <span class="type">Queue</span>.<span class="fn">create</span> () <span class="kw">in</span>
+  <span class="type">Queue</span>.<span class="fn">push</span> start queue;
+  <span class="type">Hashtbl</span>.<span class="fn">replace</span> visited start <span class="kw">true</span>;
+  <span class="kw">while</span> <span class="kw">not</span> (<span class="type">Queue</span>.<span class="fn">is_empty</span> queue) <span class="kw">do</span>
+    <span class="kw">let</span> v = <span class="type">Queue</span>.<span class="fn">pop</span> queue <span class="kw">in</span>
+    <span class="cmt">(* process v, enqueue unvisited neighbors *)</span>
+  <span class="kw">done</span></code></pre>
+
+                <h3>BFS Shortest Path</h3>
+                <p>Finds the shortest unweighted path between two vertices by tracking parent pointers during BFS, then reconstructing the path:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">bfs_path</span> g start goal =
+  <span class="cmt">(* BFS with parent tracking *)</span>
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">build_path</span> v acc =
+    <span class="kw">if</span> v = start <span class="kw">then</span> v <span class="op">::</span> acc
+    <span class="kw">else</span> <span class="fn">build_path</span> (<span class="type">Hashtbl</span>.<span class="fn">find</span> parent v) (v <span class="op">::</span> acc)
+  <span class="kw">in</span> <span class="type">Some</span> (<span class="fn">build_path</span> goal [])</code></pre>
+
+                <h3>DFS — Depth-First Search</h3>
+                <p>Natural recursive DFS — no explicit stack needed, OCaml's call stack handles it:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">dfs</span> g start =
+  <span class="kw">let</span> visited = <span class="type">Hashtbl</span>.<span class="fn">create</span> <span class="num">16</span> <span class="kw">in</span>
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">explore</span> v =
+    <span class="kw">if</span> <span class="kw">not</span> (<span class="type">Hashtbl</span>.<span class="fn">mem</span> visited v) <span class="kw">then</span> <span class="kw">begin</span>
+      <span class="type">Hashtbl</span>.<span class="fn">replace</span> visited v <span class="kw">true</span>;
+      <span class="type">List</span>.<span class="fn">iter</span> <span class="fn">explore</span> (<span class="fn">neighbors</span> g v)
+    <span class="kw">end</span>
+  <span class="kw">in</span> <span class="fn">explore</span> start</code></pre>
+
+                <h3>Cycle Detection (3-Color DFS)</h3>
+                <p>Uses White/Gray/Black coloring. A back-edge to a Gray node means a cycle exists:</p>
+                <pre><code><span class="kw">type</span> <span class="type">color</span> = <span class="type">White</span> <span class="op">|</span> <span class="type">Gray</span> <span class="op">|</span> <span class="type">Black</span>
+
+<span class="kw">let</span> <span class="fn">has_cycle</span> g =
+  <span class="cmt">(* DFS: Gray->Gray edge = back edge = cycle *)</span>
+  <span class="kw">match</span> <span class="type">Hashtbl</span>.<span class="fn">find</span> color w <span class="kw">with</span>
+  <span class="op">|</span> <span class="type">Gray</span> <span class="op">-></span> found_cycle := <span class="kw">true</span>
+  <span class="op">|</span> <span class="type">White</span> <span class="op">-></span> <span class="fn">visit</span> w
+  <span class="op">|</span> <span class="type">Black</span> <span class="op">-></span> ()</code></pre>
+
+                <h3>Topological Sort (Kahn's Algorithm)</h3>
+                <p>Computes in-degrees, processes zero-in-degree vertices first. Returns <code>None</code> if a cycle is detected:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">topological_sort</span> g =
+  <span class="kw">if</span> <span class="fn">has_cycle</span> g <span class="kw">then</span> <span class="type">None</span>
+  <span class="kw">else</span> <span class="kw">begin</span>
+    <span class="cmt">(* Compute in-degrees, process queue *)</span>
+    <span class="type">Some</span> (<span class="type">List</span>.<span class="fn">rev</span> !result)
+  <span class="kw">end</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>=== Undirected Graph ===
+Undirected graph: 7 vertices, 6 edges
+  1 -> [2; 3]
+  2 -> [1; 4]
+  3 -> [1; 4]
+  4 -> [2; 3; 5]
+  5 -> [4]
+  6 -> [7]
+  7 -> [6]
+
+BFS from 1: [1; 2; 3; 4; 5]
+DFS from 1: [1; 2; 4; 3; 5]
+
+Shortest path 1->5: [1; 2; 4; 5]
+No path from 1 to 7 (different component)
+
+Connected components: 2
+  Component 1: [1; 2; 3; 4; 5]
+  Component 2: [6; 7]
+
+=== Directed Acyclic Graph (DAG) ===
+Directed graph: 5 vertices, 5 edges
+Has cycle: false
+Topological order: [1; 3; 2; 4; 5]
+
+=== Directed Graph with Cycle ===
+Directed graph: 4 vertices, 4 edges
+Has cycle: true
+Topological sort failed (cycle detected)
+
+=== BFS/DFS on Directed Graph ===
+BFS from 1: [1; 2; 3; 4; 5; 6]
+DFS from 1: [1; 2; 4; 5; 6; 3]
+Shortest path 1->6: [1; 2; 4; 5; 6]</pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>Concepts Introduced</h2>
+                <ul>
+                    <li><strong>Modules & Functors:</strong> <code>Map.Make(Int)</code> and <code>Set.Make(Int)</code> generate type-safe, efficient collections from a minimal signature</li>
+                    <li><strong>Record types:</strong> The <code>graph</code> record bundles adjacency data with a <code>directed</code> flag — cleaner than tuples for multi-field data</li>
+                    <li><strong>Imperative queues:</strong> <code>Queue.create/push/pop</code> for O(1) BFS operations — OCaml embraces imperative style when it fits</li>
+                    <li><strong>Variant types for state:</strong> <code>White | Gray | Black</code> colors make cycle detection's three states explicit and pattern-matchable</li>
+                    <li><strong>Mixed paradigms:</strong> Functional graph construction + imperative BFS/DFS traversal — use whichever fits the algorithm</li>
+                </ul>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="fibonacci.html" class="nav-arrow">← Fibonacci</a>
+                <a href="concepts.html" class="nav-arrow">Next: Concept Index →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

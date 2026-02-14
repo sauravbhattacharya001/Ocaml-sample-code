@@ -110,6 +110,29 @@ Compares three approaches: naive (exponential), memoized (linear), and iterative
 
 ---
 
+## Stage 6: Modules & Graph Algorithms
+
+### [`graph.ml`](graph.ml) — Modules, Records, and Classic Algorithms
+
+**Concepts:** functor-generated modules (`Map.Make`, `Set.Make`), record types, imperative queues (`Queue`), BFS, DFS, topological sort, cycle detection
+
+This example brings together everything from earlier stages. It uses OCaml's `Map.Make` functor to create a type-safe adjacency list, records for structured data, and both functional recursion and imperative queues:
+
+```ocaml
+module IntMap = Map.Make(Int)
+
+type graph = {
+  adj: int list IntMap.t;
+  directed: bool;
+}
+```
+
+BFS uses `Queue` for O(1) operations; DFS uses natural recursion. Cycle detection uses a 3-color scheme (White/Gray/Black) — a `Gray` back-edge means a cycle. Topological sort uses Kahn's in-degree algorithm.
+
+**Key takeaway:** OCaml modules and functors let you build type-safe abstractions. Real-world OCaml combines functional and imperative styles — use whichever fits the algorithm.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -124,17 +147,21 @@ After working through these examples, try:
 | Concept | Files |
 |---------|-------|
 | Let bindings & type inference | `hello.ml` |
-| Pattern matching | `list_last_elem.ml`, `bst.ml`, `factor.ml` |
-| Option types | `list_last_elem.ml`, `bst.ml` |
+| Pattern matching | `list_last_elem.ml`, `bst.ml`, `factor.ml`, `graph.ml` |
+| Option types | `list_last_elem.ml`, `bst.ml`, `graph.ml` |
 | Recursion | All files |
 | Tail recursion | `mergesort.ml`, `fibonacci.ml` |
-| Algebraic data types | `bst.ml` |
+| Algebraic data types | `bst.ml`, `graph.ml` |
 | Polymorphism (`'a`) | `bst.ml`, `mergesort.ml` |
 | Higher-order functions | `mergesort.ml`, `hello.ml` |
 | Pipe operator (`\|>`) | `hello.ml` |
-| Hash tables & mutability | `fibonacci.ml` |
+| Hash tables & mutability | `fibonacci.ml`, `graph.ml` |
 | Closures | `fibonacci.ml` |
 | Accumulators | `bst.ml`, `mergesort.ml` |
 | Input validation | `factor.ml` |
 | Mutual recursion | `factor.ml` |
 | Benchmarking | `fibonacci.ml` |
+| Modules & functors | `graph.ml` |
+| Record types | `graph.ml` |
+| Imperative queues | `graph.ml` |
+| Graph algorithms (BFS/DFS) | `graph.ml` |

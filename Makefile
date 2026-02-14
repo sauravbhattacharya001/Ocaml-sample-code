@@ -4,7 +4,7 @@
 # Use the native-code compiler for best performance.
 # Change to 'ocamlc' for bytecode if ocamlopt is unavailable.
 OCAML = ocamlopt
-SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml
+SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml
 TARGETS = $(SOURCES:.ml=)
 
 .PHONY: all clean run
@@ -32,6 +32,9 @@ run: all
 	@echo ""
 	@echo "=== mergesort ==="
 	@./mergesort
+	@echo ""
+	@echo "=== graph ==="
+	@./graph
 
 clean:
 	rm -f $(TARGETS) *.cmi *.cmx *.cmo *.o
