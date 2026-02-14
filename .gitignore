@@ -1,0 +1,28 @@
+# OCaml build artifacts
+_build/
+*.byte
+*.native
+*.cmo
+*.cmi
+*.cma
+*.cmx
+*.cmxa
+*.cmxs
+*.annot
+*.o
+*.a
+
+# ocamlfind
+.merlin
+
+# Dune
+_opam/
+
+# IDE / Editor
+.settings/
+.project
+.projectSettings
+*.swp
+*~
+.vscode/
+.idea/
