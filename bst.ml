@@ -48,6 +48,22 @@ let rec depth = function
   | Leaf -> 0
   | Node (left, _, right) -> 1 + max (depth left) (depth right)
 
+(* Delete a value from the BST *)
+let rec delete x = function
+  | Leaf -> Leaf
+  | Node (left, v, right) ->
+    if x < v then Node (delete x left, v, right)
+    else if x > v then Node (left, v, delete x right)
+    else
+      (* Found the node to delete *)
+      match left, right with
+      | Leaf, _ -> right           (* no left child *)
+      | _, Leaf -> left            (* no right child *)
+      | _ ->                       (* two children: replace with in-order successor *)
+        (match min_elem right with
+         | None -> Leaf  (* unreachable since right <> Leaf *)
+         | Some successor -> Node (left, successor, delete successor right))
+
 (* Build a tree from a list *)
 let tree_of_list lst =
   List.fold_left (fun acc x -> insert x acc) Leaf lst;;
@@ -67,4 +83,9 @@ let () =
   | Some m -> Printf.printf "Minimum: %d\n" m);
   (match max_elem t with
   | None -> ()
-  | Some m -> Printf.printf "Maximum: %d\n" m);;
+  | Some m -> Printf.printf "Maximum: %d\n" m);
+  let t2 = delete 3 t in
+  Printf.printf "After deleting 3: ";
+  List.iter (Printf.printf "%d ") (inorder t2);
+  print_newline ();
+  Printf.printf "Contains 3 after delete: %b\n" (member 3 t2);;
