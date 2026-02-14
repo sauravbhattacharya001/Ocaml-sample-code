@@ -10,6 +10,7 @@ A collection of small OCaml programs demonstrating core language features.
 | `b.ml` | Second hello world example |
 | `factor.ml` | Prime factorization using recursive trial division |
 | `list_last_elem.ml` | Find the last element of a list using pattern matching |
+| `bst.ml` | Binary search tree with algebraic data types and pattern matching |
 
 ## Building & Running
 
@@ -46,6 +47,21 @@ let rec last = function
   | [] -> None
   | [x] -> Some x
   | _ :: t -> last t;;
+```
+
+### Binary Search Tree (`bst.ml`)
+
+```ocaml
+type 'a tree =
+  | Leaf
+  | Node of 'a tree * 'a * 'a tree
+
+let rec insert x = function
+  | Leaf -> Node (Leaf, x, Leaf)
+  | Node (left, v, right) ->
+    if x < v then Node (insert x left, v, right)
+    else if x > v then Node (left, v, insert x right)
+    else Node (left, v, right)
 ```
 
 ## License
