@@ -196,6 +196,7 @@ Ocaml-sample-code/
 ├── factor.ml             # Prime factorization
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
+├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
 ├── Makefile              # Build automation
@@ -216,6 +217,8 @@ Ocaml-sample-code/
 The docs site features syntax-highlighted code samples with expected output for each program.
 
 ## Learning Resources
+
+📚 **[Learning Path](LEARNING_PATH.md)** — A guided order for studying the examples in this repo, from basics through advanced concepts.
 
 New to OCaml? These resources complement the examples in this repo:
 
