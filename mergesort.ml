@@ -1,21 +1,25 @@
 (* Merge sort on lists *)
 (* Demonstrates: higher-order functions, tuple destructuring, recursion *)
 
-(* Split a list into two roughly equal halves *)
-let rec split = function
-  | [] -> ([], [])
-  | [x] -> ([x], [])
-  | x :: y :: rest ->
-    let (left, right) = split rest in
-    (x :: left, y :: right)
+(* Split a list into two roughly equal halves — tail-recursive *)
+let split lst =
+  let rec aux left right = function
+    | [] -> (List.rev left, List.rev right)
+    | [x] -> (List.rev (x :: left), List.rev right)
+    | x :: y :: rest -> aux (x :: left) (y :: right) rest
+  in
+  aux [] [] lst
 
-(* Merge two sorted lists into one sorted list *)
-let rec merge cmp l1 l2 =
-  match l1, l2 with
-  | [], l | l, [] -> l
-  | h1 :: t1, h2 :: t2 ->
-    if cmp h1 h2 <= 0 then h1 :: merge cmp t1 l2
-    else h2 :: merge cmp l1 t2
+(* Merge two sorted lists — tail-recursive to avoid stack overflow on large inputs *)
+let merge cmp l1 l2 =
+  let rec aux acc l1 l2 =
+    match l1, l2 with
+    | [], l | l, [] -> List.rev_append acc l
+    | h1 :: t1, h2 :: t2 ->
+      if cmp h1 h2 <= 0 then aux (h1 :: acc) t1 l2
+      else aux (h2 :: acc) l1 t2
+  in
+  aux [] l1 l2
 
 (* Merge sort: split, recurse, merge *)
 let rec mergesort cmp = function
