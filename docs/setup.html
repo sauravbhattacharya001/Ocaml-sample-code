@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installation — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link active">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <h1>Installation &amp; Setup</h1>
+
+            <section>
+                <h2>Prerequisites</h2>
+                <p>You need <strong>OCaml ≥ 4.08</strong> and optionally <strong>GNU Make</strong> for batch builds.</p>
+
+                <h3>macOS</h3>
+                <pre><code>brew install ocaml opam
+opam init
+eval $(opam env)</code></pre>
+
+                <h3>Ubuntu / Debian</h3>
+                <pre><code>sudo apt update
+sudo apt install ocaml opam make
+opam init
+eval $(opam env)</code></pre>
+
+                <h3>Windows (WSL recommended)</h3>
+                <pre><code><span class="cmt"># Inside WSL (Ubuntu)</span>
+sudo apt install ocaml opam make
+opam init
+eval $(opam env)</code></pre>
+
+                <h3>Verify</h3>
+                <pre><code>ocaml -version
+<span class="cmt"># Should print: The OCaml toplevel, version 5.x.x</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Clone &amp; Build</h2>
+                <pre><code>git clone https://github.com/sauravbhattacharya001/Ocaml-sample-code.git
+cd Ocaml-sample-code
+
+<span class="cmt"># Build all programs</span>
+make
+
+<span class="cmt"># Build and run all programs</span>
+make run
+
+<span class="cmt"># Clean build artifacts</span>
+make clean</code></pre>
+            </section>
+
+            <section>
+                <h2>Run Individual Files</h2>
+                <pre><code><span class="cmt"># Compile and run a single file</span>
+ocamlopt -o factor factor.ml
+./factor
+
+<span class="cmt"># Or use the interactive REPL</span>
+ocaml
+#use "factor.ml";;</code></pre>
+            </section>
+
+            <section>
+                <h2>Docker</h2>
+                <p>No local OCaml installation needed — run everything in a container:</p>
+                <pre><code><span class="cmt"># Build the image</span>
+docker build -t ocaml-samples .
+
+<span class="cmt"># Run all examples</span>
+docker run --rm ocaml-samples
+
+<span class="cmt"># Run a single example</span>
+docker run --rm ocaml-samples mergesort</code></pre>
+            </section>
+
+            <footer>
+                <p>
+                    <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a>
+                    · MIT License ·
+                    Built by <a href="https://github.com/sauravbhattacharya001">Saurav Bhattacharya</a>
+                </p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

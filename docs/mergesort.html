@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge Sort — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link active">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">📊</span>
+                <h1>Merge Sort</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/mergesort.ml"><code>mergesort.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">higher-order functions</span>
+                <span class="concept-badge">tuple destructuring</span>
+                <span class="concept-badge">tail recursion</span>
+                <span class="concept-badge">polymorphism</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>Classic merge sort parameterized by a comparison function. Sort anything ascending, descending, or by custom criteria. Both <code>split</code> and <code>merge</code> are tail-recursive to handle large inputs without stack overflow.</p>
+            </section>
+
+            <section>
+                <h2>The Algorithm</h2>
+
+                <h3>Split</h3>
+                <p>Divide a list into two roughly equal halves (tail-recursive):</p>
+                <pre><code><span class="kw">let</span> <span class="fn">split</span> lst =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> left right = <span class="kw">function</span>
+    <span class="op">|</span> [] <span class="op">-></span> (<span class="fn">List.rev</span> left, <span class="fn">List.rev</span> right)
+    <span class="op">|</span> [x] <span class="op">-></span> (<span class="fn">List.rev</span> (x <span class="op">::</span> left), <span class="fn">List.rev</span> right)
+    <span class="op">|</span> x <span class="op">::</span> y <span class="op">::</span> rest <span class="op">-></span> <span class="fn">aux</span> (x <span class="op">::</span> left) (y <span class="op">::</span> right) rest
+  <span class="kw">in</span> <span class="fn">aux</span> [] [] lst</code></pre>
+
+                <h3>Merge</h3>
+                <p>Merge two sorted lists using an accumulator for tail recursion:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">merge</span> cmp l1 l2 =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> acc l1 l2 = <span class="kw">match</span> l1, l2 <span class="kw">with</span>
+    <span class="op">|</span> [], l <span class="op">|</span> l, [] <span class="op">-></span> <span class="fn">List.rev_append</span> acc l
+    <span class="op">|</span> h1 <span class="op">::</span> t1, h2 <span class="op">::</span> t2 <span class="op">-></span>
+      <span class="kw">if</span> cmp h1 h2 &lt;= <span class="num">0</span> <span class="kw">then</span> <span class="fn">aux</span> (h1 <span class="op">::</span> acc) t1 l2
+      <span class="kw">else</span> <span class="fn">aux</span> (h2 <span class="op">::</span> acc) l1 t2
+  <span class="kw">in</span> <span class="fn">aux</span> [] l1 l2</code></pre>
+
+                <h3>Sort</h3>
+                <pre><code><span class="kw">let</span> <span class="kw">rec</span> <span class="fn">mergesort</span> cmp = <span class="kw">function</span>
+  <span class="op">|</span> ([] <span class="op">|</span> [_]) <span class="kw">as</span> l <span class="op">-></span> l
+  <span class="op">|</span> lst <span class="op">-></span>
+    <span class="kw">let</span> (left, right) = <span class="fn">split</span> lst <span class="kw">in</span>
+    <span class="fn">merge</span> cmp (<span class="fn">mergesort</span> cmp left) (<span class="fn">mergesort</span> cmp right)</code></pre>
+
+                <h3>Flexible Comparison</h3>
+                <p>Pass any comparison function to sort in different orders:</p>
+                <pre><code><span class="fn">mergesort</span> compare data                       <span class="cmt">(* ascending *)</span>
+<span class="fn">mergesort</span> (<span class="kw">fun</span> a b <span class="op">-></span> compare b a) data     <span class="cmt">(* descending *)</span>
+<span class="fn">mergesort</span> <span class="fn">String.compare</span> words                <span class="cmt">(* strings *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>Original:    [38; 27; 43; 3; 9; 82; 10]
+Sorted asc:  [3; 9; 10; 27; 38; 43; 82]
+Sorted desc: [82; 43; 38; 27; 10; 9; 3]
+Words sorted: [apple; banana; cherry; date]</pre>
+                </div>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="bst.html" class="nav-arrow">← Binary Search Tree</a>
+                <a href="fibonacci.html" class="nav-arrow">Next: Fibonacci →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello OCaml — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link active">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">👋</span>
+                <h1>Hello OCaml</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/hello.ml"><code>hello.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">let bindings</span>
+                <span class="concept-badge">type inference</span>
+                <span class="concept-badge">pipe operator</span>
+                <span class="concept-badge">pattern matching</span>
+                <span class="concept-badge">Printf</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>Core OCaml building blocks — <code>let</code> bindings, type inference, <code>Printf</code> formatting, the pipe operator, and pattern matching on tuples. This is the best starting point if you're new to OCaml.</p>
+            </section>
+
+            <section>
+                <h2>Key Concepts</h2>
+                <h3>Let Bindings &amp; Type Inference</h3>
+                <p>OCaml infers types — no annotations needed. Values are immutable by default:</p>
+                <pre><code><span class="kw">let</span> greeting = <span class="str">"Hello"</span>
+<span class="kw">let</span> name = <span class="str">"OCaml"</span>
+<span class="kw">let</span> version = <span class="num">5</span>
+<span class="kw">let</span> full_greeting = greeting <span class="op">^</span> <span class="str">", "</span> <span class="op">^</span> name <span class="op">^</span> <span class="str">"!"</span></code></pre>
+
+                <h3>Pipe Operator</h3>
+                <p>Chain transformations left-to-right for readable data pipelines:</p>
+                <pre><code><span class="kw">let</span> result =
+  [<span class="num">1</span>; <span class="num">2</span>; <span class="num">3</span>; <span class="num">4</span>; <span class="num">5</span>; <span class="num">6</span>; <span class="num">7</span>; <span class="num">8</span>; <span class="num">9</span>; <span class="num">10</span>]
+  <span class="op">|></span> <span class="fn">List.filter</span> (<span class="kw">fun</span> x <span class="op">-></span> x <span class="kw">mod</span> <span class="num">2</span> = <span class="num">0</span>)
+  <span class="op">|></span> <span class="fn">List.map</span> (<span class="kw">fun</span> x <span class="op">-></span> x * x)
+  <span class="op">|></span> <span class="fn">List.fold_left</span> (+) <span class="num">0</span></code></pre>
+
+                <h3>Pattern Matching on Tuples</h3>
+                <pre><code><span class="kw">let</span> <span class="fn">min_max</span> lst =
+  <span class="kw">match</span> lst <span class="kw">with</span>
+  <span class="op">|</span> [] <span class="op">-></span> <span class="type">None</span>
+  <span class="op">|</span> x <span class="op">::</span> rest <span class="op">-></span>
+    <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> lo hi = <span class="kw">function</span>
+      <span class="op">|</span> [] <span class="op">-></span> (lo, hi)
+      <span class="op">|</span> x <span class="op">::</span> xs <span class="op">-></span> <span class="fn">aux</span> (<span class="fn">min</span> lo x) (<span class="fn">max</span> hi x) xs
+    <span class="kw">in</span> <span class="type">Some</span> (<span class="fn">aux</span> x x rest)</code></pre>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>Hello, OCaml!
+OCaml version 5
+Area of circle (r=3.0): 28.2743
+Sum of squares of evens 1..10: 220
+Min: 1, Max: 9</pre>
+                </div>
+            </section>
+
+            <div class="nav-arrows">
+                <span></span>
+                <a href="list-last.html" class="nav-arrow">Next: Last Element →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

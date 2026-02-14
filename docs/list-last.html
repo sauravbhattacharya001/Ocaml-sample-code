@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Last Element — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link active">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🔍</span>
+                <h1>Last Element of a List</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/list_last_elem.ml"><code>list_last_elem.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">option types</span>
+                <span class="concept-badge">pattern matching</span>
+                <span class="concept-badge">recursion</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>Find the last element of a list safely using <code>Option</code> types — no exceptions, no crashes on empty lists. This is a classic OCaml exercise that demonstrates safe programming through the type system.</p>
+            </section>
+
+            <section>
+                <h2>The Code</h2>
+                <p>Three patterns match every possible list shape:</p>
+                <pre><code><span class="kw">let</span> <span class="kw">rec</span> <span class="fn">last</span> = <span class="kw">function</span>
+  <span class="op">|</span> [] <span class="op">-></span> <span class="type">None</span>           <span class="cmt">(* empty list — nothing to return *)</span>
+  <span class="op">|</span> [x] <span class="op">-></span> <span class="type">Some</span> x        <span class="cmt">(* single element — that's the last one *)</span>
+  <span class="op">|</span> _ <span class="op">::</span> t <span class="op">-></span> <span class="fn">last</span> t    <span class="cmt">(* multiple elements — recurse on the tail *)</span></code></pre>
+
+                <h3>Why Option Types Matter</h3>
+                <p>Unlike languages that return <code>null</code> or throw exceptions, OCaml forces you to handle the empty case. The compiler won't let you forget. This is one of OCaml's strongest safety guarantees.</p>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>last [1; 2; 3] = Some 3
+last [42] = Some 42
+last [] = None</pre>
+                </div>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="hello.html" class="nav-arrow">← Hello OCaml</a>
+                <a href="factor.html" class="nav-arrow">Next: Factorization →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prime Factorization — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link active">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🔢</span>
+                <h1>Prime Factorization</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/factor.ml"><code>factor.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">recursion</span>
+                <span class="concept-badge">mutual recursion</span>
+                <span class="concept-badge">input validation</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>Decompose integers into their prime factors using recursive trial division. Optimized to extract factors of 2 first, then only check odd divisors — nearly halving the work for large inputs.</p>
+            </section>
+
+            <section>
+                <h2>The Algorithm</h2>
+                <pre><code><span class="kw">let</span> <span class="fn">factors</span> n =
+  <span class="kw">if</span> n &lt; <span class="num">2</span> <span class="kw">then</span> <span class="fn">invalid_arg</span> <span class="str">"factors: input must be >= 2"</span>
+  <span class="kw">else</span>
+    <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">extract_twos</span> n =
+      <span class="kw">if</span> n <span class="kw">mod</span> <span class="num">2</span> = <span class="num">0</span> <span class="kw">then</span> <span class="num">2</span> <span class="op">::</span> <span class="fn">extract_twos</span> (n / <span class="num">2</span>)
+      <span class="kw">else</span> <span class="fn">odd_factors</span> <span class="num">3</span> n
+    <span class="kw">and</span> <span class="fn">odd_factors</span> d n =
+      <span class="kw">if</span> n = <span class="num">1</span> <span class="kw">then</span> []
+      <span class="kw">else if</span> d * d > n <span class="kw">then</span> [n]  <span class="cmt">(* n is prime *)</span>
+      <span class="kw">else if</span> n <span class="kw">mod</span> d = <span class="num">0</span> <span class="kw">then</span> d <span class="op">::</span> <span class="fn">odd_factors</span> d (n / d)
+      <span class="kw">else</span> <span class="fn">odd_factors</span> (d + <span class="num">2</span>) n  <span class="cmt">(* skip even candidates *)</span>
+    <span class="kw">in</span>
+    <span class="fn">extract_twos</span> n</code></pre>
+
+                <h3>Mutual Recursion</h3>
+                <p>The <code>let rec ... and ...</code> syntax defines two functions that call each other: <code>extract_twos</code> handles the factor-of-2 phase, then hands off to <code>odd_factors</code>. This is a natural way to express multi-phase algorithms in OCaml.</p>
+
+                <h3>Early Exit at √n</h3>
+                <p>The check <code>d * d > n</code> means: if no divisor up to √n divides n, then n itself is prime. This avoids checking all numbers up to n.</p>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>factors 2 = [2]
+factors 12 = [2; 2; 3]
+factors 30 = [2; 3; 5]
+factors 97 = [97]
+factors 360 = [2; 2; 2; 3; 3; 5]</pre>
+                </div>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="list-last.html" class="nav-arrow">← Last Element</a>
+                <a href="bst.html" class="nav-arrow">Next: Binary Search Tree →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>
