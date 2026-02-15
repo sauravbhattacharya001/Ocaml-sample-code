@@ -274,6 +274,7 @@ Ocaml-sample-code/
 │       └── pages.yml     # Pages deployment workflow
 ├── .editorconfig         # Editor formatting rules
 ├── .gitignore            # Build artifact exclusions
+├── CONTRIBUTING.md       # Contribution guidelines & style guide
 └── LICENSE               # MIT License
 ```
 
@@ -317,20 +318,15 @@ Coverage reports are generated automatically on every push via [GitHub Actions](
 
 ## Contributing
 
-Contributions are welcome! Ideas for new examples:
+Contributions are welcome! See **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed guidelines, style conventions, and how to add tests.
 
-- **Data structures:** hash tables, heaps, red-black trees
-- **Algorithms:** binary search, dynamic programming, shortest path (Dijkstra)
-- **Language features:** modules, functors, GADTs, monads
-- **I/O:** file reading, command-line parsing
-
-To contribute:
+**Quick start:**
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b add-heap-example`)
 3. Write a self-contained `.ml` file with comments explaining the concepts
-4. Include example output in comments or a `let () = ...` block
-5. Test it compiles: `ocamlopt -o yourfile yourfile.ml`
+4. Add tests to `test_all.ml` if applicable
+5. Verify: `make all && make test`
 6. Submit a pull request
 
 ## License
