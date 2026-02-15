@@ -5,6 +5,7 @@
 /list_last_elem
 /bst
 /mergesort
+/test_all
 
 # OCaml build artifacts
 _build/

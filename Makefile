@@ -7,12 +7,16 @@ OCAML = ocamlopt
 SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml heap.ml
 TARGETS = $(SOURCES:.ml=)
 
-.PHONY: all clean run
+.PHONY: all clean run test
 
 all: $(TARGETS)
 
 %: %.ml
 	$(OCAML) -o $@ $<
+
+test: test_all
+	@echo "=== Running tests ==="
+	@./test_all
 
 run: all
 	@echo "=== hello ==="
@@ -40,4 +44,4 @@ run: all
 	@./heap
 
 clean:
-	rm -f $(TARGETS) *.cmi *.cmx *.cmo *.o
+	rm -f $(TARGETS) test_all *.cmi *.cmx *.cmo *.o
