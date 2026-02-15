@@ -1,0 +1,93 @@
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # Run weekly on Mondays at 06:00 UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          # OCaml is not directly supported by CodeQL, but we can use
+          # the 'actions' category to scan GitHub Actions workflows for
+          # supply chain vulnerabilities and misconfigurations
+          config: |
+            paths:
+              - '.github/workflows'
+              - 'docs'
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:actions"
+
+  # Supplement CodeQL with OCaml-specific static analysis
+  ocaml-lint:
+    name: OCaml Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.2"
+
+      - name: Build all examples
+        run: make all
+
+      - name: Run all examples
+        run: make run
+
+      - name: Check for common issues
+        run: |
+          echo "=== Checking for unsafe patterns ==="
+          # Check for Obj.magic usage (type safety bypass)
+          if grep -rn "Obj\.magic" *.ml 2>/dev/null; then
+            echo "::warning::Found Obj.magic usage - potential type safety issue"
+          fi
+          # Check for Obj.repr usage
+          if grep -rn "Obj\.repr" *.ml 2>/dev/null; then
+            echo "::warning::Found Obj.repr usage - potential type safety issue"
+          fi
+          # Check for Marshal usage (potential deserialization issues)
+          if grep -rn "Marshal\." *.ml 2>/dev/null; then
+            echo "::warning::Found Marshal usage - review for deserialization safety"
+          fi
+          # Check for Sys.command (shell injection risk)
+          if grep -rn "Sys\.command" *.ml 2>/dev/null; then
+            echo "::warning::Found Sys.command usage - review for shell injection"
+          fi
+          # Check for Unix.system (shell injection risk)
+          if grep -rn "Unix\.system" *.ml 2>/dev/null; then
+            echo "::warning::Found Unix.system usage - review for shell injection"
+          fi
+          echo "=== Static checks complete ==="
+
+      - name: Clean
+        run: make clean
