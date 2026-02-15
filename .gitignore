@@ -27,6 +27,11 @@ _build/
 # Dune
 _opam/
 
+# Coverage
+_coverage/
+bisect*.coverage
+/test_all_cov
+
 # IDE / Editor
 .settings/
 .project

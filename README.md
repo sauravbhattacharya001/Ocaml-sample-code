@@ -8,6 +8,7 @@
 [![License: MIT](https://img.shields.io/github/license/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=7aa2f7)](LICENSE)
 [![GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-222?style=flat-square&logo=github)](https://sauravbhattacharya001.github.io/Ocaml-sample-code/)
 [![GitHub stars](https://img.shields.io/github/stars/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=e0af68)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/stargazers)
+[![Coverage](https://img.shields.io/badge/coverage-bisect__ppx-brightgreen?style=flat-square&logo=ocaml)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml)
 
 [**Browse Examples**](#programs) · [**Documentation Site**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/) · [**Getting Started**](#getting-started)
 
@@ -269,6 +270,7 @@ Ocaml-sample-code/
 │   └── index.html        # GitHub Pages documentation site
 ├── .github/
 │   └── workflows/
+│       ├── coverage.yml  # Code coverage workflow
 │       └── pages.yml     # Pages deployment workflow
 ├── .editorconfig         # Editor formatting rules
 ├── .gitignore            # Build artifact exclusions
@@ -291,6 +293,27 @@ New to OCaml? These resources complement the examples in this repo:
 - [**Real World OCaml**](https://dev.realworldocaml.org/) — comprehensive free book
 - [**99 Problems in OCaml**](https://ocaml.org/exercises) — practice problems by difficulty
 - [**OCaml Playground**](https://ocaml.org/play) — try OCaml in the browser
+
+## Testing & Coverage
+
+The repository includes a comprehensive test suite (`test_all.ml`) covering all core algorithms:
+
+```bash
+# Run tests
+make test
+
+# Run tests with coverage (requires bisect_ppx)
+opam install bisect_ppx ocamlfind
+make coverage
+
+# Generate HTML coverage report
+make coverage-html
+# Open _coverage/index.html in your browser
+```
+
+**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components).
+
+Coverage reports are generated automatically on every push via [GitHub Actions](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml) using [bisect_ppx](https://github.com/aantron/bisect_ppx).
 
 ## Contributing
 

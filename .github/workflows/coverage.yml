@@ -1,0 +1,87 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '5.x'
+
+      - name: Install dependencies
+        run: |
+          opam install bisect_ppx --yes
+          eval $(opam env)
+
+      - name: Build test suite with coverage instrumentation
+        run: |
+          eval $(opam env)
+          # Compile test_all.ml with bisect_ppx instrumentation
+          # This tests all core algorithms (BST, fibonacci, factorization,
+          # mergesort, heap, list operations, graph algorithms)
+          ocamlfind ocamlopt -package bisect_ppx -linkpkg \
+            -ppxopt 'bisect_ppx,-instrument-with-bisect_ppx' \
+            test_all.ml -o test_all_cov 2>/dev/null || \
+          ocamlfind ocamlc -package bisect_ppx -linkpkg \
+            test_all.ml -o test_all_cov
+
+      - name: Run tests with coverage
+        run: |
+          eval $(opam env)
+          BISECT_FILE=$(pwd)/bisect ./test_all_cov
+
+      - name: Generate coverage report
+        run: |
+          eval $(opam env)
+          bisect-ppx-report summary
+          bisect-ppx-report html -o _coverage
+          # Generate JSON summary for badge
+          bisect-ppx-report summary --per-file > coverage-summary.txt
+          cat coverage-summary.txt
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: _coverage/
+          retention-days: 30
+
+      - name: Generate coverage badge
+        run: |
+          # Extract total coverage percentage
+          eval $(opam env)
+          COVERAGE=$(bisect-ppx-report summary 2>/dev/null | grep -oP '\d+\.\d+(?=%)' | head -1 || echo "0")
+          echo "Coverage: ${COVERAGE}%"
+          
+          # Determine badge color
+          COV_INT=${COVERAGE%.*}
+          if [ "$COV_INT" -ge 90 ]; then
+            COLOR="brightgreen"
+          elif [ "$COV_INT" -ge 75 ]; then
+            COLOR="green"
+          elif [ "$COV_INT" -ge 60 ]; then
+            COLOR="yellowgreen"
+          elif [ "$COV_INT" -ge 40 ]; then
+            COLOR="yellow"
+          else
+            COLOR="red"
+          fi
+          
+          echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+          echo "BADGE_COLOR=${COLOR}" >> $GITHUB_ENV
+          echo "Coverage: ${COVERAGE}% (${COLOR})"
