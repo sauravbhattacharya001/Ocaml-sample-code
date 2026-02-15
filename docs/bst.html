@@ -1,14 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binary Search Tree — OCaml Sample Code</title>
+    <title>Binary Search Tree � OCaml Sample Code</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="sidebar">
-        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="sidebar-header"><a href="index.html" class="logo">?? OCaml Samples</a></div>
         <div class="nav-section">
             <div class="nav-title">Getting Started</div>
             <a href="index.html" class="nav-link">Overview</a>
@@ -17,25 +17,26 @@
         </div>
         <div class="nav-section">
             <div class="nav-title">Examples</div>
-            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
-            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
-            <a href="factor.html" class="nav-link">🔢 Factorization</a>
-            <a href="bst.html" class="nav-link active">🌳 Binary Search Tree</a>
-            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
-            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
-            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="hello.html" class="nav-link">?? Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">?? Last Element</a>
+            <a href="factor.html" class="nav-link">?? Factorization</a>
+            <a href="bst.html" class="nav-link active">?? Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">?? Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">?? Fibonacci</a>
+            <a href="graph.html" class="nav-link">??? Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">?? Priority Queue</a>
         </div>
         <div class="nav-section">
             <div class="nav-title">Reference</div>
             <a href="concepts.html" class="nav-link">Concept Index</a>
-            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ?</a>
         </div>
     </nav>
 
     <main class="content">
         <div class="container">
             <div class="example-header">
-                <span class="icon">🌳</span>
+                <span class="icon">??</span>
                 <h1>Binary Search Tree</h1>
             </div>
             <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/bst.ml"><code>bst.ml</code></a></p>
@@ -49,12 +50,12 @@
 
             <section>
                 <h2>Overview</h2>
-                <p>Full BST implementation using algebraic data types — insert, delete (with in-order successor replacement), membership check, min/max, in-order traversal, size, and depth. The <code>'a</code> type parameter means this tree works with integers, strings, or any comparable type.</p>
+                <p>Full BST implementation using algebraic data types � insert, delete (with in-order successor replacement), membership check, min/max, in-order traversal, size, and depth. The <code>'a</code> type parameter means this tree works with integers, strings, or any comparable type.</p>
             </section>
 
             <section>
                 <h2>Type Definition</h2>
-                <p>Model a tree in 3 lines — this is where OCaml shines:</p>
+                <p>Model a tree in 3 lines � this is where OCaml shines:</p>
                 <pre><code><span class="kw">type</span> <span class="type">'a tree</span> =
   <span class="op">|</span> <span class="type">Leaf</span>
   <span class="op">|</span> <span class="type">Node</span> <span class="kw">of</span> <span class="type">'a tree</span> * <span class="type">'a</span> * <span class="type">'a tree</span></code></pre>
@@ -72,7 +73,7 @@
     <span class="kw">else</span> <span class="type">Node</span> (left, v, right)  <span class="cmt">(* duplicate: no change *)</span></code></pre>
 
                 <h3>In-Order Traversal (O(n) with Accumulator)</h3>
-                <p>The accumulator pattern avoids O(n) list concatenation at each node, giving O(n) overall instead of O(n²):</p>
+                <p>The accumulator pattern avoids O(n) list concatenation at each node, giving O(n) overall instead of O(n�):</p>
                 <pre><code><span class="kw">let</span> <span class="fn">inorder</span> tree =
   <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
     <span class="op">|</span> <span class="type">Leaf</span> <span class="op">-></span> acc
@@ -112,12 +113,12 @@ Contains 3 after delete: false</pre>
             </section>
 
             <div class="nav-arrows">
-                <a href="factor.html" class="nav-arrow">← Factorization</a>
-                <a href="mergesort.html" class="nav-arrow">Next: Merge Sort →</a>
+                <a href="factor.html" class="nav-arrow">? Factorization</a>
+                <a href="mergesort.html" class="nav-arrow">Next: Merge Sort ?</a>
             </div>
 
             <footer>
-                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> � MIT License</p>
             </footer>
         </div>
     </main>

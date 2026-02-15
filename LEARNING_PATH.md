@@ -133,6 +133,35 @@ BFS uses `Queue` for O(1) operations; DFS uses natural recursion. Cycle detectio
 
 ---
 
+## Stage 7: Persistent Data Structures
+
+### [`heap.ml`](heap.ml) — Purely Functional Priority Queue
+
+**Concepts:** rank-annotated algebraic data types, persistent (immutable) data structures, merge-based design, custom comparators, bottom-up construction
+
+A leftist heap is a priority queue where every operation creates a new heap — the original is preserved. This is "persistence" — a hallmark of functional programming. The key insight is that **everything is built on `merge`**:
+
+```ocaml
+type 'a heap =
+  | Empty
+  | Node of int * 'a * 'a heap * 'a heap
+
+let rec merge cmp h1 h2 =
+  match h1, h2 with
+  | Empty, h | h, Empty -> h
+  | Node (_, x, a1, b1), Node (_, y, _, _) ->
+    if cmp x y <= 0 then make_node x a1 (merge cmp b1 h2)
+    else merge cmp h2 h1
+```
+
+Insert is `merge` with a singleton. Delete-min is `merge` of the two children. The "rank" annotation keeps the right spine short (O(log n)), guaranteeing efficient operations.
+
+Also demonstrates bottom-up O(n) heap construction via pairwise merging, heap sort, and top-k extraction.
+
+**Key takeaway:** Persistent data structures let you "undo" operations for free — the old version still exists. The merge-based design pattern shows how one well-designed operation can power an entire API.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -151,9 +180,9 @@ After working through these examples, try:
 | Option types | `list_last_elem.ml`, `bst.ml`, `graph.ml` |
 | Recursion | All files |
 | Tail recursion | `mergesort.ml`, `fibonacci.ml` |
-| Algebraic data types | `bst.ml`, `graph.ml` |
-| Polymorphism (`'a`) | `bst.ml`, `mergesort.ml` |
-| Higher-order functions | `mergesort.ml`, `hello.ml` |
+| Algebraic data types | `bst.ml`, `graph.ml`, `heap.ml` |
+| Polymorphism (`'a`) | `bst.ml`, `mergesort.ml`, `heap.ml` |
+| Higher-order functions | `mergesort.ml`, `hello.ml`, `heap.ml` |
 | Pipe operator (`\|>`) | `hello.ml` |
 | Hash tables & mutability | `fibonacci.ml`, `graph.ml` |
 | Closures | `fibonacci.ml` |
@@ -165,3 +194,6 @@ After working through these examples, try:
 | Record types | `graph.ml` |
 | Imperative queues | `graph.ml` |
 | Graph algorithms (BFS/DFS) | `graph.ml` |
+| Persistent data structures | `heap.ml` |
+| Priority queues / heaps | `heap.ml` |
+| Custom comparators | `mergesort.ml`, `heap.ml` |

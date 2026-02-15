@@ -19,7 +19,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues.
 
 ## Programs
 
@@ -32,6 +32,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`bst.ml`](bst.ml) | Binary search tree (insert, delete, traversal, min/max, size, depth) | Algebraic data types, polymorphism, accumulators |
 | [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
 | [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
+| [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
 
 ## Getting Started
 
@@ -205,6 +206,38 @@ Topological order: [1; 3; 2; 4; 5]
 Has cycle: true  (directed graph with back edge)
 ```
 
+### Priority Queue — `heap.ml`
+
+A purely functional leftist min-heap. Every operation returns a new heap — the original is preserved (persistence). The "leftist" property ensures merge runs in O(log n) by keeping the right spine short.
+
+```ocaml
+type 'a heap =
+  | Empty
+  | Node of int * 'a * 'a heap * 'a heap
+  (* Node (rank, value, left_child, right_child) *)
+
+(* Merge is the fundamental operation — O(log n) *)
+let rec merge cmp h1 h2 =
+  match h1, h2 with
+  | Empty, h | h, Empty -> h
+  | Node (_, x, a1, b1), Node (_, y, _, _) ->
+    if cmp x y <= 0 then make_node x a1 (merge cmp b1 h2)
+    else merge cmp h2 h1
+
+(* Everything else is built on merge *)
+let insert cmp x h = merge cmp (Node (1, x, Empty, Empty)) h
+let delete_min cmp = function
+  | Empty -> Empty
+  | Node (_, _, left, right) -> merge cmp left right
+```
+
+```
+Sorted: [1; 2; 3; 4; 5; 6; 7; 8]
+Heap sort: [3; 5; 12; 17; 28; 42; 50; 61; 84; 93]
+Top 3 smallest: [3; 7; 12]
+Persistence: original heap unchanged after insert/delete
+```
+
 ### Last Element — `list_last_elem.ml`
 
 Classic safe list traversal using `Option` — no exceptions, no crashes on empty lists.
@@ -227,6 +260,7 @@ Ocaml-sample-code/
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
 ├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
+├── heap.ml               # Priority queue (leftist min-heap)
 ├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
@@ -262,7 +296,7 @@ New to OCaml? These resources complement the examples in this repo:
 
 Contributions are welcome! Ideas for new examples:
 
-- **Data structures:** hash tables, heaps, priority queues
+- **Data structures:** hash tables, heaps, red-black trees
 - **Algorithms:** binary search, dynamic programming, shortest path (Dijkstra)
 - **Language features:** modules, functors, GADTs, monads
 - **I/O:** file reading, command-line parsing

@@ -1,15 +1,15 @@
-Ôªø<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learning Path ‚Äî OCaml Sample Code</title>
+    <title>Learning Path ó OCaml Sample Code</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="sidebar">
         <div class="sidebar-header">
-            <a href="index.html" class="logo">üê´ OCaml Samples</a>
+            <a href="index.html" class="logo">?? OCaml Samples</a>
         </div>
         <div class="nav-section">
             <div class="nav-title">Getting Started</div>
@@ -19,30 +19,31 @@
         </div>
         <div class="nav-section">
             <div class="nav-title">Examples</div>
-            <a href="hello.html" class="nav-link">üëã Hello OCaml</a>
-            <a href="list-last.html" class="nav-link">üîç Last Element</a>
-            <a href="factor.html" class="nav-link">üî¢ Factorization</a>
-            <a href="bst.html" class="nav-link">üå≥ Binary Search Tree</a>
-            <a href="mergesort.html" class="nav-link">üìä Merge Sort</a>
-            <a href="fibonacci.html" class="nav-link">üêá Fibonacci</a>
-            <a href="graph.html" class="nav-link">üï∏Ô∏è Graph Algorithms</a>
+            <a href="hello.html" class="nav-link">?? Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">?? Last Element</a>
+            <a href="factor.html" class="nav-link">?? Factorization</a>
+            <a href="bst.html" class="nav-link">?? Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">?? Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">?? Fibonacci</a>
+            <a href="graph.html" class="nav-link">??? Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">?? Priority Queue</a>
         </div>
         <div class="nav-section">
             <div class="nav-title">Reference</div>
             <a href="concepts.html" class="nav-link">Concept Index</a>
-            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ‚Üó</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ?</a>
         </div>
     </nav>
 
     <main class="content">
         <div class="container">
-            <h1>üìö Learning Path</h1>
+            <h1>?? Learning Path</h1>
             <p>A guided order for studying the examples. Each stage builds on concepts from the previous one.</p>
 
             <section>
                 <div class="stage">
-                    <div class="stage-number">Stage 1 ‚Äî Foundations</div>
-                    <h3><a href="hello.html">hello.ml</a> ‚Äî Start Here</h3>
+                    <div class="stage-number">Stage 1 ó Foundations</div>
+                    <h3><a href="hello.html">hello.ml</a> ó Start Here</h3>
                     <p>OCaml infers types without annotations. The pipe operator chains transformations left-to-right, making data pipelines readable. No semicolons, no type declarations, no <code>return</code> keyword.</p>
                     <div class="example-meta">
                         <span class="concept-badge">let bindings</span>
@@ -53,17 +54,17 @@
                 </div>
 
                 <div class="stage">
-                    <div class="stage-number">Stage 2 ‚Äî Core Patterns</div>
-                    <h3><a href="list-last.html">list_last_elem.ml</a> ‚Äî Safe List Traversal</h3>
-                    <p>OCaml uses <code>Option</code> instead of null. Pattern matching replaces <code>if/else</code> chains and is exhaustive ‚Äî the compiler warns if you miss a case.</p>
+                    <div class="stage-number">Stage 2 ó Core Patterns</div>
+                    <h3><a href="list-last.html">list_last_elem.ml</a> ó Safe List Traversal</h3>
+                    <p>OCaml uses <code>Option</code> instead of null. Pattern matching replaces <code>if/else</code> chains and is exhaustive ó the compiler warns if you miss a case.</p>
                     <div class="example-meta">
                         <span class="concept-badge">option types</span>
                         <span class="concept-badge">pattern matching</span>
                         <span class="concept-badge">recursion</span>
                     </div>
 
-                    <h3><a href="factor.html">factor.ml</a> ‚Äî Recursive Algorithms</h3>
-                    <p>Mutually recursive functions with <code>let rec ... and ...</code> ‚Äî a natural way to express multi-phase algorithms. Shows input validation without exceptions in the happy path.</p>
+                    <h3><a href="factor.html">factor.ml</a> ó Recursive Algorithms</h3>
+                    <p>Mutually recursive functions with <code>let rec ... and ...</code> ó a natural way to express multi-phase algorithms. Shows input validation without exceptions in the happy path.</p>
                     <div class="example-meta">
                         <span class="concept-badge">recursion</span>
                         <span class="concept-badge">mutual recursion</span>
@@ -72,9 +73,9 @@
                 </div>
 
                 <div class="stage">
-                    <div class="stage-number">Stage 3 ‚Äî Data Structures</div>
-                    <h3><a href="bst.html">bst.ml</a> ‚Äî Algebraic Data Types</h3>
-                    <p>This is where OCaml shines. Model tree structures in 3 lines with algebraic data types. The <code>'a</code> polymorphism means the tree works with any type. The accumulator pattern in <code>inorder</code> converts O(n¬≤) to O(n).</p>
+                    <div class="stage-number">Stage 3 ó Data Structures</div>
+                    <h3><a href="bst.html">bst.ml</a> ó Algebraic Data Types</h3>
+                    <p>This is where OCaml shines. Model tree structures in 3 lines with algebraic data types. The <code>'a</code> polymorphism means the tree works with any type. The accumulator pattern in <code>inorder</code> converts O(n≤) to O(n).</p>
                     <div class="example-meta">
                         <span class="concept-badge">algebraic data types</span>
                         <span class="concept-badge">polymorphism</span>
@@ -83,8 +84,8 @@
                 </div>
 
                 <div class="stage">
-                    <div class="stage-number">Stage 4 ‚Äî Higher-Order Functions</div>
-                    <h3><a href="mergesort.html">mergesort.ml</a> ‚Äî Functions as Arguments</h3>
+                    <div class="stage-number">Stage 4 ó Higher-Order Functions</div>
+                    <h3><a href="mergesort.html">mergesort.ml</a> ó Functions as Arguments</h3>
                     <p>Passing functions as arguments makes code reusable. Tail recursion makes it production-ready. Both <code>split</code> and <code>merge</code> are tail-recursive to handle large inputs without stack overflow.</p>
                     <div class="example-meta">
                         <span class="concept-badge">higher-order functions</span>
@@ -94,8 +95,8 @@
                 </div>
 
                 <div class="stage">
-                    <div class="stage-number">Stage 5 ‚Äî Imperative OCaml</div>
-                    <h3><a href="fibonacci.html">fibonacci.ml</a> ‚Äî Mutable State When You Need It</h3>
+                    <div class="stage-number">Stage 5 ó Imperative OCaml</div>
+                    <h3><a href="fibonacci.html">fibonacci.ml</a> ó Mutable State When You Need It</h3>
                     <p>OCaml lets you use mutable state locally while keeping your public API pure. Closures encapsulate the hash table cache, making it invisible to the outside world. Demonstrates that choosing the right approach matters more than micro-optimization.</p>
                     <div class="example-meta">
                         <span class="concept-badge">hash tables</span>
@@ -109,17 +110,17 @@
             <section>
                 <h2>What's Next?</h2>
                 <ol class="steps">
-                    <li><strong>Modify an example</strong> ‚Äî Add <code>find</code> to the BST, or make merge sort stable</li>
-                    <li><strong>Write a new one</strong> ‚Äî Implement a stack, queue, or graph traversal</li>
-                    <li><strong>Read the manual</strong> ‚Äî <a href="https://ocaml.org/docs">OCaml.org docs</a> cover modules, functors, and the standard library</li>
-                    <li><strong>Try Real World OCaml</strong> ‚Äî <a href="https://dev.realworldocaml.org/">dev.realworldocaml.org</a> for production patterns</li>
+                    <li><strong>Modify an example</strong> ó Add <code>find</code> to the BST, or make merge sort stable</li>
+                    <li><strong>Write a new one</strong> ó Implement a stack, queue, or graph traversal</li>
+                    <li><strong>Read the manual</strong> ó <a href="https://ocaml.org/docs">OCaml.org docs</a> cover modules, functors, and the standard library</li>
+                    <li><strong>Try Real World OCaml</strong> ó <a href="https://dev.realworldocaml.org/">dev.realworldocaml.org</a> for production patterns</li>
                 </ol>
             </section>
 
             <footer>
                 <p>
                     <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a>
-                    ¬∑ MIT License ¬∑
+                    ∑ MIT License ∑
                     Built by <a href="https://github.com/sauravbhattacharya001">Saurav Bhattacharya</a>
                 </p>
             </footer>

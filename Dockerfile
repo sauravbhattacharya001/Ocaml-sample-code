@@ -35,6 +35,8 @@ COPY --from=builder /home/opam/app/factor           ./bin/factor
 COPY --from=builder /home/opam/app/list_last_elem   ./bin/list_last_elem
 COPY --from=builder /home/opam/app/bst              ./bin/bst
 COPY --from=builder /home/opam/app/mergesort        ./bin/mergesort
+COPY --from=builder /home/opam/app/graph            ./bin/graph
+COPY --from=builder /home/opam/app/heap             ./bin/heap
 
 ENV PATH="/home/ocaml/bin:${PATH}"
 
@@ -49,4 +51,6 @@ echo '=== fibonacci ===' && fibonacci && echo '' && \
 echo '=== factor ===' && factor && echo '' && \
 echo '=== list_last_elem ===' && list_last_elem && echo '' && \
 echo '=== bst ===' && bst && echo '' && \
-echo '=== mergesort ===' && mergesort"]
+echo '=== mergesort ===' && mergesort && echo '' && \
+echo '=== graph ===' && graph && echo '' && \
+echo '=== heap ===' && heap"]

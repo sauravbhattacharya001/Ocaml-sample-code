@@ -1,14 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prime Factorization — OCaml Sample Code</title>
+    <title>Prime Factorization � OCaml Sample Code</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="sidebar">
-        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="sidebar-header"><a href="index.html" class="logo">?? OCaml Samples</a></div>
         <div class="nav-section">
             <div class="nav-title">Getting Started</div>
             <a href="index.html" class="nav-link">Overview</a>
@@ -17,25 +17,26 @@
         </div>
         <div class="nav-section">
             <div class="nav-title">Examples</div>
-            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
-            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
-            <a href="factor.html" class="nav-link active">🔢 Factorization</a>
-            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
-            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
-            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
-            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="hello.html" class="nav-link">?? Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">?? Last Element</a>
+            <a href="factor.html" class="nav-link active">?? Factorization</a>
+            <a href="bst.html" class="nav-link">?? Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">?? Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">?? Fibonacci</a>
+            <a href="graph.html" class="nav-link">??? Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">?? Priority Queue</a>
         </div>
         <div class="nav-section">
             <div class="nav-title">Reference</div>
             <a href="concepts.html" class="nav-link">Concept Index</a>
-            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ?</a>
         </div>
     </nav>
 
     <main class="content">
         <div class="container">
             <div class="example-header">
-                <span class="icon">🔢</span>
+                <span class="icon">??</span>
                 <h1>Prime Factorization</h1>
             </div>
             <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/factor.ml"><code>factor.ml</code></a></p>
@@ -47,7 +48,7 @@
 
             <section>
                 <h2>Overview</h2>
-                <p>Decompose integers into their prime factors using recursive trial division. Optimized to extract factors of 2 first, then only check odd divisors — nearly halving the work for large inputs.</p>
+                <p>Decompose integers into their prime factors using recursive trial division. Optimized to extract factors of 2 first, then only check odd divisors � nearly halving the work for large inputs.</p>
             </section>
 
             <section>
@@ -69,8 +70,8 @@
                 <h3>Mutual Recursion</h3>
                 <p>The <code>let rec ... and ...</code> syntax defines two functions that call each other: <code>extract_twos</code> handles the factor-of-2 phase, then hands off to <code>odd_factors</code>. This is a natural way to express multi-phase algorithms in OCaml.</p>
 
-                <h3>Early Exit at √n</h3>
-                <p>The check <code>d * d > n</code> means: if no divisor up to √n divides n, then n itself is prime. This avoids checking all numbers up to n.</p>
+                <h3>Early Exit at vn</h3>
+                <p>The check <code>d * d > n</code> means: if no divisor up to vn divides n, then n itself is prime. This avoids checking all numbers up to n.</p>
             </section>
 
             <section>
@@ -85,12 +86,12 @@ factors 360 = [2; 2; 2; 3; 3; 5]</pre>
             </section>
 
             <div class="nav-arrows">
-                <a href="list-last.html" class="nav-arrow">← Last Element</a>
-                <a href="bst.html" class="nav-arrow">Next: Binary Search Tree →</a>
+                <a href="list-last.html" class="nav-arrow">? Last Element</a>
+                <a href="bst.html" class="nav-arrow">Next: Binary Search Tree ?</a>
             </div>
 
             <footer>
-                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> � MIT License</p>
             </footer>
         </div>
     </main>

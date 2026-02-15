@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priority Queue (Leftist Heap) — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="heap.html" class="nav-link active">⛰️ Priority Queue</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">⛰️</span>
+                <h1>Priority Queue — Leftist Heap</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/heap.ml"><code>heap.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">persistent data structures</span>
+                <span class="concept-badge">rank annotations</span>
+                <span class="concept-badge">algebraic data types</span>
+                <span class="concept-badge">custom comparators</span>
+                <span class="concept-badge">heap sort</span>
+                <span class="concept-badge">top-k extraction</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>A purely functional priority queue implemented as a <strong>leftist min-heap</strong>. Unlike imperative heaps (arrays), this one is <em>persistent</em> — every operation returns a new heap while the original is preserved. This makes it safe for concurrent use and enables "undo" for free.</p>
+                <p>The key insight: <strong>everything is built on <code>merge</code></strong>. Insert is merge with a singleton. Delete-min is merge of the two children. This elegant design means one well-crafted function powers the entire API.</p>
+            </section>
+
+            <section>
+                <h2>Data Type</h2>
+                <p>Each node stores its <strong>rank</strong> — the length of the rightmost path to a leaf. The leftist property ensures <code>rank(left) ≥ rank(right)</code>, keeping the right spine short (O(log n) nodes):</p>
+                <pre><code><span class="kw">type</span> <span class="type">'a heap</span> =
+  <span class="op">|</span> <span class="type">Empty</span>
+  <span class="op">|</span> <span class="type">Node</span> <span class="kw">of</span> <span class="type">int</span> <span class="op">*</span> <span class="type">'a</span> <span class="op">*</span> <span class="type">'a heap</span> <span class="op">*</span> <span class="type">'a heap</span>
+  <span class="cmt">(* Node (rank, value, left_child, right_child) *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Core Operations</h2>
+
+                <h3>Merge — The Heart of Everything</h3>
+                <p>Merge two heaps in O(log n). The smaller root becomes the new root; we recursively merge into the shorter (right) spine:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">make_node</span> x a b =
+  <span class="kw">if</span> <span class="fn">rank</span> a <span class="op">>=</span> <span class="fn">rank</span> b <span class="kw">then</span> <span class="type">Node</span> (<span class="fn">rank</span> b <span class="op">+</span> <span class="num">1</span>, x, a, b)
+  <span class="kw">else</span> <span class="type">Node</span> (<span class="fn">rank</span> a <span class="op">+</span> <span class="num">1</span>, x, b, a)
+
+<span class="kw">let</span> <span class="kw">rec</span> <span class="fn">merge</span> cmp h1 h2 =
+  <span class="kw">match</span> h1, h2 <span class="kw">with</span>
+  <span class="op">|</span> <span class="type">Empty</span>, h <span class="op">|</span> h, <span class="type">Empty</span> <span class="op">-></span> h
+  <span class="op">|</span> <span class="type">Node</span> (_, x, a1, b1), <span class="type">Node</span> (_, y, _, _) <span class="op">-></span>
+    <span class="kw">if</span> cmp x y <span class="op"><=</span> <span class="num">0</span> <span class="kw">then</span>
+      <span class="fn">make_node</span> x a1 (<span class="fn">merge</span> cmp b1 h2)
+    <span class="kw">else</span>
+      <span class="fn">merge</span> cmp h2 h1</code></pre>
+
+                <h3>Insert & Delete</h3>
+                <p>Both are one-liners built on merge:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">insert</span> cmp x h =
+  <span class="fn">merge</span> cmp (<span class="type">Node</span> (<span class="num">1</span>, x, <span class="type">Empty</span>, <span class="type">Empty</span>)) h
+
+<span class="kw">let</span> <span class="fn">delete_min</span> cmp = <span class="kw">function</span>
+  <span class="op">|</span> <span class="type">Empty</span> <span class="op">-></span> <span class="type">Empty</span>
+  <span class="op">|</span> <span class="type">Node</span> (_, _, left, right) <span class="op">-></span> <span class="fn">merge</span> cmp left right</code></pre>
+
+                <h3>Bottom-Up Construction</h3>
+                <p>Building a heap from a list can be done in O(n) using pairwise merging instead of O(n log n) repeated insertion:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">from_list_fast</span> cmp lst =
+  <span class="kw">let</span> singletons = <span class="type">List</span>.<span class="fn">map</span>
+    (<span class="kw">fun</span> x <span class="op">-></span> <span class="type">Node</span> (<span class="num">1</span>, x, <span class="type">Empty</span>, <span class="type">Empty</span>)) lst <span class="kw">in</span>
+  <span class="cmt">(* repeatedly merge pairs until one heap remains *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Derived Operations</h2>
+                <ul>
+                    <li><strong><code>heap_sort</code>:</strong> Build heap + extract all → O(n log n) sort with any comparator</li>
+                    <li><strong><code>take_min k</code>:</strong> Extract the k smallest elements without destroying the heap</li>
+                    <li><strong><code>to_sorted_list</code>:</strong> Drain the heap into a sorted list</li>
+                    <li><strong><code>is_leftist</code> / <code>is_min_heap</code>:</strong> Structural validation (useful for testing)</li>
+                    <li><strong><code>print_heap</code>:</strong> ASCII tree visualization with rank annotations</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Persistence Demo</h2>
+                <p>Every operation creates a new heap — the original is untouched:</p>
+                <pre><code><span class="kw">let</span> h = <span class="fn">from_list</span> compare [<span class="num">5</span>; <span class="num">3</span>; <span class="num">8</span>; <span class="num">1</span>; <span class="num">7</span>] <span class="kw">in</span>
+<span class="kw">let</span> h2 = <span class="fn">insert</span> compare <span class="num">0</span> h <span class="kw">in</span>
+<span class="kw">let</span> h3 = <span class="fn">delete_min</span> compare h <span class="kw">in</span>
+<span class="cmt">(* h still has min=1, h2 has min=0, h3 has min=3 *)</span>
+<span class="cmt">(* All three heaps coexist — no mutation! *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>=== Leftist Min-Heap ===
+A purely functional priority queue
+
+--- Building a heap ---
+Input: [5; 3; 8; 1; 7; 2; 6; 4]
+
+Size: 8
+Depth: 4
+Minimum: Some 1
+Is leftist: true
+Is min-heap: true
+
+--- Sorted extraction ---
+Sorted: [1; 2; 3; 4; 5; 6; 7; 8]
+
+--- Persistence (functional data structure) ---
+Original min:       Some 1
+After insert 0 min: Some 0
+After delete min:   Some 2
+Original unchanged: [1; 2; 3; 4; 5; 6; 7; 8]
+
+--- Merging heaps ---
+Heap A sorted: [10; 20; 30]
+Heap B sorted: [5; 15; 25]
+Merged sorted: [5; 10; 15; 20; 25; 30]
+
+--- Heap sort ---
+Input:       [42; 17; 93; 5; 28; 61; 3; 84; 50; 12]
+Sorted asc:  [3; 5; 12; 17; 28; 42; 50; 61; 84; 93]
+Sorted desc: [93; 84; 61; 50; 42; 28; 17; 12; 5; 3]
+
+--- Top-K smallest ---
+Data: [99; 44; 7; 88; 12; 55; 3; 67; 21; 36]
+Top 3 smallest: [3; 7; 12]
+Top 5 smallest: [3; 7; 12; 21; 36]
+
+--- Max-heap via custom comparator ---
+Max-heap top: Some 8
+Descending:   [8; 7; 5; 3; 1]
+
+--- String priority queue ---
+Words input: [banana; apple; cherry; date; elderberry]
+Alphabetical: [apple; banana; cherry; date; elderberry]
+First word: Some apple</pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>Concepts Introduced</h2>
+                <ul>
+                    <li><strong>Persistent data structures:</strong> Operations create new values instead of mutating — the old heap still exists. This is the functional programming way to handle state.</li>
+                    <li><strong>Rank annotations:</strong> Storing computed properties (rank) in the data type avoids recomputation and enables the leftist invariant.</li>
+                    <li><strong>Merge-based design:</strong> One core operation (<code>merge</code>) powers insert, delete, and construction. This pattern appears throughout functional programming (e.g., monoids).</li>
+                    <li><strong>Custom comparators:</strong> Passing <code>cmp</code> as a parameter enables min-heap, max-heap, and any ordering — same pattern as <code>mergesort.ml</code>.</li>
+                    <li><strong>Bottom-up construction:</strong> Pairwise merging achieves O(n) heap construction — an asymptotic improvement over naive repeated insertion.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Complexity</h2>
+                <table>
+                    <thead>
+                        <tr><th>Operation</th><th>Time</th><th>Space</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>find_min</code></td><td>O(1)</td><td>O(1)</td></tr>
+                        <tr><td><code>insert</code></td><td>O(log n)</td><td>O(log n)</td></tr>
+                        <tr><td><code>delete_min</code></td><td>O(log n)</td><td>O(log n)</td></tr>
+                        <tr><td><code>merge</code></td><td>O(log n)</td><td>O(log n)</td></tr>
+                        <tr><td><code>from_list</code></td><td>O(n log n)</td><td>O(n)</td></tr>
+                        <tr><td><code>from_list_fast</code></td><td>O(n)</td><td>O(n)</td></tr>
+                        <tr><td><code>heap_sort</code></td><td>O(n log n)</td><td>O(n)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="graph.html" class="nav-arrow">← Graph Algorithms</a>
+                <a href="concepts.html" class="nav-arrow">Next: Concept Index →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>
