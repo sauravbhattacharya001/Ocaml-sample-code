@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM ocaml/opam:ubuntu-24.04-ocaml-5.2 AS builder
+FROM ocaml/opam:ubuntu-24.04-ocaml-5.5 AS builder
 
 # Switch to root to install system deps, then back to opam user
 USER root
