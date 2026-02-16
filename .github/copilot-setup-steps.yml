@@ -1,0 +1,33 @@
+# Copilot Setup Steps
+# Installs OCaml toolchain and dependencies so Copilot coding agents
+# (Claude, Codex) can build and test the project autonomously.
+
+name: "Copilot Setup"
+on: workflow_dispatch
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.x"
+
+      - name: Install OCaml dependencies
+        run: |
+          opam install bisect_ppx ocamlfind --yes
+          eval $(opam env)
+
+      - name: Build all programs
+        run: |
+          eval $(opam env)
+          make all
+
+      - name: Build and run tests
+        run: |
+          eval $(opam env)
+          make test
