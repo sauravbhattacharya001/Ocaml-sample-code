@@ -1,0 +1,37 @@
+# Dependabot configuration
+# Keeps GitHub Actions and Docker base images up to date.
+# OCaml dependencies are managed directly (no opam/dune package manager).
+
+version: 2
+updates:
+  # GitHub Actions — keep workflow actions current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    reviewers:
+      - "sauravbhattacharya001"
+    open-pull-requests-limit: 10
+
+  # Docker — keep base image (ocaml/opam) up to date
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+    reviewers:
+      - "sauravbhattacharya001"
+    open-pull-requests-limit: 5
