@@ -696,6 +696,427 @@ let test_graph () = suite "Graph" (fun () ->
   assert_true ~msg:"empty graph no cycle" (not (graph_has_cycle eg));
 )
 
+(* ===== Parser combinator functions (from parser.ml) ===== *)
+
+type 'a parse_result =
+  | ParseOk of 'a * int
+  | ParseError of string * int
+
+type 'a parser_t = string -> int -> 'a parse_result
+
+let p_satisfy (pred : char -> bool) (desc : string) : char parser_t =
+  fun input pos ->
+    if pos >= String.length input then
+      ParseError (Printf.sprintf "unexpected end of input, expected %s" desc, pos)
+    else
+      let c = input.[pos] in
+      if pred c then ParseOk (c, pos + 1)
+      else ParseError (Printf.sprintf "expected %s, got '%c'" desc c, pos)
+
+let p_char (expected : char) : char parser_t =
+  p_satisfy (fun c -> c = expected) (Printf.sprintf "'%c'" expected)
+
+let p_string (expected : string) : string parser_t =
+  fun input pos ->
+    let len = String.length expected in
+    if pos + len > String.length input then
+      ParseError (Printf.sprintf "expected \"%s\"" expected, pos)
+    else
+      let sub = String.sub input pos len in
+      if sub = expected then ParseOk (expected, pos + len)
+      else ParseError (Printf.sprintf "expected \"%s\", got \"%s\"" expected sub, pos)
+
+let p_return (x : 'a) : 'a parser_t =
+  fun _input pos -> ParseOk (x, pos)
+
+let p_fail (msg : string) : 'a parser_t =
+  fun _input pos -> ParseError (msg, pos)
+
+let p_bind (p : 'a parser_t) (f : 'a -> 'b parser_t) : 'b parser_t =
+  fun input pos ->
+    match p input pos with
+    | ParseError (msg, epos) -> ParseError (msg, epos)
+    | ParseOk (a, pos') -> (f a) input pos'
+
+let ( >>~ ) = p_bind
+
+let p_seq_right (p1 : 'a parser_t) (p2 : 'b parser_t) : 'b parser_t =
+  p1 >>~ fun _ -> p2
+
+let p_seq_left (p1 : 'a parser_t) (p2 : 'b parser_t) : 'a parser_t =
+  p1 >>~ fun a -> p2 >>~ fun _ -> p_return a
+
+let p_map (f : 'a -> 'b) (p : 'a parser_t) : 'b parser_t =
+  p >>~ fun a -> p_return (f a)
+
+let p_choice (p1 : 'a parser_t) (p2 : 'a parser_t) : 'a parser_t =
+  fun input pos ->
+    match p1 input pos with
+    | ParseOk _ as result -> result
+    | ParseError (_, epos1) ->
+      if epos1 = pos then p2 input pos
+      else p1 input pos
+
+let p_many (p : 'a parser_t) : 'a list parser_t =
+  fun input pos ->
+    let rec aux acc pos =
+      match p input pos with
+      | ParseError _ -> ParseOk (List.rev acc, pos)
+      | ParseOk (x, pos') ->
+        if pos' = pos then ParseOk (List.rev acc, pos)
+        else aux (x :: acc) pos'
+    in
+    aux [] pos
+
+let p_many1 (p : 'a parser_t) : 'a list parser_t =
+  p >>~ fun first ->
+  p_many p >>~ fun rest ->
+  p_return (first :: rest)
+
+let p_sep_by (p : 'a parser_t) (sep : 'b parser_t) : 'a list parser_t =
+  p_choice
+    (p >>~ fun first ->
+     p_many (p_seq_right sep p) >>~ fun rest ->
+     p_return (first :: rest))
+    (p_return [])
+
+let p_between (open_p : 'a parser_t) (close_p : 'b parser_t) (p : 'c parser_t) : 'c parser_t =
+  p_seq_right open_p (p_seq_left p close_p)
+
+let p_optional (p : 'a parser_t) : 'a option parser_t =
+  p_choice (p_map (fun x -> Some x) p) (p_return None)
+
+let p_digit : char parser_t =
+  p_satisfy (fun c -> c >= '0' && c <= '9') "digit"
+
+let p_letter : char parser_t =
+  p_satisfy (fun c -> (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) "letter"
+
+let p_whitespace : char parser_t =
+  p_satisfy (fun c -> c = ' ' || c = '\t' || c = '\n' || c = '\r') "whitespace"
+
+let p_spaces : unit parser_t =
+  p_map (fun _ -> ()) (p_many p_whitespace)
+
+let p_lexeme (p : 'a parser_t) : 'a parser_t =
+  p_seq_left p p_spaces
+
+let p_natural : int parser_t =
+  p_many1 p_digit >>~ fun chars ->
+  let s = String.init (List.length chars) (List.nth chars) in
+  p_return (int_of_string s)
+
+let p_integer : int parser_t =
+  p_optional (p_char '-') >>~ fun sign ->
+  p_natural >>~ fun n ->
+  p_return (match sign with Some _ -> -n | None -> n)
+
+let p_quoted_string : string parser_t =
+  p_seq_right (p_char '"')
+    (p_many (p_satisfy (fun c -> c <> '"') "non-quote") >>~ fun chars ->
+     p_seq_right (p_char '"')
+       (p_return (String.init (List.length chars) (List.nth chars))))
+
+let p_identifier : string parser_t =
+  p_letter >>~ fun first ->
+  p_many (p_satisfy (fun c ->
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+    (c >= '0' && c <= '9') || c = '_') "alphanumeric") >>~ fun rest ->
+  p_return (String.init (1 + List.length rest) (fun i ->
+    if i = 0 then first else List.nth rest (i - 1)))
+
+let p_chainl1 (p : 'a parser_t) (op : ('a -> 'a -> 'a) parser_t) : 'a parser_t =
+  p >>~ fun first ->
+  let rec aux acc =
+    p_choice
+      (op >>~ fun f ->
+       p >>~ fun b ->
+       aux (f acc b))
+      (p_return acc)
+  in
+  aux first
+
+let p_chainr1 (p : 'a parser_t) (op : ('a -> 'a -> 'a) parser_t) : 'a parser_t =
+  let rec aux () =
+    p >>~ fun a ->
+    p_choice
+      (op >>~ fun f ->
+       aux () >>~ fun b ->
+       p_return (f a b))
+      (p_return a)
+  in
+  aux ()
+
+let p_run (p : 'a parser_t) (input : string) : ('a, string) result =
+  match (p_seq_left p p_spaces) input 0 with
+  | ParseOk (value, pos) ->
+    if pos = String.length input then Ok value
+    else Error (Printf.sprintf "unexpected character '%c' at position %d"
+      input.[pos] pos)
+  | ParseError (msg, pos) ->
+    Error (Printf.sprintf "%s at position %d" msg pos)
+
+(* Arithmetic expression types for parser tests *)
+type test_expr =
+  | TNum of int
+  | TAdd of test_expr * test_expr
+  | TSub of test_expr * test_expr
+  | TMul of test_expr * test_expr
+  | TDiv of test_expr * test_expr
+  | TPow of test_expr * test_expr
+
+let rec test_eval = function
+  | TNum n -> n
+  | TAdd (a, b) -> test_eval a + test_eval b
+  | TSub (a, b) -> test_eval a - test_eval b
+  | TMul (a, b) -> test_eval a * test_eval b
+  | TDiv (a, b) -> test_eval a / test_eval b
+  | TPow (a, b) ->
+    let rec power b e = if e = 0 then 1 else b * power b (e - 1) in
+    power (test_eval a) (test_eval b)
+
+(* Build the expression parser for tests *)
+let test_expr_ref : test_expr parser_t ref = ref (p_fail "not initialized")
+
+let test_atom : test_expr parser_t =
+  p_lexeme (
+    p_choice
+      (p_map (fun n -> TNum n) p_integer)
+      (p_seq_right (p_char '(') (p_seq_right p_spaces
+        ((fun input pos -> !test_expr_ref input pos) |>
+         (fun p -> p_seq_left p (p_seq_left p_spaces (p_char ')'))))))
+  )
+
+let test_power : test_expr parser_t =
+  let pow_op = p_seq_right (p_lexeme (p_char '^')) (p_return (fun a b -> TPow (a, b))) in
+  p_chainr1 test_atom pow_op
+
+let test_term : test_expr parser_t =
+  let mul_op = p_choice
+    (p_seq_right (p_lexeme (p_char '*')) (p_return (fun a b -> TMul (a, b))))
+    (p_seq_right (p_lexeme (p_char '/')) (p_return (fun a b -> TDiv (a, b))))
+  in
+  p_chainl1 test_power mul_op
+
+let test_expr_p : test_expr parser_t =
+  let add_op = p_choice
+    (p_seq_right (p_lexeme (p_char '+')) (p_return (fun a b -> TAdd (a, b))))
+    (p_seq_right (p_lexeme (p_char '-')) (p_return (fun a b -> TSub (a, b))))
+  in
+  p_chainl1 test_term add_op
+
+let () = test_expr_ref := test_expr_p
+
+let test_calc (input : string) : (int, string) result =
+  match p_run (p_seq_right p_spaces test_expr_p) input with
+  | Ok expr -> Ok (test_eval expr)
+  | Error msg -> Error msg
+
+(* ===== Parser combinator tests ===== *)
+
+let test_parser () = suite "Parser Combinators" (fun () ->
+  (* --- Primitive parsers --- *)
+
+  (* satisfy / char_ *)
+  assert_true ~msg:"char 'a' on \"abc\""
+    (p_run (p_char 'a') "a" = Ok 'a');
+  assert_true ~msg:"char 'a' on \"b\" fails"
+    (match p_run (p_char 'a') "b" with Error _ -> true | _ -> false);
+  assert_true ~msg:"char on empty fails"
+    (match p_run (p_char 'a') "" with Error _ -> true | _ -> false);
+
+  (* digit *)
+  assert_true ~msg:"digit on \"5\"" (p_run p_digit "5" = Ok '5');
+  assert_true ~msg:"digit on \"a\" fails"
+    (match p_run p_digit "a" with Error _ -> true | _ -> false);
+
+  (* letter *)
+  assert_true ~msg:"letter on \"x\"" (p_run p_letter "x" = Ok 'x');
+  assert_true ~msg:"letter on \"Z\"" (p_run p_letter "Z" = Ok 'Z');
+  assert_true ~msg:"letter on \"3\" fails"
+    (match p_run p_letter "3" with Error _ -> true | _ -> false);
+
+  (* string_ *)
+  assert_true ~msg:"string \"hello\""
+    (p_run (p_string "hello") "hello" = Ok "hello");
+  assert_true ~msg:"string \"hello\" on \"help\" fails"
+    (match p_run (p_string "hello") "help" with Error _ -> true | _ -> false);
+  assert_true ~msg:"string on too short input fails"
+    (match p_run (p_string "hello") "hel" with Error _ -> true | _ -> false);
+
+  (* return_ and fail *)
+  assert_true ~msg:"return 42" (p_run (p_return 42) "" = Ok 42);
+  assert_true ~msg:"fail always fails"
+    (match p_run (p_fail "nope") "" with Error _ -> true | _ -> false);
+
+  (* --- Number parsing --- *)
+  assert_true ~msg:"natural 42" (p_run p_natural "42" = Ok 42);
+  assert_true ~msg:"natural 0" (p_run p_natural "0" = Ok 0);
+  assert_true ~msg:"natural 12345" (p_run p_natural "12345" = Ok 12345);
+
+  assert_true ~msg:"integer 42" (p_run p_integer "42" = Ok 42);
+  assert_true ~msg:"integer -7" (p_run p_integer "-7" = Ok (-7));
+  assert_true ~msg:"integer 0" (p_run p_integer "0" = Ok 0);
+  assert_true ~msg:"integer on \"abc\" fails"
+    (match p_run p_integer "abc" with Error _ -> true | _ -> false);
+
+  (* --- Combinators --- *)
+
+  (* bind / sequencing *)
+  let two_chars = p_bind (p_char 'a') (fun a ->
+    p_bind (p_char 'b') (fun b ->
+      p_return (String.init 2 (fun i -> if i = 0 then a else b)))) in
+  assert_true ~msg:"bind ab" (p_run two_chars "ab" = Ok "ab");
+  assert_true ~msg:"bind ac fails"
+    (match p_run two_chars "ac" with Error _ -> true | _ -> false);
+
+  (* map *)
+  assert_true ~msg:"map digit to int"
+    (p_run (p_map (fun c -> Char.code c - Char.code '0') p_digit) "7" = Ok 7);
+
+  (* choice *)
+  let a_or_b = p_choice (p_char 'a') (p_char 'b') in
+  assert_true ~msg:"choice a" (p_run a_or_b "a" = Ok 'a');
+  assert_true ~msg:"choice b" (p_run a_or_b "b" = Ok 'b');
+  assert_true ~msg:"choice c fails"
+    (match p_run a_or_b "c" with Error _ -> true | _ -> false);
+
+  (* many *)
+  assert_true ~msg:"many digit on \"123\""
+    (p_run (p_many p_digit) "123" = Ok ['1'; '2'; '3']);
+  assert_true ~msg:"many digit on \"\" is []"
+    (p_run (p_many p_digit) "" = Ok []);
+  assert_true ~msg:"many digit on \"abc\" is []"
+    (p_run (p_many p_digit) "abc" = Ok []);
+
+  (* many1 *)
+  assert_true ~msg:"many1 digit on \"123\""
+    (p_run (p_many1 p_digit) "123" = Ok ['1'; '2'; '3']);
+  assert_true ~msg:"many1 digit on \"\" fails"
+    (match p_run (p_many1 p_digit) "" with Error _ -> true | _ -> false);
+
+  (* sep_by *)
+  let csv_ints = p_sep_by (p_lexeme p_integer) (p_lexeme (p_char ',')) in
+  assert_true ~msg:"sep_by [1,2,3]"
+    (p_run csv_ints "1, 2, 3" = Ok [1; 2; 3]);
+  assert_true ~msg:"sep_by single"
+    (p_run csv_ints "42" = Ok [42]);
+  assert_true ~msg:"sep_by empty"
+    (p_run csv_ints "" = Ok []);
+
+  (* between *)
+  let bracketed = p_between (p_char '[') (p_char ']') p_natural in
+  assert_true ~msg:"between [42]"
+    (p_run bracketed "[42]" = Ok 42);
+  assert_true ~msg:"between missing close fails"
+    (match p_run bracketed "[42" with Error _ -> true | _ -> false);
+
+  (* optional *)
+  assert_true ~msg:"optional present"
+    (p_run (p_optional (p_char 'x')) "x" = Ok (Some 'x'));
+  assert_true ~msg:"optional absent"
+    (p_run (p_optional (p_char 'x')) "" = Ok None);
+
+  (* --- Quoted string --- *)
+  assert_true ~msg:"quoted string"
+    (p_run p_quoted_string "\"hello\"" = Ok "hello");
+  assert_true ~msg:"quoted empty string"
+    (p_run p_quoted_string "\"\"" = Ok "");
+  assert_true ~msg:"quoted with spaces"
+    (p_run p_quoted_string "\"hello world\"" = Ok "hello world");
+
+  (* --- Identifier --- *)
+  assert_true ~msg:"identifier hello"
+    (p_run p_identifier "hello" = Ok "hello");
+  assert_true ~msg:"identifier x42"
+    (p_run p_identifier "x42" = Ok "x42");
+  assert_true ~msg:"identifier my_var"
+    (p_run p_identifier "my_var" = Ok "my_var");
+  assert_true ~msg:"identifier starting with digit fails"
+    (match p_run p_identifier "123bad" with Error _ -> true | _ -> false);
+
+  (* --- Integer list parser --- *)
+  let p_int_list = p_between
+    (p_lexeme (p_char '[')) (p_lexeme (p_char ']'))
+    (p_sep_by (p_lexeme p_integer) (p_lexeme (p_char ','))) in
+  assert_true ~msg:"int list [1, 2, 3]"
+    (p_run p_int_list "[1, 2, 3]" = Ok [1; 2; 3]);
+  assert_true ~msg:"int list []"
+    (p_run p_int_list "[]" = Ok []);
+  assert_true ~msg:"int list [42]"
+    (p_run p_int_list "[42]" = Ok [42]);
+  assert_true ~msg:"int list [10, 20, 30, 40, 50]"
+    (p_run p_int_list "[10, 20, 30, 40, 50]" = Ok [10; 20; 30; 40; 50]);
+
+  (* --- Key-value parser --- *)
+  let kv = p_lexeme p_identifier >>~ fun key ->
+    p_seq_right (p_lexeme (p_char '='))
+      (p_lexeme p_quoted_string >>~ fun value ->
+       p_return (key, value)) in
+  assert_true ~msg:"kv parse"
+    (p_run kv "name = \"Alice\"" = Ok ("name", "Alice"));
+
+  (* --- Arithmetic expression parser --- *)
+
+  (* Simple numbers *)
+  assert_true ~msg:"calc 42" (test_calc "42" = Ok 42);
+  assert_true ~msg:"calc 0" (test_calc "0" = Ok 0);
+  assert_true ~msg:"calc -5" (test_calc "-5" = Ok (-5));
+
+  (* Basic operations *)
+  assert_true ~msg:"calc 2+3" (test_calc "2 + 3" = Ok 5);
+  assert_true ~msg:"calc 10-3" (test_calc "10 - 3" = Ok 7);
+  assert_true ~msg:"calc 4*5" (test_calc "4 * 5" = Ok 20);
+  assert_true ~msg:"calc 20/4" (test_calc "20 / 4" = Ok 5);
+
+  (* Precedence: * binds tighter than + *)
+  assert_true ~msg:"calc 2+3*4=14" (test_calc "2 + 3 * 4" = Ok 14);
+  assert_true ~msg:"calc 2*3+4=10" (test_calc "2 * 3 + 4" = Ok 10);
+
+  (* Parentheses override precedence *)
+  assert_true ~msg:"calc (2+3)*4=20" (test_calc "(2 + 3) * 4" = Ok 20);
+  assert_true ~msg:"calc 2*(3+4)=14" (test_calc "2 * (3 + 4)" = Ok 14);
+
+  (* Left associativity *)
+  assert_true ~msg:"calc 10-3-2=5" (test_calc "10 - 3 - 2" = Ok 5);
+  assert_true ~msg:"calc 100/5/4=5" (test_calc "100 / 5 / 4" = Ok 5);
+
+  (* Right associativity of ^ *)
+  assert_true ~msg:"calc 2^3=8" (test_calc "2 ^ 3" = Ok 8);
+  assert_true ~msg:"calc 2^10=1024" (test_calc "2 ^ 10" = Ok 1024);
+  assert_true ~msg:"calc 2^3^2=512 (right-assoc)" (test_calc "2 ^ 3 ^ 2" = Ok 512);
+
+  (* Complex expressions *)
+  assert_true ~msg:"calc (1+2)*(3+4)=21" (test_calc "(1 + 2) * (3 + 4)" = Ok 21);
+  assert_true ~msg:"calc ((3+5)*2)-(10/2)=11"
+    (test_calc "((3 + 5) * 2) - (10 / 2)" = Ok 11);
+  assert_true ~msg:"calc 1+2+3=6" (test_calc "1 + 2 + 3" = Ok 6);
+
+  (* Whitespace handling *)
+  assert_true ~msg:"calc no spaces" (test_calc "2+3" = Ok 5);
+  assert_true ~msg:"calc extra spaces" (test_calc "  2  +  3  " = Ok 5);
+
+  (* Error cases *)
+  assert_true ~msg:"calc empty fails"
+    (match test_calc "" with Error _ -> true | _ -> false);
+  assert_true ~msg:"calc invalid fails"
+    (match test_calc "+" with Error _ -> true | _ -> false);
+
+  (* --- chainl1 basic test --- *)
+  let sum_parser = p_chainl1 (p_lexeme p_natural)
+    (p_seq_right (p_lexeme (p_char '+')) (p_return ( + ))) in
+  assert_true ~msg:"chainl1 1+2+3" (p_run sum_parser "1 + 2 + 3" = Ok 6);
+  assert_true ~msg:"chainl1 single" (p_run sum_parser "42" = Ok 42);
+
+  (* --- chainr1 basic test --- *)
+  let pow_parser = p_chainr1 (p_lexeme p_natural)
+    (p_seq_right (p_lexeme (p_char '^')) (p_return (fun a b ->
+      let rec power b e = if e = 0 then 1 else b * power b (e - 1) in
+      power a b))) in
+  assert_true ~msg:"chainr1 2^3^2=512" (p_run pow_parser "2 ^ 3 ^ 2" = Ok 512);
+  assert_true ~msg:"chainr1 single" (p_run pow_parser "5" = Ok 5);
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -707,6 +1128,7 @@ let () =
   test_heap ();
   test_list_last ();
   test_graph ();
+  test_parser ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;

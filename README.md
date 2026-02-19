@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing.
 
 ## Programs
 
@@ -34,6 +34,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
 | [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
 | [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
+| [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
 
 ## Getting Started
 
@@ -250,6 +251,37 @@ let rec last = function
   | _ :: t -> last t
 ```
 
+### Parser Combinators — `parser.ml`
+
+Build complex parsers from small, composable pieces. Each parser is a function that takes input and returns either a value or an error — they snap together like LEGO bricks using operators like `>>=` (bind), `<|>` (choice), and `many`.
+
+```ocaml
+(* A parser is just a function *)
+type 'a parser = string -> int -> 'a result
+
+(* Combine two parsers in sequence (monadic bind) *)
+let bind p f = fun input pos ->
+  match p input pos with
+  | Error _ as e -> e
+  | Ok (a, pos') -> (f a) input pos'
+
+(* Parse an arithmetic expression with correct precedence *)
+let expr = chainl1 term add_op   (* + - are left-associative *)
+let term = chainl1 power mul_op  (* * / are left-associative *)
+let power = chainr1 atom pow_op  (* ^ is right-associative *)
+let atom = number <|> parens     (* number or (expr) *)
+```
+
+```
+calc "2 + 3 * 4"       = 14     (* precedence: 2 + (3*4) *)
+calc "(2 + 3) * 4"     = 20     (* parentheses override *)
+calc "2 ^ 3 ^ 2"       = 512    (* right-assoc: 2^(3^2) = 2^9 *)
+calc "((3+5)*2)-(10/2)" = 11
+
+int_list "[1, 2, 3]"   = [1; 2; 3]
+kv "name = \"Alice\""  = ("name", "Alice")
+```
+
 ## Project Structure
 
 ```
@@ -262,6 +294,7 @@ Ocaml-sample-code/
 ├── mergesort.ml          # Merge sort
 ├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
 ├── heap.ml               # Priority queue (leftist min-heap)
+├── parser.ml             # Parser combinators (arithmetic, lists, key-value)
 ├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
@@ -312,7 +345,7 @@ make coverage-html
 # Open _coverage/index.html in your browser
 ```
 
-**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components).
+**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components), parser combinators (primitives, combinators, arithmetic expression evaluation).
 
 Coverage reports are generated automatically on every push via [GitHub Actions](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml) using [bisect_ppx](https://github.com/aantron/bisect_ppx).
 

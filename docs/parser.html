@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parser Combinators — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link active">🧩 Parser Combinators</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🧩</span>
+                <h1>Parser Combinators</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/parser.ml"><code>parser.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">higher-order functions</span>
+                <span class="concept-badge">closures</span>
+                <span class="concept-badge">monadic composition</span>
+                <span class="concept-badge">recursive descent</span>
+                <span class="concept-badge">operator precedence</span>
+                <span class="concept-badge">algebraic data types</span>
+                <span class="concept-badge">polymorphism</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>A <strong>parser combinator</strong> library lets you build complex parsers by snapping together small, reusable parser functions — like LEGO bricks. Each parser is a first-class function that can be passed around, combined, and composed.</p>
+                <p>This is a quintessential functional programming pattern. The library includes primitives (single characters, strings, digits), combinators (sequencing, choice, repetition), and three complete example parsers: arithmetic expressions, integer lists, and key-value pairs.</p>
+            </section>
+
+            <section>
+                <h2>Core Design</h2>
+                <p>A parser is simply a function that takes an input string and position, and returns either a parsed value with the new position, or an error:</p>
+                <pre><code><span class="kw">type</span> <span class="type">'a result</span> =
+  <span class="op">|</span> <span class="type">Ok</span> <span class="kw">of</span> <span class="type">'a</span> <span class="op">*</span> <span class="type">int</span>        <span class="cmt">(* value + new position *)</span>
+  <span class="op">|</span> <span class="type">Error</span> <span class="kw">of</span> <span class="type">string</span> <span class="op">*</span> <span class="type">int</span>  <span class="cmt">(* message + error position *)</span>
+
+<span class="kw">type</span> <span class="type">'a parser</span> = <span class="type">string</span> <span class="op">-></span> <span class="type">int</span> <span class="op">-></span> <span class="type">'a result</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Primitive Parsers</h2>
+                <pre><code><span class="cmt">(* Match a character by predicate *)</span>
+<span class="kw">let</span> <span class="fn">satisfy</span> pred desc = <span class="kw">fun</span> input pos <span class="op">-></span>
+  <span class="kw">if</span> pos <span class="op">>=</span> <span class="type">String</span>.length input <span class="kw">then</span> <span class="type">Error</span> <span class="str">"end of input"</span>
+  <span class="kw">else if</span> pred input.[pos] <span class="kw">then</span> <span class="type">Ok</span> (input.[pos], pos <span class="op">+</span> <span class="num">1</span>)
+  <span class="kw">else</span> <span class="type">Error</span> <span class="str">"no match"</span>
+
+<span class="cmt">(* Built on satisfy: *)</span>
+<span class="kw">let</span> <span class="fn">digit</span>  = satisfy (<span class="kw">fun</span> c <span class="op">-></span> c <span class="op">>=</span> <span class="str">'0'</span> <span class="op">&amp;&amp;</span> c <span class="op">&lt;=</span> <span class="str">'9'</span>) <span class="str">"digit"</span>
+<span class="kw">let</span> <span class="fn">letter</span> = satisfy (<span class="kw">fun</span> c <span class="op">-></span> <span class="cmt">(*...*)</span>) <span class="str">"letter"</span>
+<span class="kw">let</span> <span class="fn">char_</span>  = <span class="kw">fun</span> expected <span class="op">-></span> satisfy (<span class="kw">fun</span> c <span class="op">-></span> c <span class="op">=</span> expected)</code></pre>
+            </section>
+
+            <section>
+                <h2>Key Combinators</h2>
+
+                <h3>Bind (>>=) — Monadic Sequencing</h3>
+                <p>Run parser A, then feed its result to a function that produces parser B. This is the fundamental way to sequence parsers:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">bind</span> p f = <span class="kw">fun</span> input pos <span class="op">-></span>
+  <span class="kw">match</span> p input pos <span class="kw">with</span>
+  <span class="op">|</span> <span class="type">Error</span> _ <span class="kw">as</span> e <span class="op">-></span> e
+  <span class="op">|</span> <span class="type">Ok</span> (a, pos') <span class="op">-></span> (f a) input pos'
+
+<span class="cmt">(* Example: parse two letters into a string *)</span>
+<span class="kw">let</span> <span class="fn">two_letters</span> =
+  letter <span class="op">>>=</span> <span class="kw">fun</span> a <span class="op">-></span>
+  letter <span class="op">>>=</span> <span class="kw">fun</span> b <span class="op">-></span>
+  return_ (<span class="type">String</span>.init <span class="num">2</span> (<span class="kw">fun</span> i <span class="op">-></span> <span class="kw">if</span> i <span class="op">=</span> <span class="num">0</span> <span class="kw">then</span> a <span class="kw">else</span> b))</code></pre>
+
+                <h3>Choice (&lt;|&gt;) — Try Alternatives</h3>
+                <pre><code><span class="kw">let</span> <span class="fn">bool_parser</span> =
+  (string_ <span class="str">"true"</span>  <span class="op">*></span> return_ <span class="kw">true</span>)
+  <span class="op">&lt;|></span>
+  (string_ <span class="str">"false"</span> <span class="op">*></span> return_ <span class="kw">false</span>)</code></pre>
+
+                <h3>Repetition — many, sep_by, between</h3>
+                <pre><code><span class="cmt">(* Parse a comma-separated list of integers in brackets *)</span>
+<span class="kw">let</span> <span class="fn">int_list</span> =
+  between (char_ <span class="str">'['</span>) (char_ <span class="str">']'</span>)
+    (sep_by integer (char_ <span class="str">','</span>))
+<span class="cmt">(* "[1, 2, 3]" → [1; 2; 3] *)</span></code></pre>
+
+                <h3>chainl1 / chainr1 — Operator Precedence</h3>
+                <p>Parse left-associative or right-associative infix operators. This is the key to correct arithmetic precedence:</p>
+                <pre><code><span class="cmt">(* Left-assoc: 10 - 3 - 2 = (10-3)-2 = 5 *)</span>
+<span class="kw">let</span> <span class="fn">expr</span> = chainl1 term add_op
+
+<span class="cmt">(* Right-assoc: 2^3^2 = 2^(3^2) = 512 *)</span>
+<span class="kw">let</span> <span class="fn">power</span> = chainr1 atom pow_op</code></pre>
+            </section>
+
+            <section>
+                <h2>Arithmetic Expression Parser</h2>
+                <p>A complete calculator built entirely from combinators. Handles <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>^</code>, and parentheses with correct precedence:</p>
+                <pre><code><span class="kw">type</span> <span class="type">expr</span> =
+  <span class="op">|</span> <span class="type">Num</span> <span class="kw">of</span> <span class="type">int</span>
+  <span class="op">|</span> <span class="type">Add</span> <span class="kw">of</span> <span class="type">expr</span> <span class="op">*</span> <span class="type">expr</span>
+  <span class="op">|</span> <span class="type">Sub</span> <span class="kw">of</span> <span class="type">expr</span> <span class="op">*</span> <span class="type">expr</span>
+  <span class="op">|</span> <span class="type">Mul</span> <span class="kw">of</span> <span class="type">expr</span> <span class="op">*</span> <span class="type">expr</span>  <span class="op">| ...</span>
+
+<span class="cmt">(* Grammar with precedence layers: *)</span>
+<span class="kw">let</span> <span class="fn">expr</span>  = chainl1 term  add_op   <span class="cmt">(* lowest: + - *)</span>
+<span class="kw">let</span> <span class="fn">term</span>  = chainl1 power mul_op   <span class="cmt">(* middle: * / *)</span>
+<span class="kw">let</span> <span class="fn">power</span> = chainr1 atom  pow_op   <span class="cmt">(* highest: ^  *)</span>
+<span class="kw">let</span> <span class="fn">atom</span>  = integer <span class="op">&lt;|></span> parens    <span class="cmt">(* base: num or (expr) *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>=== Parser Combinators ===
+Building parsers from small, composable pieces
+
+--- Primitive parsers ---
+digit on "42":    OK: 4
+letter on "abc":  OK: a
+char 'x' on "xyz": OK: x
+string "hi" on "hi there": OK: "hi"
+
+--- Number parsing ---
+integer "42": OK: 42
+integer "-7": OK: -7
+integer "0": OK: 0
+integer "12345": OK: 12345
+integer "abc": Error: expected digit at position 0
+
+--- Combinators: many, sep_by, between ---
+int list "[1, 2, 3]": OK: [1; 2; 3]
+int list "[]": OK: []
+int list "[42]": OK: [42]
+
+--- Key-value parser ---
+kv: OK: name = "Alice"
+kv list: OK: {name = "Alice", age = "30", city = "NYC"}
+
+--- Arithmetic expression parser ---
+Supports: + - * / ^ () with correct precedence
+
+  42                              AST: 42                                  = 42
+  2 + 3                           AST: (2 + 3)                             = 5
+  2 + 3 * 4                       AST: (2 + (3 * 4))                       = 14
+  (2 + 3) * 4                     AST: ((2 + 3) * 4)                       = 20
+  2 ^ 3 ^ 2                       AST: (2 ^ (3 ^ 2))                       = 512
+  10 - 3 - 2                      AST: ((10 - 3) - 2)                      = 5
+  100 / 5 / 4                     AST: ((100 / 5) / 4)                     = 5
+  (1 + 2) * (3 + 4)               AST: ((1 + 2) * (3 + 4))                 = 21
+  2 ^ 10                          AST: (2 ^ 10)                             = 1024
+  ((3 + 5) * 2) - (10 / 2)        AST: (((3 + 5) * 2) - (10 / 2))          = 11
+
+--- Quick calculator ---
+  calc "1+2+3" = 6
+  calc "2*3+4" = 10
+  calc "2*(3+4)" = 14
+  calc "2^8" = 256
+  calc "-5 + 10" = 5</pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>Combinator Reference</h2>
+                <table>
+                    <thead>
+                        <tr><th>Combinator</th><th>Operator</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>bind</code></td><td><code>>>=</code></td><td>Sequence two parsers (monadic bind)</td></tr>
+                        <tr><td><code>map</code></td><td><code>&lt;$></code></td><td>Transform a parser's result</td></tr>
+                        <tr><td>—</td><td><code>&lt;*></code></td><td>Applicative apply</td></tr>
+                        <tr><td>—</td><td><code>&lt;|></code></td><td>Choice: try first, then second</td></tr>
+                        <tr><td>—</td><td><code>*></code></td><td>Sequence, keep right result</td></tr>
+                        <tr><td>—</td><td><code>&lt;*</code></td><td>Sequence, keep left result</td></tr>
+                        <tr><td><code>many</code></td><td>—</td><td>Zero or more repetitions</td></tr>
+                        <tr><td><code>many1</code></td><td>—</td><td>One or more repetitions</td></tr>
+                        <tr><td><code>sep_by</code></td><td>—</td><td>Delimited lists</td></tr>
+                        <tr><td><code>between</code></td><td>—</td><td>Parse between delimiters</td></tr>
+                        <tr><td><code>chainl1</code></td><td>—</td><td>Left-associative operators</td></tr>
+                        <tr><td><code>chainr1</code></td><td>—</td><td>Right-associative operators</td></tr>
+                        <tr><td><code>optional</code></td><td>—</td><td>Maybe parse (returns option)</td></tr>
+                        <tr><td><code>try_</code></td><td>—</td><td>Backtracking on failure</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Concepts Introduced</h2>
+                <ul>
+                    <li><strong>Higher-order functions:</strong> Parsers are functions that take and return functions. Combinators are functions that take parser functions and produce new parser functions. Functions all the way down.</li>
+                    <li><strong>Monadic composition:</strong> The <code>bind</code> (>>=) operator sequences parsers while threading state (position). This is the same pattern as Haskell's <code>IO</code> monad, <code>Result</code> monad, etc.</li>
+                    <li><strong>Closures:</strong> Each parser captures its configuration (expected character, predicate) in a closure — a function bundled with its environment.</li>
+                    <li><strong>Recursive descent:</strong> The expression parser demonstrates mutual recursion — <code>expr</code> calls <code>term</code>, which calls <code>atom</code>, which can call back to <code>expr</code> via parentheses.</li>
+                    <li><strong>Operator precedence:</strong> Layered grammar rules (expr → term → power → atom) naturally encode precedence without any special algorithm.</li>
+                    <li><strong>Polymorphism:</strong> The same combinators work with any value type — <code>'a parser</code> can produce chars, ints, strings, AST nodes, or anything else.</li>
+                </ul>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="heap.html" class="nav-arrow">← Priority Queue</a>
+                <a href="concepts.html" class="nav-arrow">Next: Concept Index →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

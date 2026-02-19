@@ -162,6 +162,43 @@ Also demonstrates bottom-up O(n) heap construction via pairwise merging, heap so
 
 ---
 
+## Stage 8: Parser Combinators
+
+### [`parser.ml`](parser.ml) — Building Parsers from Small Pieces
+
+**Concepts:** higher-order functions (functions returning functions), closures, monadic bind (`>>=`), function composition, recursive descent, operator precedence, algebraic data types for ASTs
+
+Parser combinators are *the* quintessential functional programming pattern. Each parser is a function; you build complex parsers by combining simple ones with operators:
+
+```ocaml
+type 'a parser = string -> int -> 'a result
+
+(* Monadic bind: sequence two parsers *)
+let bind p f = fun input pos ->
+  match p input pos with
+  | Error _ as e -> e
+  | Ok (a, pos') -> (f a) input pos'
+```
+
+The library includes 15+ combinators (`bind`, `map`, `choice`, `many`, `sep_by`, `between`, `chainl1`, `chainr1`, etc.) and three complete parsers:
+
+- **Arithmetic expressions** with correct operator precedence (`+`, `-`, `*`, `/`, `^`, parentheses)
+- **Integer lists** (`[1, 2, 3]`)
+- **Key-value pairs** (`name = "Alice", age = "30"`)
+
+The expression parser demonstrates how layered grammar rules naturally encode precedence:
+
+```ocaml
+let expr  = chainl1 term  add_op   (* lowest: + - *)
+let term  = chainl1 power mul_op   (* middle: * / *)
+let power = chainr1 atom  pow_op   (* highest: ^  *)
+let atom  = integer <|> parens     (* base cases *)
+```
+
+**Key takeaway:** Monadic composition (`>>=`) is the most powerful functional pattern — it lets you thread state (parse position) through a chain of operations while keeping each step independent and composable. The same pattern appears in I/O, error handling, async programming, and more.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -180,12 +217,12 @@ After working through these examples, try:
 | Option types | `list_last_elem.ml`, `bst.ml`, `graph.ml` |
 | Recursion | All files |
 | Tail recursion | `mergesort.ml`, `fibonacci.ml` |
-| Algebraic data types | `bst.ml`, `graph.ml`, `heap.ml` |
-| Polymorphism (`'a`) | `bst.ml`, `mergesort.ml`, `heap.ml` |
-| Higher-order functions | `mergesort.ml`, `hello.ml`, `heap.ml` |
+| Algebraic data types | `bst.ml`, `graph.ml`, `heap.ml`, `parser.ml` |
+| Polymorphism (`'a`) | `bst.ml`, `mergesort.ml`, `heap.ml`, `parser.ml` |
+| Higher-order functions | `mergesort.ml`, `hello.ml`, `heap.ml`, `parser.ml` |
 | Pipe operator (`\|>`) | `hello.ml` |
 | Hash tables & mutability | `fibonacci.ml`, `graph.ml` |
-| Closures | `fibonacci.ml` |
+| Closures | `fibonacci.ml`, `parser.ml` |
 | Accumulators | `bst.ml`, `mergesort.ml` |
 | Input validation | `factor.ml` |
 | Mutual recursion | `factor.ml` |
@@ -197,3 +234,7 @@ After working through these examples, try:
 | Persistent data structures | `heap.ml` |
 | Priority queues / heaps | `heap.ml` |
 | Custom comparators | `mergesort.ml`, `heap.ml` |
+| Monadic composition (bind) | `parser.ml` |
+| Parser combinators | `parser.ml` |
+| Recursive descent parsing | `parser.ml` |
+| Operator precedence | `parser.ml` |
