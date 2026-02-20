@@ -711,7 +711,9 @@ let trie_chars_of_string s =
   List.init (String.length s) (String.get s)
 
 let trie_string_of_chars chars =
-  String.init (List.length chars) (List.nth chars)
+  let buf = Buffer.create (List.length chars) in
+  List.iter (Buffer.add_char buf) chars;
+  Buffer.contents buf
 
 let trie_insert word trie =
   let chars = trie_chars_of_string word in
@@ -883,9 +885,9 @@ let p_choice (p1 : 'a parser_t) (p2 : 'a parser_t) : 'a parser_t =
   fun input pos ->
     match p1 input pos with
     | ParseOk _ as result -> result
-    | ParseError (_, epos1) ->
+    | ParseError (_, epos1) as err ->
       if epos1 = pos then p2 input pos
-      else p1 input pos
+      else err
 
 let p_many (p : 'a parser_t) : 'a list parser_t =
   fun input pos ->

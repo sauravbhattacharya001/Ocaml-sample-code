@@ -83,28 +83,21 @@ let rec depth = function
 let from_list cmp lst =
   List.fold_left (fun h x -> insert cmp x h) Empty lst
 
-(* Build a heap from a list using bottom-up pairwise merging. O(n) *)
+(* Build a heap from a list using bottom-up pairwise merging. O(n)
+   Repeatedly merges adjacent pairs until one heap remains. *)
 let from_list_fast cmp lst =
   let singletons = List.map (fun x -> Node (1, x, Empty, Empty)) lst in
   let rec merge_pairs = function
+    | [] -> []
+    | [h] -> [h]
+    | h1 :: h2 :: rest -> merge cmp h1 h2 :: merge_pairs rest
+  in
+  let rec until_one = function
     | [] -> Empty
     | [h] -> h
-    | h1 :: h2 :: rest -> merge cmp (merge cmp h1 h2) (merge_pairs rest)
+    | heaps -> until_one (merge_pairs heaps)
   in
-  match singletons with
-  | [] -> Empty
-  | _ ->
-    let rec until_one heaps =
-      match heaps with
-      | [] -> Empty
-      | [h] -> h
-      | _ -> until_one (merge_pairs_list heaps)
-    and merge_pairs_list = function
-      | [] -> []
-      | [h] -> [h]
-      | h1 :: h2 :: rest -> merge cmp h1 h2 :: merge_pairs_list rest
-    in
-    until_one singletons
+  until_one singletons
 
 (* Extract all elements in sorted order. O(n log n) *)
 let to_sorted_list cmp h =

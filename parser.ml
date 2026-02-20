@@ -113,13 +113,13 @@ let ( <|> ) (p1 : 'a parser) (p2 : 'a parser) : 'a parser =
   fun input pos ->
     match p1 input pos with
     | Ok _ as result -> result
-    | Error (_, epos1) ->
+    | Error (_, epos1) as err ->
       if epos1 = pos then
         (* Only backtrack if p1 failed without consuming input *)
         p2 input pos
       else
-        (* p1 consumed input before failing — don't backtrack *)
-        p1 input pos
+        (* p1 consumed input before failing — don't backtrack, propagate error *)
+        err
 
 (* Try a parser: if it fails, always backtrack (reset position) *)
 let try_ (p : 'a parser) : 'a parser =

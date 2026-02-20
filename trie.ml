@@ -19,9 +19,11 @@ let empty = { is_word = false; children = CharMap.empty }
 let chars_of_string s =
   List.init (String.length s) (String.get s)
 
-(* Convert a character list back to a string *)
+(* Convert a character list back to a string — O(n) via Buffer *)
 let string_of_chars chars =
-  String.init (List.length chars) (List.nth chars)
+  let buf = Buffer.create (List.length chars) in
+  List.iter (Buffer.add_char buf) chars;
+  Buffer.contents buf
 
 (* Insert a word into the trie — O(m) where m = word length *)
 let insert word trie =
