@@ -1,0 +1,79 @@
+# CI/CD Pipeline — OCaml Sample Code
+# Builds all programs, runs tests, and checks formatting on every push/PR.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test (OCaml ${{ matrix.ocaml-compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        ocaml-compiler: ["5.x", "4.14.x"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Install dependencies
+        run: |
+          opam install bisect_ppx ocamlfind --yes
+          eval $(opam env)
+
+      - name: Build all programs
+        run: |
+          eval $(opam env)
+          make all
+
+      - name: Run tests
+        run: |
+          eval $(opam env)
+          make test
+
+      - name: Run all programs (smoke test)
+        run: |
+          eval $(opam env)
+          make run
+
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.x"
+
+      - name: Install ocamlformat
+        run: opam install ocamlformat --yes
+
+      - name: Check formatting
+        run: |
+          eval $(opam env)
+          # Check if .ocamlformat exists; if not, skip
+          if [ -f .ocamlformat ]; then
+            ocamlformat --check *.ml
+          else
+            echo "No .ocamlformat config found — skipping format check"
+            # Still validate syntax by compiling
+            make all
+          fi
