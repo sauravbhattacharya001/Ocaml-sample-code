@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trie (Prefix Tree) — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="trie.html" class="nav-link active">🔤 Trie (Prefix Tree)</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🔤</span>
+                <h1>Trie — Prefix Tree</h1>
+            </div>
+            <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/trie.ml"><code>trie.ml</code></a></p>
+            <div class="example-meta">
+                <span class="concept-badge">Map.Make functor</span>
+                <span class="concept-badge">recursive records</span>
+                <span class="concept-badge">persistence</span>
+                <span class="concept-badge">prefix search</span>
+                <span class="concept-badge">auto-complete</span>
+                <span class="concept-badge">tree pruning</span>
+                <span class="concept-badge">string manipulation</span>
+            </div>
+
+            <section>
+                <h2>Overview</h2>
+                <p>A <strong>trie</strong> (pronounced "try") is a tree where each edge represents a character. Words sharing a common prefix share the same path from the root — making prefix search and auto-complete natural O(m) operations (where m is the query length, independent of the number of stored words).</p>
+                <p>This implementation is <em>purely functional</em> — every operation returns a new trie while the original is preserved. The <code>CharMap</code> (via <code>Map.Make(Char)</code>) gives sorted character keys for free, so <code>all_words</code> returns results in lexicographic order without explicit sorting.</p>
+            </section>
+
+            <section>
+                <h2>Data Type</h2>
+                <p>Each node has a boolean flag (<code>is_word</code>) marking whether a complete word ends here, and a map of children indexed by character:</p>
+                <pre><code><span class="kw">module</span> <span class="type">CharMap</span> = <span class="type">Map</span>.<span class="fn">Make</span>(<span class="type">Char</span>)
+
+<span class="kw">type</span> <span class="type">trie</span> = {
+  is_word: <span class="type">bool</span>;              <span class="cmt">(* does a word end at this node? *)</span>
+  children: <span class="type">trie CharMap.t</span>;   <span class="cmt">(* child nodes keyed by character *)</span>
+}</code></pre>
+                <p>For example, inserting "an", "ant", "and" creates:</p>
+                <pre><code>(root)
+└── a
+    └── n *        <span class="cmt">(* "an" ends here *)</span>
+        ├── d *    <span class="cmt">(* "and" ends here *)</span>
+        └── t *    <span class="cmt">(* "ant" ends here *)</span></code></pre>
+            </section>
+
+            <section>
+                <h2>Core Operations</h2>
+
+                <h3>Insert — Walk Down, Create Nodes</h3>
+                <p>Recursively traverse the trie character by character, creating new nodes as needed. At the last character, set <code>is_word = true</code>:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">insert</span> word trie =
+  <span class="kw">let</span> chars = <span class="fn">chars_of_string</span> word <span class="kw">in</span>
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> chars node =
+    <span class="kw">match</span> chars <span class="kw">with</span>
+    <span class="op">|</span> [] <span class="op">-></span> { node <span class="kw">with</span> is_word = <span class="const">true</span> }
+    <span class="op">|</span> c :: rest <span class="op">-></span>
+      <span class="kw">let</span> child = <span class="kw">match</span> <span class="type">CharMap</span>.<span class="fn">find_opt</span> c node.children <span class="kw">with</span>
+        <span class="op">|</span> <span class="type">Some</span> t <span class="op">-></span> t
+        <span class="op">|</span> <span class="type">None</span> <span class="op">-></span> empty
+      <span class="kw">in</span>
+      <span class="kw">let</span> updated_child = <span class="fn">aux</span> rest child <span class="kw">in</span>
+      { node <span class="kw">with</span> children = <span class="type">CharMap</span>.<span class="fn">add</span> c updated_child node.children }
+  <span class="kw">in</span>
+  <span class="fn">aux</span> chars trie</code></pre>
+
+                <h3>Member — Check if a Word Exists</h3>
+                <p>Follow the path character by character. The word exists only if we reach the end and <code>is_word</code> is true:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">member</span> word trie =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> chars node =
+    <span class="kw">match</span> chars <span class="kw">with</span>
+    <span class="op">|</span> [] <span class="op">-></span> node.is_word
+    <span class="op">|</span> c :: rest <span class="op">-></span>
+      <span class="kw">match</span> <span class="type">CharMap</span>.<span class="fn">find_opt</span> c node.children <span class="kw">with</span>
+      <span class="op">|</span> <span class="type">None</span> <span class="op">-></span> <span class="const">false</span>
+      <span class="op">|</span> <span class="type">Some</span> child <span class="op">-></span> <span class="fn">aux</span> rest child
+  <span class="kw">in</span>
+  <span class="fn">aux</span> chars trie</code></pre>
+
+                <h3>Delete with Pruning</h3>
+                <p>Unmark the word, then prune dead-end nodes (nodes with no words and no children) on the way back up:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">delete</span> word trie =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> chars node =
+    <span class="kw">match</span> chars <span class="kw">with</span>
+    <span class="op">|</span> [] <span class="op">-></span> { node <span class="kw">with</span> is_word = <span class="const">false</span> }
+    <span class="op">|</span> c :: rest <span class="op">-></span>
+      <span class="cmt">(* ... update child, then prune if empty *)</span>
+      <span class="kw">if</span> <span class="kw">not</span> updated.is_word <span class="op">&&</span> <span class="type">CharMap</span>.<span class="fn">is_empty</span> updated.children
+      <span class="kw">then</span> { node <span class="kw">with</span> children = <span class="type">CharMap</span>.<span class="fn">remove</span> c node.children }
+      <span class="kw">else</span> { node <span class="kw">with</span> children = <span class="type">CharMap</span>.<span class="fn">add</span> c updated node.children }
+  <span class="kw">in</span>
+  <span class="fn">aux</span> chars trie</code></pre>
+            </section>
+
+            <section>
+                <h2>Prefix Operations</h2>
+
+                <h3>Auto-Complete — Find All Words with a Prefix</h3>
+                <p>Navigate to the prefix node, then collect all words in the subtree. Because <code>CharMap</code> maintains sorted order, results are lexicographic:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">words_with_prefix</span> prefix trie =
+  <span class="kw">match</span> <span class="fn">find_subtrie</span> prefix trie <span class="kw">with</span>
+  <span class="op">|</span> <span class="type">None</span> <span class="op">-></span> []
+  <span class="op">|</span> <span class="type">Some</span> subtrie <span class="op">-></span>
+    <span class="cmt">(* DFS through subtrie, collecting words *)</span>
+    <span class="fn">collect</span> prefix_chars subtrie</code></pre>
+
+                <h3>Longest Common Prefix</h3>
+                <p>Walk down single-child paths until a branch point or word-end is reached:</p>
+                <pre><code><span class="kw">let</span> <span class="fn">longest_common_prefix</span> trie =
+  <span class="kw">let</span> <span class="kw">rec</span> <span class="fn">aux</span> node =
+    <span class="kw">match</span> <span class="type">CharMap</span>.<span class="fn">bindings</span> node.children <span class="kw">with</span>
+    <span class="op">|</span> [(c, child)] <span class="kw">when</span> <span class="kw">not</span> node.is_word <span class="op">-></span>
+      <span class="type">String</span>.<span class="fn">make</span> <span class="num">1</span> c <span class="op">^</span> <span class="fn">aux</span> child
+    <span class="op">|</span> _ <span class="op">-></span> <span class="str">""</span>
+  <span class="kw">in</span>
+  <span class="fn">aux</span> trie</code></pre>
+            </section>
+
+            <section>
+                <h2>All Operations</h2>
+                <ul>
+                    <li><strong><code>insert</code>:</strong> Add a word to the trie — O(m)</li>
+                    <li><strong><code>member</code>:</strong> Check if a word exists — O(m)</li>
+                    <li><strong><code>delete</code>:</strong> Remove a word with node pruning — O(m)</li>
+                    <li><strong><code>has_prefix</code>:</strong> Check if any word starts with a prefix — O(m)</li>
+                    <li><strong><code>words_with_prefix</code>:</strong> Auto-complete — find all words with given prefix — O(m + k) where k = results</li>
+                    <li><strong><code>all_words</code>:</strong> List all words in sorted order — O(n)</li>
+                    <li><strong><code>word_count</code>:</strong> Count stored words — O(nodes)</li>
+                    <li><strong><code>node_count</code>:</strong> Count trie nodes — O(nodes)</li>
+                    <li><strong><code>longest_common_prefix</code>:</strong> Find the shared prefix of all words — O(m)</li>
+                    <li><strong><code>of_list</code>:</strong> Build a trie from a word list</li>
+                    <li><strong><code>to_string</code>:</strong> ASCII tree visualization</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Output</h2>
+                <div class="output-block">
+                    <pre>=== Trie (Prefix Tree) ===
+
+Inserted 14 words
+
+--- Membership ---
+member "apple":  true
+member "app":    true
+member "ap":     false
+member "bat":    true
+member "batman": false
+
+--- Prefix Search ---
+has_prefix "app": true
+has_prefix "xyz": false
+
+--- Auto-complete ---
+  "app" -> [app; apple; application; apply]
+  "car" -> [car; card; care; careful; cart]
+  "bat" -> [bat; batch; bath]
+  "ba"  -> [bad; bat; batch; bath]
+  "z"   -> []
+
+--- Statistics ---
+Word count: 14
+All words: [app; apple; application; apply; apt; bad; bat; batch; bath; car; card; care; careful; cart]
+
+LCP of [flower; flow; flight]: "fl"
+LCP of [test; testing; tested; tester]: "test"
+
+--- Deletion ---
+After deleting "apple":
+  member "apple": false
+  member "app":   true
+  word count: 13
+
+--- Persistence ---
+Original still has "apple": true
+Original word count: 14
+
+--- Trie Structure ---
+(root)
+└── a
+    └── n *
+        ├── d *
+        └── t *</pre>
+                </div>
+            </section>
+
+            <section>
+                <h2>Concepts Introduced</h2>
+                <ul>
+                    <li><strong>Map.Make functor:</strong> <code>Map.Make(Char)</code> creates a balanced BST map keyed by characters. The functor pattern lets you create type-safe containers for any ordered key type — reuse OCaml's standard library instead of rolling your own.</li>
+                    <li><strong>Recursive records:</strong> The <code>trie</code> type contains <code>trie CharMap.t</code> as a field — a record that references itself. Unlike algebraic data types (BST, heap), this uses named fields for clarity.</li>
+                    <li><strong>Persistence:</strong> Like the heap, every operation returns a new trie. Inserting or deleting creates a new path while sharing unchanged subtrees — efficient copy-on-write.</li>
+                    <li><strong>Tree pruning:</strong> Deletion doesn't just unmark words — it removes now-unnecessary nodes on the way back up the recursion. This keeps the trie compact.</li>
+                    <li><strong>Prefix-based retrieval:</strong> The trie's structure naturally groups words by prefix, making auto-complete a simple subtree traversal rather than a linear scan.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Complexity</h2>
+                <table>
+                    <thead>
+                        <tr><th>Operation</th><th>Time</th><th>Notes</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>insert</code></td><td>O(m)</td><td>m = word length</td></tr>
+                        <tr><td><code>member</code></td><td>O(m)</td><td>independent of # words</td></tr>
+                        <tr><td><code>delete</code></td><td>O(m)</td><td>includes pruning</td></tr>
+                        <tr><td><code>has_prefix</code></td><td>O(m)</td><td>m = prefix length</td></tr>
+                        <tr><td><code>words_with_prefix</code></td><td>O(m + k)</td><td>k = number of matches</td></tr>
+                        <tr><td><code>all_words</code></td><td>O(n)</td><td>n = total characters stored</td></tr>
+                        <tr><td><code>word_count</code></td><td>O(nodes)</td><td>full traversal</td></tr>
+                        <tr><td><code>longest_common_prefix</code></td><td>O(m)</td><td>m = LCP length</td></tr>
+                    </tbody>
+                </table>
+                <p><strong>Space:</strong> O(Σ × n) worst case, where Σ is alphabet size (256 for ASCII) and n is total characters. In practice, shared prefixes reduce this significantly.</p>
+            </section>
+
+            <div class="nav-arrows">
+                <a href="parser.html" class="nav-arrow">← Parser Combinators</a>
+                <a href="index.html" class="nav-arrow">Back to Overview →</a>
+            </div>
+
+            <footer>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

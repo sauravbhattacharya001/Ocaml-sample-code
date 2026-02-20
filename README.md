@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation.
 
 ## Programs
 
@@ -35,6 +35,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
 | [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
 | [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
+| [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
 
 ## Getting Started
 
@@ -240,6 +241,45 @@ Top 3 smallest: [3; 7; 12]
 Persistence: original heap unchanged after insert/delete
 ```
 
+### Trie (Prefix Tree) — `trie.ml`
+
+A purely functional trie for efficient string storage and prefix-based retrieval. Uses OCaml's `Map.Make` functor for character-indexed children. Every operation returns a new trie — the original is preserved (persistence). Deletion prunes nodes that are no longer needed.
+
+```ocaml
+module CharMap = Map.Make(Char)
+
+type trie = {
+  is_word: bool;               (* does a word end here? *)
+  children: trie CharMap.t;    (* children keyed by char *)
+}
+
+(* Insert — walk down, create nodes as needed *)
+let rec insert word trie =
+  match chars with
+  | [] -> { node with is_word = true }
+  | c :: rest ->
+    let child = match CharMap.find_opt c node.children with
+      | Some t -> t | None -> empty in
+    { node with children = CharMap.add c (aux rest child) node.children }
+
+(* Prefix search — find subtrie then collect all words *)
+let words_with_prefix prefix trie =
+  match find_subtrie prefix trie with
+  | None -> []
+  | Some subtrie -> collect_all_words subtrie
+```
+
+```
+member "apple":  true   |  member "ap":     false
+has_prefix "app": true  |  has_prefix "xyz": false
+
+Auto-complete "app" -> [app; apple; application; apply]
+Auto-complete "car" -> [car; card; care; careful; cart]
+
+LCP of [flower; flow; flight]: "fl"
+All words sorted: [ball; bat; car; card; cat]
+```
+
 ### Last Element — `list_last_elem.ml`
 
 Classic safe list traversal using `Option` — no exceptions, no crashes on empty lists.
@@ -295,6 +335,7 @@ Ocaml-sample-code/
 ├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
 ├── heap.ml               # Priority queue (leftist min-heap)
 ├── parser.ml             # Parser combinators (arithmetic, lists, key-value)
+├── trie.ml               # Trie (prefix tree) — string storage, prefix search
 ├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
@@ -345,7 +386,7 @@ make coverage-html
 # Open _coverage/index.html in your browser
 ```
 
-**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components), parser combinators (primitives, combinators, arithmetic expression evaluation).
+**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components), trie operations (insert, delete, member, prefix search, auto-complete, longest common prefix, pruning, persistence), parser combinators (primitives, combinators, arithmetic expression evaluation).
 
 Coverage reports are generated automatically on every push via [GitHub Actions](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml) using [bisect_ppx](https://github.com/aantron/bisect_ppx).
 

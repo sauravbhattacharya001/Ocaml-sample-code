@@ -1,14 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fibonacci — OCaml Sample Code</title>
+    <title>Fibonacci � OCaml Sample Code</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="sidebar">
-        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="sidebar-header"><a href="index.html" class="logo">?? OCaml Samples</a></div>
         <div class="nav-section">
             <div class="nav-title">Getting Started</div>
             <a href="index.html" class="nav-link">Overview</a>
@@ -17,28 +17,28 @@
         </div>
         <div class="nav-section">
             <div class="nav-title">Examples</div>
-            <a href="hello.html" class="nav-link">👋 Hello OCaml</a>
-            <a href="list-last.html" class="nav-link">🔍 Last Element</a>
-            <a href="factor.html" class="nav-link">🔢 Factorization</a>
-            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
-            <a href="mergesort.html" class="nav-link">📊 Merge Sort</a>
-            <a href="fibonacci.html" class="nav-link active">🐇 Fibonacci</a>
-            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
-            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
-            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="hello.html" class="nav-link">?? Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">?? Last Element</a>
+            <a href="factor.html" class="nav-link">?? Factorization</a>
+            <a href="bst.html" class="nav-link">?? Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">?? Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link active">?? Fibonacci</a>
+            <a href="graph.html" class="nav-link">??? Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">?? Priority Queue</a>
+            <a href="parser.html" class="nav-link">?? Parser Combinators</a>
         </div>
         <div class="nav-section">
             <div class="nav-title">Reference</div>
             <a href="concepts.html" class="nav-link">Concept Index</a>
-            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ?</a>
         </div>
     </nav>
 
     <main class="content">
         <div class="container">
             <div class="example-header">
-                <span class="icon">🐇</span>
-                <h1>Fibonacci — Three Approaches</h1>
+                <span class="icon">??</span>
+                <h1>Fibonacci � Three Approaches</h1>
             </div>
             <p><strong>File:</strong> <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/fibonacci.ml"><code>fibonacci.ml</code></a></p>
             <div class="example-meta">
@@ -58,14 +58,14 @@
             <section>
                 <h2>Three Approaches</h2>
 
-                <h3>1. Naive Recursion — O(2<sup>n</sup>)</h3>
+                <h3>1. Naive Recursion � O(2<sup>n</sup>)</h3>
                 <p>The textbook implementation. Beautiful but exponentially slow:</p>
                 <pre><code><span class="kw">let</span> <span class="kw">rec</span> <span class="fn">fib_naive</span> = <span class="kw">function</span>
   <span class="op">|</span> <span class="num">0</span> <span class="op">-></span> <span class="num">0</span>
   <span class="op">|</span> <span class="num">1</span> <span class="op">-></span> <span class="num">1</span>
   <span class="op">|</span> n <span class="op">-></span> <span class="fn">fib_naive</span> (n - <span class="num">1</span>) + <span class="fn">fib_naive</span> (n - <span class="num">2</span>)</code></pre>
 
-                <h3>2. Memoized — O(n) time, O(n) space</h3>
+                <h3>2. Memoized � O(n) time, O(n) space</h3>
                 <p>A closure captures a private hash table. The cache persists between calls but is invisible to the outside world:</p>
                 <pre><code><span class="kw">let</span> fib_memo =
   <span class="kw">let</span> cache = <span class="fn">Hashtbl.create</span> <span class="num">64</span> <span class="kw">in</span>
@@ -80,7 +80,7 @@
       <span class="fn">Hashtbl.replace</span> cache n v; v
   <span class="kw">in</span> <span class="fn">fib</span></code></pre>
 
-                <h3>3. Tail-Recursive Iterative — O(n) time, O(1) space</h3>
+                <h3>3. Tail-Recursive Iterative � O(n) time, O(1) space</h3>
                 <p>The most efficient approach. Uses two accumulators instead of a cache:</p>
                 <pre><code><span class="kw">let</span> <span class="fn">fib_iter</span> n =
   <span class="kw">if</span> n &lt;= <span class="num">0</span> <span class="kw">then</span> <span class="num">0</span>
@@ -104,16 +104,16 @@ fib_iter(35)  = 9227465  (0.000001s)
 Speedup (memo vs naive): 184200x
 fib_iter(50) = 12586269025</pre>
                 </div>
-                <p>The memoized and iterative versions are ~184,000× faster than naive for n=35. The gap grows exponentially for larger inputs.</p>
+                <p>The memoized and iterative versions are ~184,000� faster than naive for n=35. The gap grows exponentially for larger inputs.</p>
             </section>
 
             <div class="nav-arrows">
-                <a href="mergesort.html" class="nav-arrow">← Merge Sort</a>
-                <a href="graph.html" class="nav-arrow">Next: Graph Algorithms →</a>
+                <a href="mergesort.html" class="nav-arrow">? Merge Sort</a>
+                <a href="graph.html" class="nav-arrow">Next: Graph Algorithms ?</a>
             </div>
 
             <footer>
-                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> · MIT License</p>
+                <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a> � MIT License</p>
             </footer>
         </div>
     </main>

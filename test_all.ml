@@ -696,6 +696,136 @@ let test_graph () = suite "Graph" (fun () ->
   assert_true ~msg:"empty graph no cycle" (not (graph_has_cycle eg));
 )
 
+(* ===== Trie functions (from trie.ml) ===== *)
+
+module CharMap = Map.Make(Char)
+
+type trie = {
+  is_word: bool;
+  children: trie CharMap.t;
+}
+
+let trie_empty = { is_word = false; children = CharMap.empty }
+
+let trie_chars_of_string s =
+  List.init (String.length s) (String.get s)
+
+let trie_string_of_chars chars =
+  String.init (List.length chars) (List.nth chars)
+
+let trie_insert word trie =
+  let chars = trie_chars_of_string word in
+  let rec aux chars node =
+    match chars with
+    | [] -> { node with is_word = true }
+    | c :: rest ->
+      let child = match CharMap.find_opt c node.children with
+        | Some t -> t
+        | None -> trie_empty
+      in
+      let updated_child = aux rest child in
+      { node with children = CharMap.add c updated_child node.children }
+  in
+  aux chars trie
+
+let trie_member word trie =
+  let chars = trie_chars_of_string word in
+  let rec aux chars node =
+    match chars with
+    | [] -> node.is_word
+    | c :: rest ->
+      match CharMap.find_opt c node.children with
+      | None -> false
+      | Some child -> aux rest child
+  in
+  aux chars trie
+
+let trie_has_prefix prefix trie =
+  let chars = trie_chars_of_string prefix in
+  let rec aux chars node =
+    match chars with
+    | [] -> true
+    | c :: rest ->
+      match CharMap.find_opt c node.children with
+      | None -> false
+      | Some child -> aux rest child
+  in
+  aux chars trie
+
+let trie_find_subtrie prefix trie =
+  let chars = trie_chars_of_string prefix in
+  let rec aux chars node =
+    match chars with
+    | [] -> Some node
+    | c :: rest ->
+      match CharMap.find_opt c node.children with
+      | None -> None
+      | Some child -> aux rest child
+  in
+  aux chars trie
+
+let trie_words_with_prefix prefix trie =
+  match trie_find_subtrie prefix trie with
+  | None -> []
+  | Some subtrie ->
+    let prefix_chars = trie_chars_of_string prefix in
+    let rec collect acc path node =
+      let acc = if node.is_word then (trie_string_of_chars (List.rev path)) :: acc else acc in
+      CharMap.fold (fun c child acc ->
+        collect acc (c :: path) child
+      ) node.children acc
+    in
+    List.rev (collect [] (List.rev prefix_chars) subtrie)
+
+let trie_all_words trie = trie_words_with_prefix "" trie
+
+let trie_word_count trie =
+  let rec aux node =
+    let count = if node.is_word then 1 else 0 in
+    CharMap.fold (fun _ child acc -> acc + aux child) node.children count
+  in
+  aux trie
+
+let trie_node_count trie =
+  let rec aux node =
+    1 + CharMap.fold (fun _ child acc -> acc + aux child) node.children 0
+  in
+  aux trie
+
+let trie_delete word trie =
+  let chars = trie_chars_of_string word in
+  let rec aux chars node =
+    match chars with
+    | [] ->
+      if not node.is_word then node
+      else { node with is_word = false }
+    | c :: rest ->
+      match CharMap.find_opt c node.children with
+      | None -> node
+      | Some child ->
+        let updated_child = aux rest child in
+        if not updated_child.is_word && CharMap.is_empty updated_child.children then
+          { node with children = CharMap.remove c node.children }
+        else
+          { node with children = CharMap.add c updated_child node.children }
+  in
+  aux chars trie
+
+let trie_longest_common_prefix trie =
+  let rec aux node =
+    if node.is_word && not (CharMap.is_empty node.children) then ""
+    else if node.is_word then ""
+    else
+      match CharMap.bindings node.children with
+      | [(c, child)] -> String.make 1 c ^ aux child
+      | _ -> ""
+  in
+  if CharMap.is_empty trie.children then ""
+  else aux trie
+
+let trie_of_list words =
+  List.fold_left (fun t w -> trie_insert w t) trie_empty words
+
 (* ===== Parser combinator functions (from parser.ml) ===== *)
 
 type 'a parse_result =
@@ -1117,6 +1247,159 @@ let test_parser () = suite "Parser Combinators" (fun () ->
   assert_true ~msg:"chainr1 single" (p_run pow_parser "5" = Ok 5);
 )
 
+let test_trie () = suite "Trie" (fun () ->
+  (* Empty trie *)
+  assert_true ~msg:"empty trie word count 0" (trie_word_count trie_empty = 0);
+  assert_true ~msg:"empty trie node count 1" (trie_node_count trie_empty = 1);
+  assert_true ~msg:"empty trie member false" (not (trie_member "hello" trie_empty));
+  assert_true ~msg:"empty trie has_prefix false" (not (trie_has_prefix "a" trie_empty));
+  assert_true ~msg:"empty trie all_words empty" (trie_all_words trie_empty = []);
+  assert_true ~msg:"empty trie LCP empty" (trie_longest_common_prefix trie_empty = "");
+
+  (* Single word *)
+  let t1 = trie_insert "hello" trie_empty in
+  assert_true ~msg:"single word member" (trie_member "hello" t1);
+  assert_true ~msg:"single word prefix" (trie_has_prefix "hel" t1);
+  assert_true ~msg:"single word not member prefix" (not (trie_member "hel" t1));
+  assert_true ~msg:"single word count 1" (trie_word_count t1 = 1);
+  assert_true ~msg:"single word all_words" (trie_all_words t1 = ["hello"]);
+
+  (* Multiple words *)
+  let t = trie_of_list ["apple"; "app"; "application"; "apply"; "apt"] in
+  assert_true ~msg:"multi member apple" (trie_member "apple" t);
+  assert_true ~msg:"multi member app" (trie_member "app" t);
+  assert_true ~msg:"multi member application" (trie_member "application" t);
+  assert_true ~msg:"multi member apply" (trie_member "apply" t);
+  assert_true ~msg:"multi member apt" (trie_member "apt" t);
+  assert_true ~msg:"multi not member ap" (not (trie_member "ap" t));
+  assert_true ~msg:"multi not member apples" (not (trie_member "apples" t));
+  assert_true ~msg:"multi word count 5" (trie_word_count t = 5);
+
+  (* Prefix search *)
+  let app_words = trie_words_with_prefix "app" t in
+  assert_true ~msg:"prefix app count 4" (List.length app_words = 4);
+  assert_true ~msg:"prefix app has apple" (List.mem "apple" app_words);
+  assert_true ~msg:"prefix app has app" (List.mem "app" app_words);
+  assert_true ~msg:"prefix app has application" (List.mem "application" app_words);
+  assert_true ~msg:"prefix app has apply" (List.mem "apply" app_words);
+  assert_true ~msg:"prefix app no apt" (not (List.mem "apt" app_words));
+
+  let ap_words = trie_words_with_prefix "ap" t in
+  assert_true ~msg:"prefix ap count 5" (List.length ap_words = 5);
+
+  let apt_words = trie_words_with_prefix "apt" t in
+  assert_true ~msg:"prefix apt count 1" (apt_words = ["apt"]);
+
+  let z_words = trie_words_with_prefix "z" t in
+  assert_true ~msg:"prefix z empty" (z_words = []);
+
+  (* has_prefix *)
+  assert_true ~msg:"has_prefix a" (trie_has_prefix "a" t);
+  assert_true ~msg:"has_prefix ap" (trie_has_prefix "ap" t);
+  assert_true ~msg:"has_prefix app" (trie_has_prefix "app" t);
+  assert_true ~msg:"has_prefix appl" (trie_has_prefix "appl" t);
+  assert_true ~msg:"has_prefix not b" (not (trie_has_prefix "b" t));
+  assert_true ~msg:"has_prefix empty string" (trie_has_prefix "" t);
+
+  (* Deletion *)
+  let t2 = trie_delete "apple" t in
+  assert_true ~msg:"deleted apple not member" (not (trie_member "apple" t2));
+  assert_true ~msg:"app still member after deleting apple" (trie_member "app" t2);
+  assert_true ~msg:"application still member" (trie_member "application" t2);
+  assert_true ~msg:"delete word count" (trie_word_count t2 = 4);
+
+  (* Delete word that's prefix of another *)
+  let t3 = trie_delete "app" t in
+  assert_true ~msg:"deleted app not member" (not (trie_member "app" t3));
+  assert_true ~msg:"apple still member after deleting app" (trie_member "apple" t3);
+  assert_true ~msg:"delete prefix word count" (trie_word_count t3 = 4);
+
+  (* Delete non-existent word *)
+  let t4 = trie_delete "banana" t in
+  assert_true ~msg:"delete non-existent no change" (trie_word_count t4 = 5);
+
+  (* Delete all words *)
+  let t5 = List.fold_left (fun t w -> trie_delete w t)
+    t ["apple"; "app"; "application"; "apply"; "apt"] in
+  assert_true ~msg:"delete all word count 0" (trie_word_count t5 = 0);
+  assert_true ~msg:"delete all is empty" (trie_all_words t5 = []);
+
+  (* Pruning: nodes should be removed when no longer needed *)
+  let tp = trie_of_list ["abc"] in
+  let tp2 = trie_delete "abc" tp in
+  assert_true ~msg:"pruned trie node count 1" (trie_node_count tp2 = 1);
+
+  (* Persistence — original unchanged *)
+  assert_true ~msg:"original still has apple" (trie_member "apple" t);
+  assert_true ~msg:"original word count unchanged" (trie_word_count t = 5);
+
+  (* Longest common prefix *)
+  let lcp1 = trie_of_list ["flower"; "flow"; "flight"] in
+  assert_equal ~msg:"LCP fl" "fl" (trie_longest_common_prefix lcp1);
+
+  let lcp2 = trie_of_list ["test"; "testing"; "tested"; "tester"] in
+  assert_equal ~msg:"LCP test" "test" (trie_longest_common_prefix lcp2);
+
+  let lcp3 = trie_of_list ["abc"; "xyz"] in
+  assert_equal ~msg:"LCP no common" "" (trie_longest_common_prefix lcp3);
+
+  let lcp4 = trie_of_list ["same"; "same"; "same"] in
+  assert_equal ~msg:"LCP all same" "same" (trie_longest_common_prefix lcp4);
+
+  let lcp5 = trie_of_list ["a"; "ab"; "abc"] in
+  assert_equal ~msg:"LCP prefix chain" "a" (trie_longest_common_prefix lcp5);
+
+  (* Sorted order *)
+  let sorted_t = trie_of_list ["cat"; "car"; "card"; "bat"; "ball"] in
+  let all = trie_all_words sorted_t in
+  assert_equal ~msg:"all_words sorted" "[ball; bat; car; card; cat]"
+    ("[" ^ String.concat "; " all ^ "]");
+
+  (* Empty string as word *)
+  let te = trie_insert "" trie_empty in
+  assert_true ~msg:"empty string member" (trie_member "" te);
+  assert_true ~msg:"empty string word count 1" (trie_word_count te = 1);
+  let te2 = trie_delete "" te in
+  assert_true ~msg:"empty string deleted" (not (trie_member "" te2));
+
+  (* Duplicate insertion *)
+  let td = trie_insert "hello" (trie_insert "hello" trie_empty) in
+  assert_true ~msg:"duplicate insert count 1" (trie_word_count td = 1);
+
+  (* Single character words *)
+  let tc = trie_of_list ["a"; "b"; "c"] in
+  assert_true ~msg:"single char words count 3" (trie_word_count tc = 3);
+  assert_true ~msg:"single char member a" (trie_member "a" tc);
+  assert_true ~msg:"single char member b" (trie_member "b" tc);
+  assert_true ~msg:"single char member c" (trie_member "c" tc);
+
+  (* Words with shared prefixes *)
+  let ts = trie_of_list ["do"; "dog"; "dogs"; "done"; "door"] in
+  assert_true ~msg:"shared prefix count 5" (trie_word_count ts = 5);
+  let do_words = trie_words_with_prefix "do" ts in
+  assert_true ~msg:"prefix do has 5 words" (List.length do_words = 5);
+  let dog_words = trie_words_with_prefix "dog" ts in
+  assert_true ~msg:"prefix dog has 2 words" (List.length dog_words = 2);
+
+  (* find_subtrie *)
+  assert_true ~msg:"find_subtrie existing" (trie_find_subtrie "app" t <> None);
+  assert_true ~msg:"find_subtrie non-existing" (trie_find_subtrie "xyz" t = None);
+  assert_true ~msg:"find_subtrie empty prefix" (trie_find_subtrie "" t <> None);
+
+  (* Node count *)
+  let tn = trie_of_list ["ab"; "ac"] in
+  (* root -> a -> b*, c* = 4 nodes *)
+  assert_true ~msg:"node count ab+ac" (trie_node_count tn = 4);
+
+  (* Large trie *)
+  let big_words = List.init 100 (fun i -> Printf.sprintf "word%03d" i) in
+  let big_t = trie_of_list big_words in
+  assert_true ~msg:"large trie word count 100" (trie_word_count big_t = 100);
+  assert_true ~msg:"large trie member word000" (trie_member "word000" big_t);
+  assert_true ~msg:"large trie member word099" (trie_member "word099" big_t);
+  assert_true ~msg:"large trie prefix word" (List.length (trie_words_with_prefix "word" big_t) = 100);
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -1128,6 +1411,7 @@ let () =
   test_heap ();
   test_list_last ();
   test_graph ();
+  test_trie ();
   test_parser ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"

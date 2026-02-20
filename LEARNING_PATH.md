@@ -162,7 +162,32 @@ Also demonstrates bottom-up O(n) heap construction via pairwise merging, heap so
 
 ---
 
-## Stage 8: Parser Combinators
+## Stage 8: Tries & String Algorithms
+
+### [`trie.ml`](trie.ml) — Prefix Tree for String Storage
+
+**Concepts:** `Map.Make` functor (character-indexed children), recursive record types, persistence, string-to-char-list conversion, tree pruning, prefix-based retrieval
+
+A trie stores strings as paths through a tree where each edge is a character. Words sharing prefixes share nodes — making prefix search and auto-complete natural O(m) operations (m = query length). Like the heap, every operation returns a new trie — the original is preserved.
+
+```ocaml
+module CharMap = Map.Make(Char)
+
+type trie = {
+  is_word: bool;               (* does a word end at this node? *)
+  children: trie CharMap.t;    (* children keyed by character *)
+}
+```
+
+The `CharMap` (created via `Map.Make(Char)`) gives us sorted character keys for free — `all_words` returns results in lexicographic order without explicit sorting. Deletion prunes dead-end nodes automatically.
+
+Key operations: `insert`, `member`, `delete`, `has_prefix`, `words_with_prefix` (auto-complete), `longest_common_prefix`, ASCII visualization.
+
+**Key takeaway:** Choosing the right data structure turns hard problems into simple ones. Prefix search in a trie is trivial — just navigate to the prefix node and collect descendants. The `Map.Make` functor pattern for character-indexed children is reusable for any alphabet.
+
+---
+
+## Stage 9: Parser Combinators
 
 ### [`parser.ml`](parser.ml) — Building Parsers from Small Pieces
 
@@ -227,14 +252,17 @@ After working through these examples, try:
 | Input validation | `factor.ml` |
 | Mutual recursion | `factor.ml` |
 | Benchmarking | `fibonacci.ml` |
-| Modules & functors | `graph.ml` |
-| Record types | `graph.ml` |
+| Modules & functors | `graph.ml`, `trie.ml` |
+| Record types | `graph.ml`, `trie.ml` |
 | Imperative queues | `graph.ml` |
 | Graph algorithms (BFS/DFS) | `graph.ml` |
-| Persistent data structures | `heap.ml` |
+| Persistent data structures | `heap.ml`, `trie.ml` |
 | Priority queues / heaps | `heap.ml` |
 | Custom comparators | `mergesort.ml`, `heap.ml` |
 | Monadic composition (bind) | `parser.ml` |
 | Parser combinators | `parser.ml` |
 | Recursive descent parsing | `parser.ml` |
 | Operator precedence | `parser.ml` |
+| Tries & prefix search | `trie.ml` |
+| String manipulation | `trie.ml` |
+| Tree pruning | `trie.ml` |
