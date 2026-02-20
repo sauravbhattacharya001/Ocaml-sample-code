@@ -4,7 +4,7 @@
 # Use the native-code compiler for best performance.
 # Change to 'ocamlc' for bytecode if ocamlopt is unavailable.
 OCAML = ocamlopt
-SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml heap.ml parser.ml trie.ml
+SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml heap.ml parser.ml trie.ml regex.ml
 TARGETS = $(SOURCES:.ml=)
 
 .PHONY: all clean run test coverage coverage-html
@@ -48,6 +48,9 @@ run: all
 	@echo ""
 	@echo "=== trie ==="
 	@./trie
+	@echo ""
+	@echo "=== regex ==="
+	@./regex
 
 # Coverage: build test suite with bisect_ppx instrumentation
 # Requires: opam install bisect_ppx ocamlfind

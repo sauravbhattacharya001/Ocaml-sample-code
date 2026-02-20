@@ -224,6 +224,38 @@ let atom  = integer <|> parens     (* base cases *)
 
 ---
 
+## Stage 10: Regular Expressions
+
+### [`regex.ml`](regex.ml) — Building a Regex Engine from Scratch
+
+**Concepts:** recursive descent parsing (regex syntax → AST), Thompson's NFA construction (AST → state machine), epsilon closure (set-based state tracking), NFA simulation (linear-time matching), character classes, escapes, anchors
+
+This example ties together parsing (Stage 9) with automata theory. A regex pattern is parsed into an AST, compiled to a non-deterministic finite automaton (NFA) using Thompson's construction, then simulated using epsilon-closure — tracking all possible states simultaneously:
+
+```ocaml
+(* The regex AST *)
+type regex = Empty | Char of char_matcher | Seq of regex * regex
+           | Alt of regex * regex | Star of regex | Plus of regex | Opt of regex
+           | Anchor_start | Anchor_end
+
+(* Thompson's NFA: Star creates a split state with back-edge *)
+| Star r1 ->
+  let f = build r1 in
+  let s = new_state () in let a = new_state () in
+  add_trans s (Epsilon f.frag_start);  (* enter body *)
+  add_trans s (Epsilon a);             (* skip body *)
+  add_trans f.frag_accept (Epsilon f.frag_start);  (* loop *)
+  add_trans f.frag_accept (Epsilon a);             (* exit *)
+```
+
+The key insight is the NFA simulation: instead of backtracking (which can be exponential), we track **all possible states** at once using epsilon closure. This guarantees O(n×m) time where n is the input length and m is the pattern length — no pathological cases.
+
+Features: `.` (any char), `*+?` (quantifiers), `|` (alternation), `()` (grouping), `[a-z]` (character classes), `[^...]` (negation), `\d\w\s` (shorthands), `^$` (anchors). Full API: `matches`, `find`, `find_all`, `replace`, `split`.
+
+**Key takeaway:** Thompson's construction elegantly converts a declarative pattern into an executable state machine. The NFA simulation with epsilon closure demonstrates that tracking multiple states simultaneously (a set-based approach) avoids the exponential blowup of naive backtracking.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -261,8 +293,12 @@ After working through these examples, try:
 | Custom comparators | `mergesort.ml`, `heap.ml` |
 | Monadic composition (bind) | `parser.ml` |
 | Parser combinators | `parser.ml` |
-| Recursive descent parsing | `parser.ml` |
+| Recursive descent parsing | `parser.ml`, `regex.ml` |
 | Operator precedence | `parser.ml` |
 | Tries & prefix search | `trie.ml` |
 | String manipulation | `trie.ml` |
 | Tree pruning | `trie.ml` |
+| Thompson's NFA construction | `regex.ml` |
+| Epsilon closure / NFA simulation | `regex.ml` |
+| Regular expressions | `regex.ml` |
+| Character classes & escapes | `regex.ml` |

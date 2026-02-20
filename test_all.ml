@@ -1400,6 +1400,676 @@ let test_trie () = suite "Trie" (fun () ->
   assert_true ~msg:"large trie prefix word" (List.length (trie_words_with_prefix "word" big_t) = 100);
 )
 
+(* ===== Regex functions (from regex.ml) ===== *)
+
+type re_char_matcher =
+  | ReLit of char
+  | ReDot
+  | ReClass of (char * char) list * bool
+
+type re_regex =
+  | ReEmpty
+  | ReChar of re_char_matcher
+  | ReSeq of re_regex * re_regex
+  | ReAlt of re_regex * re_regex
+  | ReStar of re_regex
+  | RePlus of re_regex
+  | ReOpt of re_regex
+  | ReAnchor_start
+  | ReAnchor_end
+
+exception Re_parse_error of string
+
+let re_parse (pattern : string) : re_regex =
+  let len = String.length pattern in
+  let pos = ref 0 in
+  let peek () = if !pos < len then Some pattern.[!pos] else None in
+  let advance () = incr pos in
+  let expect c =
+    match peek () with
+    | Some c' when c' = c -> advance ()
+    | Some c' -> raise (Re_parse_error (Printf.sprintf "expected '%c', got '%c' at position %d" c c' !pos))
+    | None -> raise (Re_parse_error (Printf.sprintf "expected '%c', got end of pattern" c))
+  in
+  let parse_escape () =
+    advance ();
+    match peek () with
+    | None -> raise (Re_parse_error "unexpected end of pattern after '\\'")
+    | Some c ->
+      advance ();
+      match c with
+      | 'd' -> ReChar (ReClass ([('0', '9')], false))
+      | 'D' -> ReChar (ReClass ([('0', '9')], true))
+      | 'w' -> ReChar (ReClass ([('a', 'z'); ('A', 'Z'); ('0', '9'); ('_', '_')], false))
+      | 'W' -> ReChar (ReClass ([('a', 'z'); ('A', 'Z'); ('0', '9'); ('_', '_')], true))
+      | 's' -> ReChar (ReClass ([(' ', ' '); ('\t', '\t'); ('\n', '\n'); ('\r', '\r')], false))
+      | 'S' -> ReChar (ReClass ([(' ', ' '); ('\t', '\t'); ('\n', '\n'); ('\r', '\r')], true))
+      | 'n' -> ReChar (ReLit '\n')
+      | 't' -> ReChar (ReLit '\t')
+      | 'r' -> ReChar (ReLit '\r')
+      | _ -> ReChar (ReLit c)
+  in
+  let parse_class () =
+    advance ();
+    let negated = match peek () with
+      | Some '^' -> advance (); true
+      | _ -> false
+    in
+    let ranges = ref [] in
+    let first = ref true in
+    while (match peek () with Some ']' when not !first -> false | Some _ -> true | None -> false) do
+      first := false;
+      match peek () with
+      | None -> raise (Re_parse_error "unterminated character class")
+      | Some '\\' ->
+        advance ();
+        (match peek () with
+         | None -> raise (Re_parse_error "unexpected end in character class escape")
+         | Some c -> advance (); ranges := (c, c) :: !ranges)
+      | Some c ->
+        advance ();
+        (match peek () with
+         | Some '-' ->
+           let saved = !pos in
+           advance ();
+           (match peek () with
+            | Some ']' -> pos := saved; ranges := (c, c) :: !ranges
+            | Some c2 -> advance (); ranges := (c, c2) :: !ranges
+            | None -> pos := saved; ranges := (c, c) :: !ranges)
+         | _ -> ranges := (c, c) :: !ranges)
+    done;
+    expect ']';
+    ReChar (ReClass (List.rev !ranges, negated))
+  in
+  let rec parse_expr () =
+    let left = parse_seq () in
+    match peek () with
+    | Some '|' -> advance (); let right = parse_expr () in ReAlt (left, right)
+    | _ -> left
+  and parse_seq () =
+    let terms = ref [] in
+    let continues () = match peek () with None | Some ')' | Some '|' -> false | _ -> true in
+    while continues () do terms := parse_quant () :: !terms done;
+    match List.rev !terms with
+    | [] -> ReEmpty
+    | [t] -> t
+    | first :: rest -> List.fold_left (fun acc t -> ReSeq (acc, t)) first rest
+  and parse_quant () =
+    let atom = parse_atom () in
+    match peek () with
+    | Some '*' -> advance (); ReStar atom
+    | Some '+' -> advance (); RePlus atom
+    | Some '?' -> advance (); ReOpt atom
+    | _ -> atom
+  and parse_atom () =
+    match peek () with
+    | None -> raise (Re_parse_error "unexpected end of pattern")
+    | Some '(' -> advance (); let inner = parse_expr () in expect ')'; inner
+    | Some '[' -> parse_class ()
+    | Some '\\' -> parse_escape ()
+    | Some '.' -> advance (); ReChar ReDot
+    | Some '^' -> advance (); ReAnchor_start
+    | Some '$' -> advance (); ReAnchor_end
+    | Some c when c <> ')' && c <> '|' && c <> '*' && c <> '+' && c <> '?' ->
+      advance (); ReChar (ReLit c)
+    | Some c -> raise (Re_parse_error (Printf.sprintf "unexpected '%c' at position %d" c !pos))
+  in
+  let result = parse_expr () in
+  if !pos <> len then
+    raise (Re_parse_error (Printf.sprintf "unexpected character '%c' at position %d" pattern.[!pos] !pos));
+  result
+
+(* NFA *)
+type re_nfa_transition =
+  | ReEpsilon of int
+  | ReOn_char of re_char_matcher * int
+  | ReOn_anchor_start of int
+  | ReOn_anchor_end of int
+
+type re_nfa = {
+  re_start: int;
+  re_accept: int;
+  re_transitions: re_nfa_transition list array;
+  re_num_states: int;
+}
+
+type re_fragment = { re_frag_start: int; re_frag_accept: int }
+
+let re_build_nfa (r : re_regex) : re_nfa =
+  let next_id = ref 0 in
+  let new_state () = let id = !next_id in incr next_id; id in
+  let trans_table : (int * re_nfa_transition) list ref = ref [] in
+  let add_trans src t = trans_table := (src, t) :: !trans_table in
+  let rec build r =
+    match r with
+    | ReEmpty ->
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReEpsilon a);
+      { re_frag_start = s; re_frag_accept = a }
+    | ReChar matcher ->
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReOn_char (matcher, a));
+      { re_frag_start = s; re_frag_accept = a }
+    | ReSeq (r1, r2) ->
+      let f1 = build r1 in let f2 = build r2 in
+      add_trans f1.re_frag_accept (ReEpsilon f2.re_frag_start);
+      { re_frag_start = f1.re_frag_start; re_frag_accept = f2.re_frag_accept }
+    | ReAlt (r1, r2) ->
+      let f1 = build r1 in let f2 = build r2 in
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReEpsilon f1.re_frag_start);
+      add_trans s (ReEpsilon f2.re_frag_start);
+      add_trans f1.re_frag_accept (ReEpsilon a);
+      add_trans f2.re_frag_accept (ReEpsilon a);
+      { re_frag_start = s; re_frag_accept = a }
+    | ReStar r1 ->
+      let f = build r1 in
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReEpsilon f.re_frag_start);
+      add_trans s (ReEpsilon a);
+      add_trans f.re_frag_accept (ReEpsilon f.re_frag_start);
+      add_trans f.re_frag_accept (ReEpsilon a);
+      { re_frag_start = s; re_frag_accept = a }
+    | RePlus r1 ->
+      let f = build r1 in
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReEpsilon f.re_frag_start);
+      add_trans f.re_frag_accept (ReEpsilon f.re_frag_start);
+      add_trans f.re_frag_accept (ReEpsilon a);
+      { re_frag_start = s; re_frag_accept = a }
+    | ReOpt r1 ->
+      let f = build r1 in
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReEpsilon f.re_frag_start);
+      add_trans s (ReEpsilon a);
+      add_trans f.re_frag_accept (ReEpsilon a);
+      { re_frag_start = s; re_frag_accept = a }
+    | ReAnchor_start ->
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReOn_anchor_start a);
+      { re_frag_start = s; re_frag_accept = a }
+    | ReAnchor_end ->
+      let s = new_state () in let a = new_state () in
+      add_trans s (ReOn_anchor_end a);
+      { re_frag_start = s; re_frag_accept = a }
+  in
+  let frag = build r in
+  let n = !next_id in
+  let arr = Array.make n [] in
+  List.iter (fun (src, t) -> arr.(src) <- t :: arr.(src)) !trans_table;
+  { re_start = frag.re_frag_start; re_accept = frag.re_frag_accept;
+    re_transitions = arr; re_num_states = n }
+
+let re_char_matches (m : re_char_matcher) (c : char) : bool =
+  match m with
+  | ReLit expected -> c = expected
+  | ReDot -> c <> '\n'
+  | ReClass (ranges, negated) ->
+    let in_range = List.exists (fun (lo, hi) -> c >= lo && c <= hi) ranges in
+    if negated then not in_range else in_range
+
+let re_epsilon_closure (nfa : re_nfa) (state_ids : int list) (input : string) (str_pos : int) : int list =
+  let visited = Hashtbl.create 16 in
+  let result = ref [] in
+  let rec explore id =
+    if Hashtbl.mem visited id then ()
+    else begin
+      Hashtbl.replace visited id true;
+      result := id :: !result;
+      List.iter (fun t ->
+        match t with
+        | ReEpsilon target -> explore target
+        | ReOn_anchor_start target -> if str_pos = 0 then explore target
+        | ReOn_anchor_end target -> if str_pos = String.length input then explore target
+        | ReOn_char _ -> ()
+      ) nfa.re_transitions.(id)
+    end
+  in
+  List.iter explore state_ids;
+  !result
+
+let re_simulate_at (nfa : re_nfa) (input : string) (start_pos : int) : int option =
+  let len = String.length input in
+  let current = ref (re_epsilon_closure nfa [nfa.re_start] input start_pos) in
+  let last_match = ref (if List.mem nfa.re_accept !current then Some 0 else None) in
+  let i = ref start_pos in
+  while !i < len && !current <> [] do
+    let c = input.[!i] in
+    let next = List.fold_left (fun acc state_id ->
+      List.fold_left (fun acc2 t ->
+        match t with
+        | ReOn_char (matcher, target) ->
+          if re_char_matches matcher c then target :: acc2 else acc2
+        | _ -> acc2
+      ) acc nfa.re_transitions.(state_id)
+    ) [] !current in
+    incr i;
+    current := re_epsilon_closure nfa next input !i;
+    if List.mem nfa.re_accept !current then
+      last_match := Some (!i - start_pos)
+  done;
+  !last_match
+
+type re_compiled = {
+  re_pattern: string;
+  re_ast: re_regex;
+  re_nfa_c: re_nfa;
+  re_anchored_start: bool;
+}
+
+let re_compile (pattern : string) : re_compiled =
+  let ast = re_parse pattern in
+  let nfa = re_build_nfa ast in
+  let anchored_start = match ast with
+    | ReAnchor_start -> true
+    | ReSeq (ReAnchor_start, _) -> true
+    | _ -> false
+  in
+  { re_pattern = pattern; re_ast = ast; re_nfa_c = nfa; re_anchored_start = anchored_start }
+
+let re_matches (re : re_compiled) (input : string) : bool =
+  match re_simulate_at re.re_nfa_c input 0 with
+  | Some n -> n = String.length input
+  | None -> false
+
+let re_find (re : re_compiled) (input : string) : (int * string) option =
+  let len = String.length input in
+  let i = ref 0 in
+  let result = ref None in
+  while !i <= len && !result = None do
+    (match re_simulate_at re.re_nfa_c input !i with
+     | Some match_len -> result := Some (!i, String.sub input !i match_len)
+     | None -> ());
+    if !result = None then (
+      if re.re_anchored_start then i := len + 1
+      else incr i
+    )
+  done;
+  !result
+
+let re_find_all (re : re_compiled) (input : string) : string list =
+  let len = String.length input in
+  let results = ref [] in
+  let i = ref 0 in
+  while !i <= len do
+    match re_simulate_at re.re_nfa_c input !i with
+    | Some match_len when match_len > 0 ->
+      results := String.sub input !i match_len :: !results;
+      i := !i + match_len
+    | Some _ -> results := "" :: !results; incr i
+    | None -> incr i
+  done;
+  List.rev !results
+
+let re_replace (re : re_compiled) (input : string) (replacement : string) : string =
+  let len = String.length input in
+  let buf = Buffer.create (String.length input) in
+  let i = ref 0 in
+  while !i <= len do
+    match re_simulate_at re.re_nfa_c input !i with
+    | Some match_len when match_len > 0 ->
+      Buffer.add_string buf replacement;
+      i := !i + match_len
+    | Some _ ->
+      Buffer.add_string buf replacement;
+      if !i < len then Buffer.add_char buf input.[!i];
+      incr i
+    | None ->
+      if !i < len then Buffer.add_char buf input.[!i];
+      incr i
+  done;
+  Buffer.contents buf
+
+let re_split (re : re_compiled) (input : string) : string list =
+  let len = String.length input in
+  let parts = ref [] in
+  let seg_start = ref 0 in
+  let i = ref 0 in
+  while !i <= len do
+    match re_simulate_at re.re_nfa_c input !i with
+    | Some match_len when match_len > 0 ->
+      parts := String.sub input !seg_start (!i - !seg_start) :: !parts;
+      i := !i + match_len;
+      seg_start := !i
+    | _ -> incr i
+  done;
+  parts := String.sub input !seg_start (len - !seg_start) :: !parts;
+  List.rev !parts
+
+let rec re_ast_to_string = function
+  | ReEmpty -> "ε"
+  | ReChar (ReLit c) -> String.make 1 c
+  | ReChar ReDot -> "."
+  | ReChar (ReClass (ranges, negated)) ->
+    let range_str = String.concat ""
+      (List.map (fun (lo, hi) ->
+        if lo = hi then String.make 1 lo
+        else Printf.sprintf "%c-%c" lo hi
+      ) ranges) in
+    Printf.sprintf "[%s%s]" (if negated then "^" else "") range_str
+  | ReSeq (r1, r2) -> re_ast_to_string r1 ^ re_ast_to_string r2
+  | ReAlt (r1, r2) -> Printf.sprintf "(%s|%s)" (re_ast_to_string r1) (re_ast_to_string r2)
+  | ReStar r -> Printf.sprintf "(%s)*" (re_ast_to_string r)
+  | RePlus r -> Printf.sprintf "(%s)+" (re_ast_to_string r)
+  | ReOpt r -> Printf.sprintf "(%s)?" (re_ast_to_string r)
+  | ReAnchor_start -> "^"
+  | ReAnchor_end -> "$"
+
+let string_of_find_result = function
+  | None -> "None"
+  | Some (pos, s) -> Printf.sprintf "Some(%d, \"%s\")" pos s
+
+(* ===== Regex tests ===== *)
+
+let test_regex () = suite "Regex" (fun () ->
+  (* --- Parser tests --- *)
+
+  (* Literal *)
+  assert_equal ~msg:"parse literal"
+    "abc" (re_ast_to_string (re_parse "abc"));
+
+  (* Quantifiers *)
+  assert_equal ~msg:"parse star"
+    "(a)*" (re_ast_to_string (re_parse "a*"));
+  assert_equal ~msg:"parse plus"
+    "(a)+" (re_ast_to_string (re_parse "a+"));
+  assert_equal ~msg:"parse optional"
+    "(a)?" (re_ast_to_string (re_parse "a?"));
+  assert_equal ~msg:"parse combined quant"
+    "a(b)+c" (re_ast_to_string (re_parse "ab+c"));
+
+  (* Alternation *)
+  assert_equal ~msg:"parse alt"
+    "(cat|dog)" (re_ast_to_string (re_parse "cat|dog"));
+
+  (* Dot *)
+  assert_equal ~msg:"parse dot"
+    "h.t" (re_ast_to_string (re_parse "h.t"));
+
+  (* Character class *)
+  assert_equal ~msg:"parse class"
+    "[a-z]" (re_ast_to_string (re_parse "[a-z]"));
+  assert_equal ~msg:"parse negated class"
+    "[^0-9]" (re_ast_to_string (re_parse "[^0-9]"));
+
+  (* Anchors *)
+  assert_equal ~msg:"parse anchor start"
+    "^hello" (re_ast_to_string (re_parse "^hello"));
+  assert_equal ~msg:"parse anchor end"
+    "world$" (re_ast_to_string (re_parse "world$"));
+
+  (* Grouping *)
+  assert_equal ~msg:"parse group"
+    "((ab))*" (re_ast_to_string (re_parse "(ab)*"));
+
+  (* Escape *)
+  assert_equal ~msg:"parse escape dot"
+    "a.b" (re_ast_to_string (re_parse "a\\.b"));
+
+  (* Parse errors *)
+  assert_raises ~msg:"parse unmatched paren" (fun () -> re_parse "(abc");
+  assert_raises ~msg:"parse empty group" (fun () -> re_parse "*)");
+  assert_raises ~msg:"parse bad quantifier" (fun () -> re_parse "+abc");
+
+  (* --- Basic matching --- *)
+
+  let r1 = re_compile "hello" in
+  assert_true ~msg:"match literal hello" (re_matches r1 "hello");
+  assert_true ~msg:"no match world" (not (re_matches r1 "world"));
+  assert_true ~msg:"no match partial" (not (re_matches r1 "hell"));
+  assert_true ~msg:"no match longer" (not (re_matches r1 "hello!"));
+  assert_true ~msg:"no match empty" (not (re_matches r1 ""));
+
+  (* Empty pattern matches empty string *)
+  let r_empty = re_compile "" in
+  assert_true ~msg:"empty pattern matches empty" (re_matches r_empty "");
+  assert_true ~msg:"empty pattern no match non-empty" (not (re_matches r_empty "a"));
+
+  (* Single char *)
+  let r_a = re_compile "a" in
+  assert_true ~msg:"single char match" (re_matches r_a "a");
+  assert_true ~msg:"single char no match" (not (re_matches r_a "b"));
+
+  (* --- Quantifiers --- *)
+
+  (* Star *)
+  let r_star = re_compile "ab*c" in
+  assert_true ~msg:"star zero" (re_matches r_star "ac");
+  assert_true ~msg:"star one" (re_matches r_star "abc");
+  assert_true ~msg:"star many" (re_matches r_star "abbbbc");
+  assert_true ~msg:"star no match" (not (re_matches r_star "adc"));
+
+  (* Plus *)
+  let r_plus = re_compile "ab+c" in
+  assert_true ~msg:"plus one" (re_matches r_plus "abc");
+  assert_true ~msg:"plus many" (re_matches r_plus "abbbbc");
+  assert_true ~msg:"plus zero fails" (not (re_matches r_plus "ac"));
+
+  (* Optional *)
+  let r_opt = re_compile "colou?r" in
+  assert_true ~msg:"opt absent" (re_matches r_opt "color");
+  assert_true ~msg:"opt present" (re_matches r_opt "colour");
+  assert_true ~msg:"opt no match" (not (re_matches r_opt "colouur"));
+
+  (* --- Alternation --- *)
+
+  let r_alt = re_compile "cat|dog" in
+  assert_true ~msg:"alt first" (re_matches r_alt "cat");
+  assert_true ~msg:"alt second" (re_matches r_alt "dog");
+  assert_true ~msg:"alt no match" (not (re_matches r_alt "cow"));
+  assert_true ~msg:"alt no match partial" (not (re_matches r_alt "ca"));
+
+  (* Multi-way alternation *)
+  let r_alt3 = re_compile "a|b|c" in
+  assert_true ~msg:"alt3 a" (re_matches r_alt3 "a");
+  assert_true ~msg:"alt3 b" (re_matches r_alt3 "b");
+  assert_true ~msg:"alt3 c" (re_matches r_alt3 "c");
+  assert_true ~msg:"alt3 no match" (not (re_matches r_alt3 "d"));
+
+  (* --- Dot --- *)
+
+  let r_dot = re_compile "h.t" in
+  assert_true ~msg:"dot hat" (re_matches r_dot "hat");
+  assert_true ~msg:"dot hot" (re_matches r_dot "hot");
+  assert_true ~msg:"dot hit" (re_matches r_dot "hit");
+  assert_true ~msg:"dot no match long" (not (re_matches r_dot "heart"));
+  assert_true ~msg:"dot no match short" (not (re_matches r_dot "ht"));
+
+  (* Dot doesn't match newline *)
+  assert_true ~msg:"dot no newline" (not (re_matches r_dot "h\nt"));
+
+  (* --- Character classes --- *)
+
+  let r_vowel = re_compile "[aeiou]+" in
+  assert_true ~msg:"class vowels" (re_matches r_vowel "aei");
+  assert_true ~msg:"class no match" (not (re_matches r_vowel "xyz"));
+
+  let r_range = re_compile "[a-z]+" in
+  assert_true ~msg:"range lower" (re_matches r_range "hello");
+  assert_true ~msg:"range no upper" (not (re_matches r_range "HELLO"));
+  assert_true ~msg:"range no digits" (not (re_matches r_range "123"));
+
+  let r_multi_range = re_compile "[a-zA-Z]+" in
+  assert_true ~msg:"multi range" (re_matches r_multi_range "Hello");
+
+  (* Negated class *)
+  let r_neg = re_compile "[^0-9]+" in
+  assert_true ~msg:"neg class letters" (re_matches r_neg "hello");
+  assert_true ~msg:"neg class no digits" (not (re_matches r_neg "123"));
+  assert_true ~msg:"neg class mixed" (not (re_matches r_neg "abc123"));
+
+  (* --- Shorthand classes --- *)
+
+  let r_digit = re_compile "\\d+" in
+  assert_true ~msg:"\\d digits" (re_matches r_digit "123");
+  assert_true ~msg:"\\d no letters" (not (re_matches r_digit "abc"));
+
+  let r_ndigit = re_compile "\\D+" in
+  assert_true ~msg:"\\D letters" (re_matches r_ndigit "abc");
+  assert_true ~msg:"\\D no digits" (not (re_matches r_ndigit "123"));
+
+  let r_word = re_compile "\\w+" in
+  assert_true ~msg:"\\w word" (re_matches r_word "hello");
+  assert_true ~msg:"\\w mixed" (re_matches r_word "hi_42");
+  assert_true ~msg:"\\w no space" (not (re_matches r_word "hi there"));
+
+  let r_space = re_compile "\\s+" in
+  assert_true ~msg:"\\s spaces" (re_matches r_space "   ");
+  assert_true ~msg:"\\s tab" (re_matches r_space "\t");
+  assert_true ~msg:"\\s no letters" (not (re_matches r_space "abc"));
+
+  (* --- Grouping --- *)
+
+  let r_group = re_compile "(ab)+" in
+  assert_true ~msg:"group repeat" (re_matches r_group "ababab");
+  assert_true ~msg:"group single" (re_matches r_group "ab");
+  assert_true ~msg:"group no match" (not (re_matches r_group "aab"));
+
+  let r_nested = re_compile "((a|b)c)+" in
+  assert_true ~msg:"nested group ac" (re_matches r_nested "ac");
+  assert_true ~msg:"nested group bc" (re_matches r_nested "bc");
+  assert_true ~msg:"nested group repeat" (re_matches r_nested "acbc");
+
+  (* --- Anchors --- *)
+
+  let r_start = re_compile "^hello" in
+  assert_equal ~msg:"anchor start find"
+    "Some(0, \"hello\")" (string_of_find_result (re_find r_start "hello world"));
+  assert_equal ~msg:"anchor start no find"
+    "None" (string_of_find_result (re_find r_start "say hello"));
+
+  let r_end = re_compile "world$" in
+  assert_equal ~msg:"anchor end find"
+    "Some(6, \"world\")" (string_of_find_result (re_find r_end "hello world"));
+  assert_equal ~msg:"anchor end no find"
+    "None" (string_of_find_result (re_find r_end "world peace"));
+
+  let r_both = re_compile "^hello$" in
+  assert_true ~msg:"both anchors match" (re_matches r_both "hello");
+  assert_true ~msg:"both anchors no match" (not (re_matches r_both "hello world"));
+
+  (* --- Find --- *)
+
+  let r_num = re_compile "[0-9]+" in
+  assert_equal ~msg:"find first number"
+    "Some(4, \"123\")" (string_of_find_result (re_find r_num "abc 123 def 456"));
+  assert_equal ~msg:"find no match"
+    "None" (string_of_find_result (re_find r_num "no numbers here"));
+
+  let r_word_f = re_compile "[a-z]+" in
+  assert_equal ~msg:"find first word"
+    "Some(0, \"hello\")" (string_of_find_result (re_find r_word_f "hello world"));
+
+  (* --- Find All --- *)
+
+  let found = re_find_all r_num "abc 123 def 456 ghi" in
+  assert_equal ~msg:"find_all numbers"
+    "[123; 456]" (string_of_int_list (List.map int_of_string found));
+
+  let words_found = re_find_all r_word_f "hello world foo" in
+  assert_equal ~msg:"find_all words"
+    "[hello; world; foo]" ("[" ^ String.concat "; " words_found ^ "]");
+
+  let empty_found = re_find_all r_num "no numbers" in
+  assert_true ~msg:"find_all empty" (empty_found = []);
+
+  let single_found = re_find_all r_num "42" in
+  assert_equal ~msg:"find_all single"
+    "[42]" ("[" ^ String.concat "; " single_found ^ "]");
+
+  (* --- Replace --- *)
+
+  assert_equal ~msg:"replace numbers"
+    "abc # def #" (re_replace r_num "abc 123 def 456" "#");
+
+  let r_ws = re_compile "\\s+" in
+  assert_equal ~msg:"replace whitespace"
+    "hello world" (re_replace r_ws "hello   world" " ");
+
+  assert_equal ~msg:"replace no match"
+    "hello" (re_replace r_num "hello" "#");
+
+  let r_vowel_r = re_compile "[aeiou]" in
+  assert_equal ~msg:"replace vowels"
+    "h_ll_ w_rld" (re_replace r_vowel_r "hello world" "_");
+
+  (* --- Split --- *)
+
+  let r_comma = re_compile "[,;]\\s*" in
+  let parts = re_split r_comma "apple, banana; cherry,date" in
+  assert_equal ~msg:"split csv"
+    "[apple; banana; cherry; date]" ("[" ^ String.concat "; " parts ^ "]");
+
+  let r_space_s = re_compile "\\s+" in
+  let word_parts = re_split r_space_s "hello   world   foo" in
+  assert_equal ~msg:"split spaces"
+    "[hello; world; foo]" ("[" ^ String.concat "; " word_parts ^ "]");
+
+  let no_split = re_split r_comma "noseparator" in
+  assert_equal ~msg:"split no match"
+    "[noseparator]" ("[" ^ String.concat "; " no_split ^ "]");
+
+  (* --- Complex patterns --- *)
+
+  (* Email-like pattern *)
+  let r_email = re_compile "[a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-z]+" in
+  assert_true ~msg:"email match" (re_matches r_email "user@example.com");
+  assert_true ~msg:"email no match" (not (re_matches r_email "not-an-email"));
+
+  (* IP-like pattern *)
+  let r_ip = re_compile "\\d+\\.\\d+\\.\\d+\\.\\d+" in
+  assert_true ~msg:"ip match" (re_matches r_ip "192.168.1.1");
+  assert_true ~msg:"ip no match" (not (re_matches r_ip "abc.def"));
+
+  (* Nested quantifiers *)
+  let r_nq = re_compile "(ab)*c" in
+  assert_true ~msg:"nested quant c" (re_matches r_nq "c");
+  assert_true ~msg:"nested quant abc" (re_matches r_nq "abc");
+  assert_true ~msg:"nested quant ababc" (re_matches r_nq "ababc");
+
+  (* --- Escape sequences --- *)
+
+  let r_esc_dot = re_compile "a\\.b" in
+  assert_true ~msg:"escaped dot literal" (re_matches r_esc_dot "a.b");
+  assert_true ~msg:"escaped dot no wildcard" (not (re_matches r_esc_dot "axb"));
+
+  let r_esc_star = re_compile "a\\*b" in
+  assert_true ~msg:"escaped star literal" (re_matches r_esc_star "a*b");
+
+  let r_esc_paren = re_compile "\\(a\\)" in
+  assert_true ~msg:"escaped parens" (re_matches r_esc_paren "(a)");
+
+  (* --- Edge cases --- *)
+
+  (* Single character star *)
+  let r_a_star = re_compile "a*" in
+  assert_true ~msg:"a* empty" (re_matches r_a_star "");
+  assert_true ~msg:"a* one" (re_matches r_a_star "a");
+  assert_true ~msg:"a* many" (re_matches r_a_star "aaaa");
+  assert_true ~msg:"a* no match b" (not (re_matches r_a_star "b"));
+
+  (* Alternation with empty *)
+  let r_alt_e = re_compile "a|" in
+  assert_true ~msg:"alt empty second" (re_matches r_alt_e "a");
+  assert_true ~msg:"alt empty matches empty" (re_matches r_alt_e "");
+
+  (* Dot star *)
+  let r_dotstar = re_compile ".*" in
+  assert_true ~msg:"dotstar empty" (re_matches r_dotstar "");
+  assert_true ~msg:"dotstar anything" (re_matches r_dotstar "hello world 123!");
+
+  (* Character class with literal hyphen at end *)
+  let r_hyphen = re_compile "[a-]" in
+  assert_true ~msg:"class literal hyphen a" (re_matches r_hyphen "a");
+  (* hyphen at the boundary between first char and ']' is treated as literal *)
+
+  (* Multiple character class items *)
+  let r_mc = re_compile "[abc123]" in
+  assert_true ~msg:"multi class a" (re_matches r_mc "a");
+  assert_true ~msg:"multi class 1" (re_matches r_mc "1");
+  assert_true ~msg:"multi class no d" (not (re_matches r_mc "d"));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -1413,6 +2083,7 @@ let () =
   test_graph ();
   test_trie ();
   test_parser ();
+  test_regex ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;

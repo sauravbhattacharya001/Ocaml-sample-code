@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation.
 
 ## Programs
 
@@ -36,6 +36,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
 | [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
 | [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
+| [`regex.ml`](regex.ml) | Regular expression engine — NFA-based pattern matching | Algebraic data types, recursive descent parsing, Thompson's NFA, epsilon closure |
 
 ## Getting Started
 
@@ -280,6 +281,49 @@ LCP of [flower; flow; flight]: "fl"
 All words sorted: [ball; bat; car; card; cat]
 ```
 
+### Regular Expression Engine — `regex.ml`
+
+A complete regex engine built from scratch using Thompson's NFA construction. Parses regex syntax into an AST, compiles it to a non-deterministic finite automaton, and simulates it using epsilon-closure — guaranteed linear-time matching with no pathological backtracking.
+
+```ocaml
+(* Regex AST — algebraic data types *)
+type char_matcher = Lit of char | Dot | Class of (char * char) list * bool
+type regex = Empty | Char of char_matcher | Seq of regex * regex
+           | Alt of regex * regex | Star of regex | Plus of regex | Opt of regex
+           | Anchor_start | Anchor_end
+
+(* Thompson's NFA construction — fragments with epsilon transitions *)
+let rec build r = match r with
+  | Star r1 ->
+    let f = build r1 in
+    let s = new_state () in let a = new_state () in
+    add_trans s (Epsilon f.frag_start);
+    add_trans s (Epsilon a);
+    add_trans f.frag_accept (Epsilon f.frag_start);
+    add_trans f.frag_accept (Epsilon a);
+    { frag_start = s; frag_accept = a }
+  | (* ... other cases ... *)
+
+(* NFA simulation — set-based, no backtracking *)
+let simulate_at nfa input start_pos =
+  let current = ref (epsilon_closure nfa [nfa.start] input start_pos) in
+  (* Step through input, tracking longest match *)
+```
+
+```
+matches "hello" "hello"   = true
+matches "ab+c"  "abbc"    = true    (* quantifiers *)
+matches "ab+c"  "ac"      = false
+matches "colou?r" "color"  = true   (* optional *)
+matches "colou?r" "colour" = true
+matches "cat|dog" "cat"   = true    (* alternation *)
+
+find "[0-9]+" "abc 123 def" = "123" at pos 4
+find_all "[a-z]+" "hello world" = ["hello"; "world"]
+replace "[0-9]+" "abc 123 def 456" "#" = "abc # def #"
+split "[,;]\s*" "apple, banana; cherry" = ["apple"; "banana"; "cherry"]
+```
+
 ### Last Element — `list_last_elem.ml`
 
 Classic safe list traversal using `Option` — no exceptions, no crashes on empty lists.
@@ -336,6 +380,7 @@ Ocaml-sample-code/
 ├── heap.ml               # Priority queue (leftist min-heap)
 ├── parser.ml             # Parser combinators (arithmetic, lists, key-value)
 ├── trie.ml               # Trie (prefix tree) — string storage, prefix search
+├── regex.ml              # Regular expression engine (Thompson's NFA)
 ├── LEARNING_PATH.md          # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
@@ -386,7 +431,7 @@ make coverage-html
 # Open _coverage/index.html in your browser
 ```
 
-**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components), trie operations (insert, delete, member, prefix search, auto-complete, longest common prefix, pruning, persistence), parser combinators (primitives, combinators, arithmetic expression evaluation).
+**Tested algorithms:** BST operations, prime factorization, Fibonacci (naive/memoized/iterative), merge sort, min/max heaps, list operations, graph algorithms (BFS, DFS, shortest path, cycle detection, topological sort, connected components), trie operations (insert, delete, member, prefix search, auto-complete, longest common prefix, pruning, persistence), parser combinators (primitives, combinators, arithmetic expression evaluation), regex engine (parsing, matching, quantifiers, alternation, character classes, anchors, find/find_all/replace/split).
 
 Coverage reports are generated automatically on every push via [GitHub Actions](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml) using [bisect_ppx](https://github.com/aantron/bisect_ppx).
 
