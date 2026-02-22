@@ -2072,6 +2072,455 @@ let test_regex () = suite "Regex" (fun () ->
   assert_true ~msg:"multi class no d" (not (re_matches r_mc "d"));
 )
 
+(* ===== Stream functions (from stream.ml) ===== *)
+
+type 'a stream =
+  | SNil
+  | SCons of 'a * 'a stream Lazy.t
+
+let stream_empty = SNil
+
+let stream_singleton x = SCons (x, lazy SNil)
+
+let stream_cons x s = SCons (x, lazy s)
+
+let stream_is_empty = function SNil -> true | SCons _ -> false
+
+let stream_hd = function
+  | SNil -> failwith "Stream.hd: empty stream"
+  | SCons (x, _) -> x
+
+let stream_tl = function
+  | SNil -> failwith "Stream.tl: empty stream"
+  | SCons (_, rest) -> Lazy.force rest
+
+let stream_hd_opt = function
+  | SNil -> None
+  | SCons (x, _) -> Some x
+
+let rec stream_unfold f seed =
+  match f seed with
+  | None -> SNil
+  | Some (value, next_seed) ->
+    SCons (value, lazy (stream_unfold f next_seed))
+
+let rec stream_iterate f x =
+  SCons (x, lazy (stream_iterate f (f x)))
+
+let rec stream_repeat x =
+  SCons (x, lazy (stream_repeat x))
+
+let stream_cycle lst =
+  if lst = [] then invalid_arg "Stream.cycle: empty list";
+  let rec go = function
+    | [] -> go lst
+    | x :: rest -> SCons (x, lazy (go rest))
+  in
+  go lst
+
+let rec stream_of_list = function
+  | [] -> SNil
+  | x :: rest -> SCons (x, lazy (stream_of_list rest))
+
+let rec stream_from ?(step=1) start =
+  SCons (start, lazy (stream_from ~step (start + step)))
+
+let stream_range ?(step=1) lo hi =
+  stream_unfold (fun n -> if n > hi then None else Some (n, n + step)) lo
+
+let stream_take n s =
+  let rec aux n s acc =
+    if n <= 0 then List.rev acc
+    else match s with
+      | SNil -> List.rev acc
+      | SCons (x, rest) -> aux (n - 1) (Lazy.force rest) (x :: acc)
+  in
+  aux n s []
+
+let stream_take_while pred s =
+  let rec aux s acc =
+    match s with
+    | SNil -> List.rev acc
+    | SCons (x, rest) ->
+      if pred x then aux (Lazy.force rest) (x :: acc)
+      else List.rev acc
+  in
+  aux s []
+
+let rec stream_drop n s =
+  if n <= 0 then s
+  else match s with
+    | SNil -> SNil
+    | SCons (_, rest) -> stream_drop (n - 1) (Lazy.force rest)
+
+let rec stream_drop_while pred = function
+  | SNil -> SNil
+  | SCons (x, rest) as s ->
+    if pred x then stream_drop_while pred (Lazy.force rest)
+    else s
+
+let stream_nth n s =
+  if n < 0 then invalid_arg "Stream.nth: negative index";
+  stream_hd (stream_drop n s)
+
+let stream_nth_opt n s =
+  if n < 0 then None
+  else stream_hd_opt (stream_drop n s)
+
+let stream_to_list s =
+  let rec aux s acc =
+    match s with
+    | SNil -> List.rev acc
+    | SCons (x, rest) -> aux (Lazy.force rest) (x :: acc)
+  in
+  aux s []
+
+let stream_length s =
+  let rec aux s n =
+    match s with
+    | SNil -> n
+    | SCons (_, rest) -> aux (Lazy.force rest) (n + 1)
+  in
+  aux s 0
+
+let rec stream_map f = function
+  | SNil -> SNil
+  | SCons (x, rest) ->
+    SCons (f x, lazy (stream_map f (Lazy.force rest)))
+
+let stream_mapi f s =
+  let rec aux i = function
+    | SNil -> SNil
+    | SCons (x, rest) ->
+      SCons (f i x, lazy (aux (i + 1) (Lazy.force rest)))
+  in
+  aux 0 s
+
+let rec stream_filter pred = function
+  | SNil -> SNil
+  | SCons (x, rest) ->
+    if pred x then SCons (x, lazy (stream_filter pred (Lazy.force rest)))
+    else stream_filter pred (Lazy.force rest)
+
+let rec stream_filter_map f = function
+  | SNil -> SNil
+  | SCons (x, rest) ->
+    match f x with
+    | Some y -> SCons (y, lazy (stream_filter_map f (Lazy.force rest)))
+    | None -> stream_filter_map f (Lazy.force rest)
+
+let stream_flat_map f s =
+  let rec aux pending s =
+    match pending with
+    | x :: rest -> SCons (x, lazy (aux rest s))
+    | [] ->
+      match s with
+      | SNil -> SNil
+      | SCons (x, rest) -> aux (f x) (Lazy.force rest)
+  in
+  aux [] s
+
+let rec stream_scan f init = function
+  | SNil -> stream_singleton init
+  | SCons (x, rest) ->
+    let acc = f init x in
+    SCons (init, lazy (stream_scan f acc (Lazy.force rest)))
+
+let rec stream_append s1 s2 =
+  match s1 with
+  | SNil -> s2
+  | SCons (x, rest) -> SCons (x, lazy (stream_append (Lazy.force rest) s2))
+
+let rec stream_interleave s1 s2 =
+  match s1 with
+  | SNil -> s2
+  | SCons (x, rest) -> SCons (x, lazy (stream_interleave s2 (Lazy.force rest)))
+
+let rec stream_zip s1 s2 =
+  match s1, s2 with
+  | SCons (a, r1), SCons (b, r2) ->
+    SCons ((a, b), lazy (stream_zip (Lazy.force r1) (Lazy.force r2)))
+  | _ -> SNil
+
+let rec stream_zip_with f s1 s2 =
+  match s1, s2 with
+  | SCons (a, r1), SCons (b, r2) ->
+    SCons (f a b, lazy (stream_zip_with f (Lazy.force r1) (Lazy.force r2)))
+  | _ -> SNil
+
+let stream_unzip s =
+  (stream_map fst s, stream_map snd s)
+
+let rec stream_find pred = function
+  | SNil -> None
+  | SCons (x, rest) ->
+    if pred x then Some x
+    else stream_find pred (Lazy.force rest)
+
+let stream_exists pred s =
+  stream_find pred s <> None
+
+let stream_fold f init s =
+  let rec aux acc = function
+    | SNil -> acc
+    | SCons (x, rest) -> aux (f acc x) (Lazy.force rest)
+  in
+  aux init s
+
+let stream_iter f s =
+  let rec aux = function
+    | SNil -> ()
+    | SCons (x, rest) -> f x; aux (Lazy.force rest)
+  in
+  aux s
+
+(* Classic streams *)
+let stream_nats = stream_from 0
+let stream_naturals = stream_from 1
+
+let stream_fibs =
+  let rec aux a b = SCons (a, lazy (aux b (a + b))) in
+  aux 0 1
+
+let stream_powers_of_2 = stream_iterate (fun x -> x * 2) 1
+
+let stream_factorials =
+  let rec aux n fact = SCons (fact, lazy (aux (n + 1) (fact * (n + 1)))) in
+  aux 0 1
+
+let stream_triangulars =
+  stream_mapi (fun i _ -> i * (i + 1) / 2) stream_nats
+
+let stream_primes =
+  let rec sieve = function
+    | SNil -> SNil
+    | SCons (p, rest) ->
+      SCons (p, lazy (sieve (stream_filter (fun n -> n mod p <> 0) (Lazy.force rest))))
+  in
+  sieve (stream_from 2)
+
+let stream_show_ints ?(n=10) s =
+  let elems = stream_take n s in
+  let parts = List.map string_of_int elems in
+  let suffix = match stream_drop n s with SNil -> "" | SCons _ -> "; ..." in
+  "[" ^ String.concat "; " parts ^ suffix ^ "]"
+
+(* ===== Stream Tests ===== *)
+
+let string_of_int_pair (a, b) =
+  "(" ^ string_of_int a ^ ", " ^ string_of_int b ^ ")"
+
+let string_of_int_pair_list lst =
+  "[" ^ String.concat "; " (List.map string_of_int_pair lst) ^ "]"
+
+let test_stream () = suite "Stream" (fun () ->
+  (* ── Constructors ── *)
+
+  assert_true ~msg:"empty is_empty" (stream_is_empty stream_empty);
+
+  let s1 = stream_singleton 42 in
+  assert_equal ~msg:"singleton hd" "42" (string_of_int (stream_hd s1));
+  assert_true ~msg:"singleton tl empty" (stream_is_empty (stream_tl s1));
+
+  let s2 = stream_cons 1 (stream_cons 2 stream_empty) in
+  assert_equal ~msg:"cons take 2" "[1; 2]" (string_of_int_list (stream_take 2 s2));
+
+  let s3 = stream_of_list [10; 20; 30] in
+  assert_equal ~msg:"of_list" "[10; 20; 30]" (string_of_int_list (stream_to_list s3));
+
+  let r = stream_range 1 5 in
+  assert_equal ~msg:"range 1..5" "[1; 2; 3; 4; 5]" (string_of_int_list (stream_to_list r));
+  let r2 = stream_range ~step:2 0 8 in
+  assert_equal ~msg:"range step 2" "[0; 2; 4; 6; 8]" (string_of_int_list (stream_to_list r2));
+
+  let ints = stream_from 10 in
+  assert_equal ~msg:"from 10" "[10; 11; 12; 13; 14]" (string_of_int_list (stream_take 5 ints));
+  let evens = stream_from ~step:2 0 in
+  assert_equal ~msg:"from step 2" "[0; 2; 4; 6; 8]" (string_of_int_list (stream_take 5 evens));
+
+  let doubles = stream_iterate (fun x -> x * 2) 1 in
+  assert_equal ~msg:"iterate *2" "[1; 2; 4; 8; 16]" (string_of_int_list (stream_take 5 doubles));
+
+  let threes = stream_repeat 3 in
+  assert_equal ~msg:"repeat 3" "[3; 3; 3; 3]" (string_of_int_list (stream_take 4 threes));
+
+  let countdown = stream_unfold (fun n -> if n < 0 then None else Some (n, n - 1)) 5 in
+  assert_equal ~msg:"unfold countdown" "[5; 4; 3; 2; 1; 0]" (string_of_int_list (stream_to_list countdown));
+
+  let cyc = stream_cycle [1; 2; 3] in
+  assert_equal ~msg:"cycle [1;2;3]" "[1; 2; 3; 1; 2; 3; 1]" (string_of_int_list (stream_take 7 cyc));
+
+  (* ── Observation ── *)
+
+  let s = stream_of_list [5; 10; 15] in
+  assert_equal ~msg:"hd" "5" (string_of_int (stream_hd s));
+  assert_equal ~msg:"tl hd" "10" (string_of_int (stream_hd (stream_tl s)));
+
+  assert_equal ~msg:"hd_opt some" "Some(5)" (string_of_option string_of_int (stream_hd_opt s));
+  assert_equal ~msg:"hd_opt none" "None" (string_of_option string_of_int (stream_hd_opt stream_empty));
+
+  assert_raises ~msg:"hd empty raises" (fun () -> stream_hd stream_empty);
+
+  let nats5 = stream_from 0 in
+  assert_equal ~msg:"nth 0" "0" (string_of_int (stream_nth 0 nats5));
+  assert_equal ~msg:"nth 4" "4" (string_of_int (stream_nth 4 nats5));
+
+  let short = stream_of_list [100; 200] in
+  assert_equal ~msg:"nth_opt 0" "Some(100)" (string_of_option string_of_int (stream_nth_opt 0 short));
+  assert_equal ~msg:"nth_opt 5" "None" (string_of_option string_of_int (stream_nth_opt 5 short));
+  assert_equal ~msg:"nth_opt neg" "None" (string_of_option string_of_int (stream_nth_opt (-1) short));
+
+  assert_equal ~msg:"take 0" "[]" (string_of_int_list (stream_take 0 (stream_from 0)));
+  assert_equal ~msg:"take from empty" "[]" (string_of_int_list (stream_take 5 stream_empty));
+
+  let tw = stream_take_while (fun x -> x < 5) (stream_from 0) in
+  assert_equal ~msg:"take_while <5" "[0; 1; 2; 3; 4]" (string_of_int_list tw);
+  let tw2 = stream_take_while (fun _ -> false) (stream_from 0) in
+  assert_equal ~msg:"take_while false" "[]" (string_of_int_list tw2);
+
+  let dropped = stream_drop 3 (stream_of_list [1;2;3;4;5]) in
+  assert_equal ~msg:"drop 3" "[4; 5]" (string_of_int_list (stream_to_list dropped));
+  assert_true ~msg:"drop past end" (stream_is_empty (stream_drop 10 (stream_of_list [1])));
+
+  let dw = stream_drop_while (fun x -> x < 3) (stream_of_list [1;2;3;4;5]) in
+  assert_equal ~msg:"drop_while <3" "[3; 4; 5]" (string_of_int_list (stream_to_list dw));
+
+  assert_equal ~msg:"length 0" "0" (string_of_int (stream_length stream_empty));
+  assert_equal ~msg:"length 3" "3" (string_of_int (stream_length (stream_of_list [1;2;3])));
+
+  (* ── Transformations ── *)
+
+  let mapped = stream_map (fun x -> x * 10) (stream_of_list [1;2;3]) in
+  assert_equal ~msg:"map *10" "[10; 20; 30]" (string_of_int_list (stream_to_list mapped));
+
+  let sq = stream_map (fun x -> x * x) (stream_from 1) in
+  assert_equal ~msg:"map squares" "[1; 4; 9; 16; 25]" (string_of_int_list (stream_take 5 sq));
+
+  let mi = stream_mapi (fun i x -> i + x) (stream_of_list [10;20;30]) in
+  assert_equal ~msg:"mapi" "[10; 21; 32]" (string_of_int_list (stream_to_list mi));
+
+  let evens_f = stream_filter (fun x -> x mod 2 = 0) (stream_from 0) in
+  assert_equal ~msg:"filter evens" "[0; 2; 4; 6; 8]" (string_of_int_list (stream_take 5 evens_f));
+
+  let odds = stream_filter (fun x -> x mod 2 = 1) (stream_of_list [1;2;3;4;5]) in
+  assert_equal ~msg:"filter odds" "[1; 3; 5]" (string_of_int_list (stream_to_list odds));
+
+  let fm = stream_filter_map
+    (fun x -> if x mod 2 = 0 then Some (x / 2) else None)
+    (stream_of_list [1;2;3;4;5;6]) in
+  assert_equal ~msg:"filter_map" "[1; 2; 3]" (string_of_int_list (stream_to_list fm));
+
+  let flatm = stream_flat_map (fun x -> [x; x * 10]) (stream_of_list [1;2;3]) in
+  assert_equal ~msg:"flat_map" "[1; 10; 2; 20; 3; 30]" (string_of_int_list (stream_to_list flatm));
+
+  let running_sum = stream_scan ( + ) 0 (stream_of_list [1;2;3;4]) in
+  assert_equal ~msg:"scan sum" "[0; 1; 3; 6; 10]" (string_of_int_list (stream_to_list running_sum));
+
+  (* ── Combining ── *)
+
+  let a = stream_of_list [1;2] in
+  let b = stream_of_list [3;4] in
+  assert_equal ~msg:"append" "[1; 2; 3; 4]" (string_of_int_list (stream_to_list (stream_append a b)));
+
+  let i1 = stream_of_list [1;3;5] in
+  let i2 = stream_of_list [2;4;6] in
+  assert_equal ~msg:"interleave" "[1; 2; 3; 4; 5; 6]" (string_of_int_list (stream_to_list (stream_interleave i1 i2)));
+
+  let odds_i = stream_from ~step:2 1 in
+  let evens_i = stream_from ~step:2 0 in
+  let mixed = stream_interleave odds_i evens_i in
+  assert_equal ~msg:"interleave inf" "[1; 0; 3; 2; 5; 4; 7; 6]" (string_of_int_list (stream_take 8 mixed));
+
+  let z = stream_zip (stream_of_list [1;2;3]) (stream_of_list [10;20;30]) in
+  assert_equal ~msg:"zip" "[(1, 10); (2, 20); (3, 30)]"
+    (string_of_int_pair_list (stream_to_list z));
+
+  let zw = stream_zip_with ( + ) (stream_of_list [1;2;3]) (stream_of_list [10;20;30]) in
+  assert_equal ~msg:"zip_with +" "[11; 22; 33]" (string_of_int_list (stream_to_list zw));
+
+  let z2 = stream_zip (stream_of_list [1;2]) (stream_of_list [10;20;30]) in
+  assert_equal ~msg:"zip short" "[(1, 10); (2, 20)]"
+    (string_of_int_pair_list (stream_to_list z2));
+
+  let pairs = stream_of_list [(1,10); (2,20); (3,30)] in
+  let (left, right) = stream_unzip pairs in
+  assert_equal ~msg:"unzip left" "[1; 2; 3]" (string_of_int_list (stream_to_list left));
+  assert_equal ~msg:"unzip right" "[10; 20; 30]" (string_of_int_list (stream_to_list right));
+
+  (* ── Searching ── *)
+
+  let found = stream_find (fun x -> x > 10) (stream_from 0) in
+  assert_equal ~msg:"find >10" "Some(11)" (string_of_option string_of_int found);
+
+  let not_found = stream_find (fun x -> x > 5) (stream_of_list [1;2;3]) in
+  assert_equal ~msg:"find none" "None" (string_of_option string_of_int not_found);
+
+  assert_true ~msg:"exists true" (stream_exists (fun x -> x = 3) (stream_of_list [1;2;3;4]));
+  assert_true ~msg:"exists false" (not (stream_exists (fun x -> x > 10) (stream_of_list [1;2;3])));
+
+  let sum = stream_fold ( + ) 0 (stream_of_list [1;2;3;4;5]) in
+  assert_equal ~msg:"fold sum" "15" (string_of_int sum);
+
+  let acc = ref 0 in
+  stream_iter (fun x -> acc := !acc + x) (stream_of_list [1;2;3]);
+  assert_equal ~msg:"iter sum" "6" (string_of_int !acc);
+
+  (* ── Classic Streams ── *)
+
+  assert_equal ~msg:"nats" "[0; 1; 2; 3; 4]" (string_of_int_list (stream_take 5 stream_nats));
+  assert_equal ~msg:"naturals" "[1; 2; 3; 4; 5]" (string_of_int_list (stream_take 5 stream_naturals));
+  assert_equal ~msg:"fibs" "[0; 1; 1; 2; 3; 5; 8; 13]" (string_of_int_list (stream_take 8 stream_fibs));
+  assert_equal ~msg:"powers_of_2" "[1; 2; 4; 8; 16; 32]" (string_of_int_list (stream_take 6 stream_powers_of_2));
+  assert_equal ~msg:"factorials" "[1; 1; 2; 6; 24; 120; 720]" (string_of_int_list (stream_take 7 stream_factorials));
+  assert_equal ~msg:"primes" "[2; 3; 5; 7; 11; 13; 17; 19; 23; 29]"
+    (string_of_int_list (stream_take 10 stream_primes));
+  assert_equal ~msg:"triangulars" "[0; 1; 3; 6; 10; 15]"
+    (string_of_int_list (stream_take 6 stream_triangulars));
+
+  (* ── Pretty Printing ── *)
+
+  let shown = stream_show_ints ~n:5 (stream_from 0) in
+  assert_equal ~msg:"show_ints" "[0; 1; 2; 3; 4; ...]" shown;
+
+  let shown_finite = stream_show_ints ~n:10 (stream_of_list [1;2;3]) in
+  assert_equal ~msg:"show_ints finite" "[1; 2; 3]" shown_finite;
+
+  (* ── Edge Cases ── *)
+
+  assert_true ~msg:"map empty" (stream_is_empty (stream_map (fun x -> x + 1) stream_empty));
+  assert_true ~msg:"filter empty" (stream_is_empty (stream_filter (fun _ -> true) stream_empty));
+
+  let ae = stream_append stream_empty (stream_of_list [1;2]) in
+  assert_equal ~msg:"append empty left" "[1; 2]" (string_of_int_list (stream_to_list ae));
+  let ea = stream_append (stream_of_list [1;2]) stream_empty in
+  assert_equal ~msg:"append empty right" "[1; 2]" (string_of_int_list (stream_to_list ea));
+
+  assert_true ~msg:"zip empty" (stream_is_empty (stream_zip stream_empty (stream_from 0)));
+
+  assert_raises ~msg:"cycle empty raises" (fun () -> stream_cycle []);
+
+  let d0 = stream_drop 0 (stream_of_list [1;2;3]) in
+  assert_equal ~msg:"drop 0" "[1; 2; 3]" (string_of_int_list (stream_to_list d0));
+
+  (* Memoization: accessing tail twice doesn't recompute *)
+  let counter = ref 0 in
+  let memo_stream = SCons (1, lazy (incr counter; stream_singleton 2)) in
+  ignore (stream_tl memo_stream);
+  ignore (stream_tl memo_stream);
+  assert_equal ~msg:"lazy memoization" "1" (string_of_int !counter);
+
+  let se = stream_scan ( + ) 0 stream_empty in
+  assert_equal ~msg:"scan empty" "[0]" (string_of_int_list (stream_to_list se));
+
+  assert_true ~msg:"flat_map empty" (stream_is_empty (stream_flat_map (fun x -> [x]) stream_empty));
+
+  (* Composition: map then filter *)
+  let composed = stream_filter (fun x -> x mod 3 = 0)
+    (stream_map (fun x -> x * x) (stream_from 1)) in
+  assert_equal ~msg:"compose map+filter" "[9; 36; 81; 144; 225]"
+    (string_of_int_list (stream_take 5 composed));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -2086,6 +2535,7 @@ let () =
   test_trie ();
   test_parser ();
   test_regex ();
+  test_stream ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
