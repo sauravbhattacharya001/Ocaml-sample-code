@@ -2929,6 +2929,336 @@ let test_rbtree () = suite "Red-Black Tree" (fun () ->
   assert_true ~msg:"reverse sequential equal" (rb_equal sequential rev_seq);
 )
 
+(* ===== Sorting functions (from sorting.ml) ===== *)
+
+let sort_is_sorted cmp lst =
+  let rec aux = function
+    | [] | [_] -> true
+    | x :: (y :: _ as rest) -> cmp x y <= 0 && aux rest
+  in
+  aux lst
+
+let sort_is_strictly_sorted cmp lst =
+  let rec aux = function
+    | [] | [_] -> true
+    | x :: (y :: _ as rest) -> cmp x y < 0 && aux rest
+  in
+  aux lst
+
+let rec sort_insert cmp x = function
+  | [] -> [x]
+  | h :: t as lst ->
+    if cmp x h <= 0 then x :: lst
+    else h :: sort_insert cmp x t
+
+let sort_insertion cmp lst =
+  List.fold_left (fun acc x -> sort_insert cmp x acc) [] lst
+
+let sort_select_min cmp = function
+  | [] -> failwith "select_min: empty list"
+  | h :: t ->
+    let rec aux min_val acc = function
+      | [] -> (min_val, List.rev acc)
+      | x :: rest ->
+        if cmp x min_val < 0 then
+          aux x (min_val :: acc) rest
+        else
+          aux min_val (x :: acc) rest
+    in
+    aux h [] t
+
+let sort_selection cmp lst =
+  let rec aux acc = function
+    | [] -> List.rev acc
+    | remaining ->
+      let (min_val, rest) = sort_select_min cmp remaining in
+      aux (min_val :: acc) rest
+  in
+  aux [] lst
+
+let sort_partition3 cmp pivot lst =
+  let rec aux lt eq gt = function
+    | [] -> (List.rev lt, List.rev eq, List.rev gt)
+    | x :: rest ->
+      let c = cmp x pivot in
+      if c < 0 then aux (x :: lt) eq gt rest
+      else if c = 0 then aux lt (x :: eq) gt rest
+      else aux lt eq (x :: gt) rest
+  in
+  aux [] [] [] lst
+
+let sort_median_of_three cmp lst =
+  match lst with
+  | [] | [_] -> List.hd lst
+  | [a; b] -> if cmp a b <= 0 then a else b
+  | _ ->
+    let len = List.length lst in
+    let a = List.hd lst in
+    let b = List.nth lst (len / 2) in
+    let c = List.nth lst (len - 1) in
+    if cmp a b <= 0 then
+      (if cmp b c <= 0 then b
+       else if cmp a c <= 0 then c else a)
+    else
+      (if cmp a c <= 0 then a
+       else if cmp b c <= 0 then c else b)
+
+let rec sort_quick cmp = function
+  | ([] | [_]) as l -> l
+  | lst ->
+    let pivot = sort_median_of_three cmp lst in
+    let (lt, eq, gt) = sort_partition3 cmp pivot lst in
+    sort_quick cmp lt @ eq @ sort_quick cmp gt
+
+type 'a sort_heap =
+  | SHEmpty
+  | SHNode of int * 'a * 'a sort_heap * 'a sort_heap
+
+let sort_heap_rank = function
+  | SHEmpty -> 0
+  | SHNode (r, _, _, _) -> r
+
+let sort_heap_make x a b =
+  if sort_heap_rank a >= sort_heap_rank b then SHNode (sort_heap_rank b + 1, x, a, b)
+  else SHNode (sort_heap_rank a + 1, x, b, a)
+
+let rec sort_heap_merge cmp h1 h2 =
+  match h1, h2 with
+  | SHEmpty, h | h, SHEmpty -> h
+  | SHNode (_, x, a1, b1), SHNode (_, y, _, _) ->
+    if cmp x y <= 0 then sort_heap_make x a1 (sort_heap_merge cmp b1 h2)
+    else sort_heap_merge cmp h2 h1
+
+let sort_heap_insert cmp x h = sort_heap_merge cmp (SHNode (1, x, SHEmpty, SHEmpty)) h
+
+let sort_heap_extract cmp = function
+  | SHEmpty -> None
+  | SHNode (_, x, left, right) -> Some (x, sort_heap_merge cmp left right)
+
+let sort_heapsort cmp lst =
+  let h = List.fold_left (fun h x -> sort_heap_insert cmp x h) SHEmpty lst in
+  let rec drain acc h =
+    match sort_heap_extract cmp h with
+    | None -> List.rev acc
+    | Some (x, h') -> drain (x :: acc) h'
+  in
+  drain [] h
+
+let sort_counting ?(lo=0) ~hi lst =
+  if hi < lo then failwith "counting_sort: hi < lo";
+  let range = hi - lo + 1 in
+  let counts = Array.make range 0 in
+  List.iter (fun x ->
+    if x < lo || x > hi then
+      failwith (Printf.sprintf "counting_sort: %d out of range [%d, %d]" x lo hi);
+    counts.(x - lo) <- counts.(x - lo) + 1
+  ) lst;
+  let result = ref [] in
+  for i = range - 1 downto 0 do
+    for _ = 1 to counts.(i) do
+      result := (i + lo) :: !result
+    done
+  done;
+  !result
+
+let sort_find_runs cmp lst =
+  let rec build_run run = function
+    | [] -> [List.rev run]
+    | x :: rest ->
+      if cmp x (List.hd run) >= 0 then
+        build_run (x :: run) rest
+      else
+        List.rev run :: build_run [x] rest
+  in
+  match lst with
+  | [] -> []
+  | x :: rest -> build_run [x] rest
+
+let sort_merge cmp l1 l2 =
+  let rec aux acc l1 l2 =
+    match l1, l2 with
+    | [], l | l, [] -> List.rev_append acc l
+    | h1 :: t1, h2 :: t2 ->
+      if cmp h1 h2 <= 0 then aux (h1 :: acc) t1 l2
+      else aux (h2 :: acc) l1 t2
+  in
+  aux [] l1 l2
+
+let rec sort_merge_runs cmp = function
+  | [] -> []
+  | [single] -> single
+  | runs ->
+    let rec pairwise acc = function
+      | [] -> List.rev acc
+      | [r] -> List.rev (r :: acc)
+      | r1 :: r2 :: rest -> pairwise (sort_merge cmp r1 r2 :: acc) rest
+    in
+    sort_merge_runs cmp (pairwise [] runs)
+
+let sort_natural_merge cmp lst =
+  match lst with
+  | ([] | [_]) as l -> l
+  | _ -> sort_merge_runs cmp (sort_find_runs cmp lst)
+
+(* ===== Sorting tests ===== *)
+
+let test_sorting () = suite "Sorting" (fun () ->
+  let sil = string_of_int_list in
+
+  (* -- is_sorted / is_strictly_sorted -- *)
+  assert_true ~msg:"is_sorted empty" (sort_is_sorted compare []);
+  assert_true ~msg:"is_sorted singleton" (sort_is_sorted compare [5]);
+  assert_true ~msg:"is_sorted asc" (sort_is_sorted compare [1; 2; 3; 4; 5]);
+  assert_true ~msg:"is_sorted equal" (sort_is_sorted compare [3; 3; 3]);
+  assert_true ~msg:"is_sorted not desc" (not (sort_is_sorted compare [5; 3; 1]));
+  assert_true ~msg:"strictly empty" (sort_is_strictly_sorted compare []);
+  assert_true ~msg:"strictly asc" (sort_is_strictly_sorted compare [1; 2; 3]);
+  assert_true ~msg:"strictly not equal" (not (sort_is_strictly_sorted compare [1; 1; 2]));
+
+  (* -- Insertion sort -- *)
+  assert_equal ~msg:"ins empty" "[]" (sil (sort_insertion compare []));
+  assert_equal ~msg:"ins [1]" "[1]" (sil (sort_insertion compare [1]));
+  assert_equal ~msg:"ins sorted" "[1; 2; 3; 4; 5]"
+    (sil (sort_insertion compare [1; 2; 3; 4; 5]));
+  assert_equal ~msg:"ins reverse" "[1; 2; 3; 4; 5]"
+    (sil (sort_insertion compare [5; 4; 3; 2; 1]));
+  assert_equal ~msg:"ins mixed" "[3; 9; 10; 27; 38; 43; 82]"
+    (sil (sort_insertion compare [38; 27; 43; 3; 9; 82; 10]));
+  assert_equal ~msg:"ins dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_insertion compare [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"ins all same" "[7; 7; 7; 7]"
+    (sil (sort_insertion compare [7; 7; 7; 7]));
+  assert_equal ~msg:"ins desc cmp" "[82; 43; 38; 27; 10; 9; 3]"
+    (sil (sort_insertion (fun a b -> compare b a) [38; 27; 43; 3; 9; 82; 10]));
+  assert_true ~msg:"ins stable" (sort_is_sorted compare (sort_insertion compare [38; 27; 43; 3; 9; 82; 10]));
+
+  (* -- Selection sort -- *)
+  assert_equal ~msg:"sel empty" "[]" (sil (sort_selection compare []));
+  assert_equal ~msg:"sel [1]" "[1]" (sil (sort_selection compare [1]));
+  assert_equal ~msg:"sel sorted" "[1; 2; 3; 4; 5]"
+    (sil (sort_selection compare [1; 2; 3; 4; 5]));
+  assert_equal ~msg:"sel reverse" "[1; 2; 3; 4; 5]"
+    (sil (sort_selection compare [5; 4; 3; 2; 1]));
+  assert_equal ~msg:"sel mixed" "[3; 9; 10; 27; 38; 43; 82]"
+    (sil (sort_selection compare [38; 27; 43; 3; 9; 82; 10]));
+  assert_equal ~msg:"sel dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_selection compare [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"sel desc" "[82; 43; 38; 27; 10; 9; 3]"
+    (sil (sort_selection (fun a b -> compare b a) [38; 27; 43; 3; 9; 82; 10]));
+
+  (* -- Quicksort -- *)
+  assert_equal ~msg:"qs empty" "[]" (sil (sort_quick compare []));
+  assert_equal ~msg:"qs [1]" "[1]" (sil (sort_quick compare [1]));
+  assert_equal ~msg:"qs sorted" "[1; 2; 3; 4; 5]"
+    (sil (sort_quick compare [1; 2; 3; 4; 5]));
+  assert_equal ~msg:"qs reverse" "[1; 2; 3; 4; 5]"
+    (sil (sort_quick compare [5; 4; 3; 2; 1]));
+  assert_equal ~msg:"qs mixed" "[3; 9; 10; 27; 38; 43; 82]"
+    (sil (sort_quick compare [38; 27; 43; 3; 9; 82; 10]));
+  assert_equal ~msg:"qs dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_quick compare [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"qs all same" "[7; 7; 7; 7]"
+    (sil (sort_quick compare [7; 7; 7; 7]));
+  assert_equal ~msg:"qs [2;1]" "[1; 2]" (sil (sort_quick compare [2; 1]));
+  assert_equal ~msg:"qs desc" "[82; 43; 38; 27; 10; 9; 3]"
+    (sil (sort_quick (fun a b -> compare b a) [38; 27; 43; 3; 9; 82; 10]));
+
+  (* -- Heapsort -- *)
+  assert_equal ~msg:"hs empty" "[]" (sil (sort_heapsort compare []));
+  assert_equal ~msg:"hs [1]" "[1]" (sil (sort_heapsort compare [1]));
+  assert_equal ~msg:"hs sorted" "[1; 2; 3; 4; 5]"
+    (sil (sort_heapsort compare [1; 2; 3; 4; 5]));
+  assert_equal ~msg:"hs reverse" "[1; 2; 3; 4; 5]"
+    (sil (sort_heapsort compare [5; 4; 3; 2; 1]));
+  assert_equal ~msg:"hs mixed" "[3; 9; 10; 27; 38; 43; 82]"
+    (sil (sort_heapsort compare [38; 27; 43; 3; 9; 82; 10]));
+  assert_equal ~msg:"hs dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_heapsort compare [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"hs desc" "[82; 43; 38; 27; 10; 9; 3]"
+    (sil (sort_heapsort (fun a b -> compare b a) [38; 27; 43; 3; 9; 82; 10]));
+
+  (* -- Counting sort -- *)
+  assert_equal ~msg:"cs empty" "[]" (sil (sort_counting ~hi:10 []));
+  assert_equal ~msg:"cs [5]" "[5]" (sil (sort_counting ~hi:5 [5]));
+  assert_equal ~msg:"cs basic" "[1; 2; 3; 4; 5]"
+    (sil (sort_counting ~hi:5 [3; 1; 5; 2; 4]));
+  assert_equal ~msg:"cs dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_counting ~hi:5 [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"cs all same" "[7; 7; 7; 7]"
+    (sil (sort_counting ~hi:7 [7; 7; 7; 7]));
+  assert_equal ~msg:"cs negative range" "[-3; -2; -1; 0; 1]"
+    (sil (sort_counting ~lo:(-3) ~hi:1 [0; -2; 1; -3; -1]));
+  assert_equal ~msg:"cs large range" "[0; 50; 100]"
+    (sil (sort_counting ~hi:100 [100; 0; 50]));
+  assert_raises ~msg:"cs hi < lo" (fun () -> sort_counting ~lo:10 ~hi:5 [1]);
+  assert_raises ~msg:"cs out of range" (fun () -> sort_counting ~hi:5 [10]);
+
+  (* -- Natural mergesort -- *)
+  assert_equal ~msg:"nm empty" "[]" (sil (sort_natural_merge compare []));
+  assert_equal ~msg:"nm [1]" "[1]" (sil (sort_natural_merge compare [1]));
+  assert_equal ~msg:"nm sorted" "[1; 2; 3; 4; 5]"
+    (sil (sort_natural_merge compare [1; 2; 3; 4; 5]));
+  assert_equal ~msg:"nm reverse" "[1; 2; 3; 4; 5]"
+    (sil (sort_natural_merge compare [5; 4; 3; 2; 1]));
+  assert_equal ~msg:"nm mixed" "[3; 9; 10; 27; 38; 43; 82]"
+    (sil (sort_natural_merge compare [38; 27; 43; 3; 9; 82; 10]));
+  assert_equal ~msg:"nm dupes" "[1; 2; 2; 3; 3; 5]"
+    (sil (sort_natural_merge compare [3; 1; 2; 5; 2; 3]));
+  assert_equal ~msg:"nm nearly sorted" "[1; 2; 3; 4; 5; 6; 7]"
+    (sil (sort_natural_merge compare [1; 2; 3; 7; 4; 5; 6]));
+
+  (* -- find_runs -- *)
+  let runs = sort_find_runs compare [1; 3; 5; 2; 4; 1; 6] in
+  assert_equal ~msg:"runs count" "3" (string_of_int (List.length runs));
+  assert_equal ~msg:"run 1" "[1; 3; 5]" (sil (List.nth runs 0));
+  assert_equal ~msg:"run 2" "[2; 4]" (sil (List.nth runs 1));
+  assert_equal ~msg:"run 3" "[1; 6]" (sil (List.nth runs 2));
+  assert_equal ~msg:"runs empty" "0" (string_of_int (List.length (sort_find_runs compare [])));
+  assert_equal ~msg:"runs sorted" "1" (string_of_int (List.length (sort_find_runs compare [1; 2; 3; 4; 5])));
+
+  (* -- partition3 -- *)
+  let (lt, eq, gt) = sort_partition3 compare 5 [3; 5; 8; 1; 5; 9; 2] in
+  assert_equal ~msg:"p3 lt" "[1; 2; 3]" (sil (List.sort compare lt));
+  assert_equal ~msg:"p3 eq" "[5; 5]" (sil eq);
+  assert_equal ~msg:"p3 gt" "[8; 9]" (sil (List.sort compare gt));
+
+  (* -- All algorithms agree on random data -- *)
+  Random.init 42;
+  let random_data = List.init 100 (fun _ -> Random.int 1000) in
+  let expected = List.sort compare random_data in
+  assert_equal ~msg:"all agree: insertion" (sil expected) (sil (sort_insertion compare random_data));
+  assert_equal ~msg:"all agree: selection" (sil expected) (sil (sort_selection compare random_data));
+  assert_equal ~msg:"all agree: quick" (sil expected) (sil (sort_quick compare random_data));
+  assert_equal ~msg:"all agree: heapsort" (sil expected) (sil (sort_heapsort compare random_data));
+  assert_equal ~msg:"all agree: natural merge" (sil expected) (sil (sort_natural_merge compare random_data));
+
+  (* -- String sorting -- *)
+  let words = sort_quick String.compare ["banana"; "apple"; "cherry"; "date"; "apple"] in
+  assert_equal ~msg:"qs strings" "apple" (List.hd words);
+  assert_equal ~msg:"qs strings last" "date" (List.nth words 4);
+  assert_true ~msg:"qs strings sorted" (sort_is_sorted String.compare words);
+
+  (* -- Larger random data -- *)
+  let big_data = List.init 500 (fun _ -> Random.int 10000) in
+  assert_true ~msg:"big insertion sorted" (sort_is_sorted compare (sort_insertion compare big_data));
+  assert_true ~msg:"big quick sorted" (sort_is_sorted compare (sort_quick compare big_data));
+  assert_true ~msg:"big heapsort sorted" (sort_is_sorted compare (sort_heapsort compare big_data));
+  assert_true ~msg:"big natural merge sorted" (sort_is_sorted compare (sort_natural_merge compare big_data));
+  assert_true ~msg:"big counting sorted" (sort_is_sorted compare (sort_counting ~hi:10000 big_data));
+
+  (* -- Edge case: two elements -- *)
+  assert_equal ~msg:"two sorted" "[1; 2]" (sil (sort_quick compare [1; 2]));
+  assert_equal ~msg:"two reverse" "[1; 2]" (sil (sort_quick compare [2; 1]));
+  assert_equal ~msg:"two equal" "[5; 5]" (sil (sort_quick compare [5; 5]));
+
+  (* -- Stability of insertion sort -- *)
+  let pairs = [(3, "a"); (1, "b"); (3, "c"); (2, "d"); (1, "e")] in
+  let sorted_pairs = sort_insertion (fun (a, _) (b, _) -> compare a b) pairs in
+  let first_three = List.filter (fun (k, _) -> k = 3) sorted_pairs in
+  assert_equal ~msg:"ins stability" "a" (snd (List.nth first_three 0));
+  assert_equal ~msg:"ins stability 2" "c" (snd (List.nth first_three 1));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -2945,6 +3275,7 @@ let () =
   test_regex ();
   test_stream ();
   test_rbtree ();
+  test_sorting ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
