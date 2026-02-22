@@ -1,0 +1,57 @@
+# Labels applied based on changed file paths
+# Used with actions/labeler@v5 in label.yml workflow
+
+ocaml:
+  - changed-files:
+      - any-glob-to-any-file: '*.ml'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/workflows/**'
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Dockerfile'
+          - '.dockerignore'
+          - '.github/workflows/docker.yml'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.md'
+          - 'docs/**'
+          - 'LEARNING_PATH.md'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: 'test_all.ml'
+
+data-structures:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'bst.ml'
+          - 'heap.ml'
+          - 'trie.ml'
+          - 'rbtree.ml'
+          - 'stream.ml'
+
+algorithms:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'graph.ml'
+          - 'mergesort.ml'
+          - 'fibonacci.ml'
+          - 'factor.ml'
+          - 'regex.ml'
+          - 'parser.ml'
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Makefile'
+          - '.editorconfig'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: '.github/dependabot.yml'
