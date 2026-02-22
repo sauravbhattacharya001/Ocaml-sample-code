@@ -4058,6 +4058,291 @@ let test_hashmap () = suite "Hash Map" (fun () ->
   assert_equal ~msg:"tiny cap find" "1" (string_of_int (hm_find_exn "a" mc));
 )
 
+(* ===== Bloom Filter (from bloom_filter.ml) ===== *)
+
+(* -- Bit manipulation helpers -- *)
+
+let bf_get_bit bits i =
+  let byte_idx = i / 8 in
+  let bit_idx = i mod 8 in
+  Char.code (Bytes.get bits byte_idx) land (1 lsl bit_idx) <> 0
+
+let bf_set_bit bits i =
+  let byte_idx = i / 8 in
+  let bit_idx = i mod 8 in
+  let old = Char.code (Bytes.get bits byte_idx) in
+  Bytes.set bits byte_idx (Char.chr (old lor (1 lsl bit_idx)))
+
+(* -- Hash functions (double hashing) -- *)
+
+let bf_hash1 x = Hashtbl.hash x
+let bf_hash2 x = Hashtbl.hash (x, 0x9e3779b9)
+
+let bf_hash_i m h1 h2 i =
+  ((h1 + i * h2) mod m + m) mod m
+
+(* -- Bloom filter type -- *)
+
+type bloom_filter = {
+  bf_bits : bytes;
+  bf_m    : int;
+  bf_k    : int;
+  bf_n    : int;
+}
+
+let bf_create ?(m = 1024) ?(k = 7) () =
+  let m = max 8 m in
+  let k = max 1 k in
+  let byte_count = (m + 7) / 8 in
+  { bf_bits = Bytes.make byte_count '\000'; bf_m = m; bf_k = k; bf_n = 0 }
+
+let bf_create_optimal ~expected_elements ~fp_rate =
+  let n_f = float_of_int (max 1 expected_elements) in
+  let p = max 0.0001 (min 0.5 fp_rate) in
+  let m_f = -.(n_f *. log p) /. (log 2.0 ** 2.0) in
+  let m = max 8 (int_of_float (ceil m_f)) in
+  let k_f = (float_of_int m /. n_f) *. log 2.0 in
+  let k = max 1 (int_of_float (Float.round k_f)) in
+  bf_create ~m ~k ()
+
+let bf_add x bf =
+  let new_bits = Bytes.copy bf.bf_bits in
+  let h1 = bf_hash1 x in
+  let h2 = bf_hash2 x in
+  for i = 0 to bf.bf_k - 1 do
+    let idx = bf_hash_i bf.bf_m h1 h2 i in
+    bf_set_bit new_bits idx
+  done;
+  { bf with bf_bits = new_bits; bf_n = bf.bf_n + 1 }
+
+let bf_mem x bf =
+  let h1 = bf_hash1 x in
+  let h2 = bf_hash2 x in
+  let rec check i =
+    if i >= bf.bf_k then true
+    else
+      let idx = bf_hash_i bf.bf_m h1 h2 i in
+      if bf_get_bit bf.bf_bits idx then check (i + 1)
+      else false
+  in
+  check 0
+
+let bf_count bf = bf.bf_n
+let bf_size bf = bf.bf_m
+let bf_num_hashes bf = bf.bf_k
+let bf_is_empty bf = bf.bf_n = 0
+
+let bf_popcount bf =
+  let c = ref 0 in
+  for i = 0 to bf.bf_m - 1 do
+    if bf_get_bit bf.bf_bits i then incr c
+  done;
+  !c
+
+let bf_saturation bf =
+  float_of_int (bf_popcount bf) /. float_of_int bf.bf_m
+
+let bf_false_positive_rate bf =
+  if bf.bf_n = 0 then 0.0
+  else
+    let m_f = float_of_int bf.bf_m in
+    let k_f = float_of_int bf.bf_k in
+    let n_f = float_of_int bf.bf_n in
+    (1.0 -. exp (-. k_f *. n_f /. m_f)) ** k_f
+
+let bf_union bf1 bf2 =
+  if bf1.bf_m <> bf2.bf_m || bf1.bf_k <> bf2.bf_k then
+    invalid_arg "BloomFilter.union: incompatible filters"
+  else begin
+    let new_bits = Bytes.copy bf1.bf_bits in
+    let byte_count = (bf1.bf_m + 7) / 8 in
+    for i = 0 to byte_count - 1 do
+      let b1 = Char.code (Bytes.get bf1.bf_bits i) in
+      let b2 = Char.code (Bytes.get bf2.bf_bits i) in
+      Bytes.set new_bits i (Char.chr (b1 lor b2))
+    done;
+    { bf_bits = new_bits; bf_m = bf1.bf_m; bf_k = bf1.bf_k;
+      bf_n = bf1.bf_n + bf2.bf_n }
+  end
+
+let bf_of_list ?(m = 1024) ?(k = 7) lst =
+  List.fold_left (fun bf x -> bf_add x bf) (bf_create ~m ~k ()) lst
+
+let bf_mem_all lst bf =
+  List.for_all (fun x -> bf_mem x bf) lst
+
+let bf_mem_any lst bf =
+  List.exists (fun x -> bf_mem x bf) lst
+
+let bf_clear bf = bf_create ~m:bf.bf_m ~k:bf.bf_k ()
+
+let bf_copy bf = { bf with bf_bits = Bytes.copy bf.bf_bits }
+
+let bf_to_string bf =
+  Printf.sprintf "BloomFilter(m=%d, k=%d, n=%d, sat=%.2f%%)"
+    bf.bf_m bf.bf_k bf.bf_n (bf_saturation bf *. 100.0)
+
+(* ===== Bloom Filter Tests ===== *)
+
+let test_bloom_filter () = suite "Bloom Filter" (fun () ->
+  (* -- create -- *)
+  let bf0 = bf_create () in
+  assert_true ~msg:"empty is empty" (bf_is_empty bf0);
+  assert_equal ~msg:"empty count" "0" (string_of_int (bf_count bf0));
+  assert_equal ~msg:"default size" "1024" (string_of_int (bf_size bf0));
+  assert_equal ~msg:"default hashes" "7" (string_of_int (bf_num_hashes bf0));
+
+  (* -- add and mem -- *)
+  let bf1 = bf_add "hello" bf0 in
+  assert_true ~msg:"mem hello" (bf_mem "hello" bf1);
+  assert_equal ~msg:"count 1" "1" (string_of_int (bf_count bf1));
+  assert_true ~msg:"not empty" (not (bf_is_empty bf1));
+
+  (* -- no false negatives -- *)
+  let bf2 = bf_add "world" (bf_add "foo" (bf_add "bar" bf1)) in
+  assert_true ~msg:"mem hello still" (bf_mem "hello" bf2);
+  assert_true ~msg:"mem world" (bf_mem "world" bf2);
+  assert_true ~msg:"mem foo" (bf_mem "foo" bf2);
+  assert_true ~msg:"mem bar" (bf_mem "bar" bf2);
+  assert_equal ~msg:"count 4" "4" (string_of_int (bf_count bf2));
+
+  (* -- original unchanged (immutability) -- *)
+  assert_true ~msg:"bf0 still empty" (bf_is_empty bf0);
+  assert_true ~msg:"bf1 still 1" (bf_count bf1 = 1);
+
+  (* -- probably not in set (low FP for large filter) -- *)
+  let bf_large = bf_create ~m:8192 ~k:7 () in
+  let bf_large = bf_add "alpha" bf_large in
+  (* Test several strings that were NOT added *)
+  let not_added = ["zzz_unique_1"; "zzz_unique_2"; "zzz_unique_3";
+                    "never_added_x"; "never_added_y"] in
+  let fp_count = List.length (List.filter (fun s -> bf_mem s bf_large) not_added) in
+  assert_true ~msg:"low FP rate" (fp_count <= 2);  (* at most 2/5 false positives *)
+
+  (* -- of_list -- *)
+  let bf3 = bf_of_list ["a"; "b"; "c"; "d"; "e"] in
+  assert_equal ~msg:"of_list count" "5" (string_of_int (bf_count bf3));
+  assert_true ~msg:"of_list mem a" (bf_mem "a" bf3);
+  assert_true ~msg:"of_list mem e" (bf_mem "e" bf3);
+
+  (* -- mem_all -- *)
+  assert_true ~msg:"mem_all present" (bf_mem_all ["a"; "b"; "c"] bf3);
+  (* mem_all with a non-member may or may not return false (probabilistic) *)
+
+  (* -- mem_any -- *)
+  assert_true ~msg:"mem_any present" (bf_mem_any ["a"; "zzz_random"] bf3);
+
+  (* -- mem_any all missing -- *)
+  let bf_tiny = bf_create ~m:8192 ~k:7 () in
+  let bf_tiny = bf_add "only_this" bf_tiny in
+  (* With a large filter and few elements, random strings should mostly miss *)
+
+  (* -- popcount -- *)
+  assert_equal ~msg:"empty popcount" "0" (string_of_int (bf_popcount bf0));
+  let pc1 = bf_popcount bf1 in
+  assert_true ~msg:"popcount after add > 0" (pc1 > 0);
+  assert_true ~msg:"popcount <= k" (pc1 <= bf_num_hashes bf1);
+
+  (* -- saturation -- *)
+  let sat0 = bf_saturation bf0 in
+  assert_true ~msg:"empty saturation 0" (sat0 = 0.0);
+  let sat1 = bf_saturation bf1 in
+  assert_true ~msg:"some saturation > 0" (sat1 > 0.0);
+  assert_true ~msg:"saturation <= 1" (sat1 <= 1.0);
+
+  (* -- false_positive_rate -- *)
+  let fpr0 = bf_false_positive_rate bf0 in
+  assert_true ~msg:"empty FPR 0" (fpr0 = 0.0);
+  let fpr1 = bf_false_positive_rate bf1 in
+  assert_true ~msg:"FPR > 0 after add" (fpr1 > 0.0);
+  assert_true ~msg:"FPR < 1" (fpr1 < 1.0);
+
+  (* -- union -- *)
+  let bfA = bf_of_list ~m:512 ~k:5 ["x"; "y"] in
+  let bfB = bf_of_list ~m:512 ~k:5 ["z"; "w"] in
+  let bfU = bf_union bfA bfB in
+  assert_true ~msg:"union mem x" (bf_mem "x" bfU);
+  assert_true ~msg:"union mem y" (bf_mem "y" bfU);
+  assert_true ~msg:"union mem z" (bf_mem "z" bfU);
+  assert_true ~msg:"union mem w" (bf_mem "w" bfU);
+  assert_equal ~msg:"union count" "4" (string_of_int (bf_count bfU));
+
+  (* -- union incompatible raises -- *)
+  let bfX = bf_create ~m:100 ~k:3 () in
+  let bfY = bf_create ~m:200 ~k:3 () in
+  assert_raises ~msg:"union incompatible" (fun () -> bf_union bfX bfY);
+
+  (* -- clear -- *)
+  let bf4 = bf_of_list ["p"; "q"; "r"] in
+  let bf4c = bf_clear bf4 in
+  assert_true ~msg:"cleared empty" (bf_is_empty bf4c);
+  assert_equal ~msg:"cleared size same" (string_of_int (bf_size bf4))
+    (string_of_int (bf_size bf4c));
+  assert_equal ~msg:"cleared k same" (string_of_int (bf_num_hashes bf4))
+    (string_of_int (bf_num_hashes bf4c));
+  (* original unchanged *)
+  assert_equal ~msg:"original not cleared" "3" (string_of_int (bf_count bf4));
+
+  (* -- copy -- *)
+  let bf5 = bf_of_list ["m"; "n"] in
+  let bf5c = bf_copy bf5 in
+  assert_true ~msg:"copy mem m" (bf_mem "m" bf5c);
+  assert_true ~msg:"copy mem n" (bf_mem "n" bf5c);
+  assert_equal ~msg:"copy count" "2" (string_of_int (bf_count bf5c));
+
+  (* -- to_string -- *)
+  let s = bf_to_string bf2 in
+  assert_true ~msg:"to_string has m" (String.length s > 0);
+
+  (* -- create_optimal -- *)
+  let bf_opt = bf_create_optimal ~expected_elements:1000 ~fp_rate:0.01 in
+  assert_true ~msg:"optimal m > 0" (bf_size bf_opt > 0);
+  assert_true ~msg:"optimal k > 0" (bf_num_hashes bf_opt > 0);
+  assert_true ~msg:"optimal m reasonable" (bf_size bf_opt > 1000);
+  assert_true ~msg:"optimal k reasonable" (bf_num_hashes bf_opt >= 5 && bf_num_hashes bf_opt <= 10);
+
+  (* -- custom small capacity -- *)
+  let bf_small = bf_create ~m:8 ~k:2 () in
+  let bf_small = bf_add "x" bf_small in
+  assert_true ~msg:"tiny mem x" (bf_mem "x" bf_small);
+  assert_equal ~msg:"tiny size" "8" (string_of_int (bf_size bf_small));
+
+  (* -- integer keys -- *)
+  let bf_int = bf_of_list [1; 2; 3; 4; 5] in
+  assert_true ~msg:"int mem 3" (bf_mem 3 bf_int);
+  assert_true ~msg:"int mem 5" (bf_mem 5 bf_int);
+  assert_equal ~msg:"int count" "5" (string_of_int (bf_count bf_int));
+
+  (* -- many insertions -- *)
+  let bf_big = ref (bf_create ~m:4096 ~k:7 ()) in
+  for i = 0 to 99 do
+    bf_big := bf_add i !bf_big
+  done;
+  assert_equal ~msg:"big count" "100" (string_of_int (bf_count !bf_big));
+  (* All inserted items should be present (no false negatives) *)
+  let all_present = ref true in
+  for i = 0 to 99 do
+    if not (bf_mem i !bf_big) then all_present := false
+  done;
+  assert_true ~msg:"big no false negatives" !all_present;
+
+  (* -- saturation grows with insertions -- *)
+  let sat_big = bf_saturation !bf_big in
+  assert_true ~msg:"big saturation > empty" (sat_big > 0.0);
+
+  (* -- empty mem_all is true (vacuous) -- *)
+  assert_true ~msg:"empty mem_all" (bf_mem_all [] bf1);
+
+  (* -- empty mem_any is false -- *)
+  assert_true ~msg:"empty mem_any" (not (bf_mem_any [] bf1));
+
+  (* -- FPR increases with more elements -- *)
+  let fpr_few = bf_false_positive_rate (bf_of_list ~m:256 ~k:5 [1; 2; 3]) in
+  let fpr_many = bf_false_positive_rate (bf_of_list ~m:256 ~k:5
+    (List.init 100 (fun i -> i))) in
+  assert_true ~msg:"FPR increases" (fpr_many > fpr_few);
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -4077,6 +4362,7 @@ let () =
   test_sorting ();
   test_union_find ();
   test_hashmap ();
+  test_bloom_filter ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
