@@ -136,7 +136,7 @@ let connected_components g =
   let components = ref [] in
   List.iter (fun v ->
     if not (Hashtbl.mem visited v) then begin
-      let component = dfs { g with adj = g.adj } v in
+      let component = dfs g v in
       List.iter (fun w -> Hashtbl.replace visited w true) component;
       components := List.sort compare component :: !components
     end
@@ -174,34 +174,36 @@ let has_cycle g =
 (* --- Topological Sort (directed acyclic graphs) --- *)
 (* Returns Some sorted_list if no cycle, None if cycle detected *)
 (* Uses Kahn's algorithm with in-degree counting *)
+(* Cycle detection is built-in: if output has fewer vertices than the graph, *)
+(* a cycle exists. No separate has_cycle pass needed. *)
 
 let topological_sort g =
-  if has_cycle g then None
-  else begin
-    (* Compute in-degrees *)
-    let in_deg = Hashtbl.create 16 in
-    List.iter (fun v -> Hashtbl.replace in_deg v 0) (vertices g);
-    IntMap.iter (fun _ ns ->
-      List.iter (fun w ->
-        let d = try Hashtbl.find in_deg w with Not_found -> 0 in
-        Hashtbl.replace in_deg w (d + 1)
-      ) ns
-    ) g.adj;
-    (* Start with all vertices of in-degree 0 *)
-    let queue = Queue.create () in
-    Hashtbl.iter (fun v d -> if d = 0 then Queue.push v queue) in_deg;
-    let result = ref [] in
-    while not (Queue.is_empty queue) do
-      let v = Queue.pop queue in
-      result := v :: !result;
-      List.iter (fun w ->
-        let d = Hashtbl.find in_deg w - 1 in
-        Hashtbl.replace in_deg w d;
-        if d = 0 then Queue.push w queue
-      ) (neighbors g v)
-    done;
-    Some (List.rev !result)
-  end
+  (* Compute in-degrees *)
+  let in_deg = Hashtbl.create 16 in
+  List.iter (fun v -> Hashtbl.replace in_deg v 0) (vertices g);
+  IntMap.iter (fun _ ns ->
+    List.iter (fun w ->
+      let d = try Hashtbl.find in_deg w with Not_found -> 0 in
+      Hashtbl.replace in_deg w (d + 1)
+    ) ns
+  ) g.adj;
+  (* Start with all vertices of in-degree 0 *)
+  let queue = Queue.create () in
+  Hashtbl.iter (fun v d -> if d = 0 then Queue.push v queue) in_deg;
+  let result = ref [] in
+  while not (Queue.is_empty queue) do
+    let v = Queue.pop queue in
+    result := v :: !result;
+    List.iter (fun w ->
+      let d = Hashtbl.find in_deg w - 1 in
+      Hashtbl.replace in_deg w d;
+      if d = 0 then Queue.push w queue
+    ) (neighbors g v)
+  done;
+  let sorted = List.rev !result in
+  (* If Kahn's didn't visit all vertices, a cycle exists *)
+  if List.length sorted <> num_vertices g then None
+  else Some sorted
 
 (* --- Pretty printing --- *)
 
