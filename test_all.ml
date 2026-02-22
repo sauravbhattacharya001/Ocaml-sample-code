@@ -3640,6 +3640,424 @@ let test_union_find () = suite "Union-Find" (fun () ->
   assert_equal ~msg:"stress 10 size" "10" (string_of_int (uf_component_size uf_stress 0));
 )
 
+(* ===== Functional Hash Map (from hashmap.ml) ===== *)
+
+type ('k, 'v) hm_t = {
+  hm_buckets : ('k * 'v) list array;
+  hm_size    : int;
+  hm_cap     : int;
+}
+
+let hm_default_cap = 16
+
+let hm_create ?(capacity = hm_default_cap) () =
+  let cap = max 1 capacity in
+  { hm_buckets = Array.make cap []; hm_size = 0; hm_cap = cap }
+
+let hm_empty = hm_create ()
+
+let hm_hash_key cap k =
+  (Hashtbl.hash k) mod cap |> abs
+
+let hm_should_resize m =
+  m.hm_size > (m.hm_cap * 3 / 4)
+
+let hm_resize m =
+  let new_cap = m.hm_cap * 2 in
+  let new_b = Array.make new_cap [] in
+  Array.iter (fun bucket ->
+    List.iter (fun ((k, _) as pair) ->
+      let idx = hm_hash_key new_cap k in
+      new_b.(idx) <- pair :: new_b.(idx)
+    ) bucket
+  ) m.hm_buckets;
+  { hm_buckets = new_b; hm_size = m.hm_size; hm_cap = new_cap }
+
+let hm_insert k v m =
+  let m = if hm_should_resize m then hm_resize m else m in
+  let idx = hm_hash_key m.hm_cap k in
+  let bucket = m.hm_buckets.(idx) in
+  let existed = List.exists (fun (k', _) -> k' = k) bucket in
+  let new_bucket =
+    if existed then
+      List.map (fun (k', v') -> if k' = k then (k, v) else (k', v')) bucket
+    else
+      (k, v) :: bucket
+  in
+  let new_b = Array.copy m.hm_buckets in
+  new_b.(idx) <- new_bucket;
+  { hm_buckets = new_b;
+    hm_size = if existed then m.hm_size else m.hm_size + 1;
+    hm_cap = m.hm_cap }
+
+let hm_find k m =
+  let idx = hm_hash_key m.hm_cap k in
+  let rec search = function
+    | [] -> None
+    | (k', v) :: _ when k' = k -> Some v
+    | _ :: rest -> search rest
+  in
+  search m.hm_buckets.(idx)
+
+let hm_find_exn k m =
+  match hm_find k m with
+  | Some v -> v
+  | None -> raise Not_found
+
+let hm_mem k m =
+  hm_find k m <> None
+
+let hm_remove k m =
+  let idx = hm_hash_key m.hm_cap k in
+  let bucket = m.hm_buckets.(idx) in
+  let existed = List.exists (fun (k', _) -> k' = k) bucket in
+  if not existed then m
+  else begin
+    let new_bucket = List.filter (fun (k', _) -> k' <> k) bucket in
+    let new_b = Array.copy m.hm_buckets in
+    new_b.(idx) <- new_bucket;
+    { hm_buckets = new_b;
+      hm_size = m.hm_size - 1;
+      hm_cap = m.hm_cap }
+  end
+
+let hm_size m = m.hm_size
+
+let hm_is_empty m = m.hm_size = 0
+
+let hm_fold f acc m =
+  Array.fold_left (fun acc bucket ->
+    List.fold_left (fun acc (k, v) -> f acc k v) acc bucket
+  ) acc m.hm_buckets
+
+let hm_iter f m =
+  Array.iter (fun bucket ->
+    List.iter (fun (k, v) -> f k v) bucket
+  ) m.hm_buckets
+
+let hm_map f m =
+  let new_b = Array.map (fun bucket ->
+    List.map (fun (k, v) -> (k, f v)) bucket
+  ) m.hm_buckets in
+  { m with hm_buckets = new_b }
+
+let hm_mapi f m =
+  let new_b = Array.map (fun bucket ->
+    List.map (fun (k, v) -> (k, f k v)) bucket
+  ) m.hm_buckets in
+  { m with hm_buckets = new_b }
+
+let hm_filter f m =
+  let new_b = Array.make m.hm_cap [] in
+  let new_size = ref 0 in
+  Array.iteri (fun i bucket ->
+    let filtered = List.filter (fun (k, v) -> f k v) bucket in
+    new_b.(i) <- filtered;
+    new_size := !new_size + List.length filtered
+  ) m.hm_buckets;
+  { hm_buckets = new_b; hm_size = !new_size; hm_cap = m.hm_cap }
+
+let hm_keys m =
+  hm_fold (fun acc k _v -> k :: acc) [] m
+
+let hm_values m =
+  hm_fold (fun acc _k v -> v :: acc) [] m
+
+let hm_bindings m =
+  hm_fold (fun acc k v -> (k, v) :: acc) [] m
+
+let hm_of_list pairs =
+  List.fold_left (fun m (k, v) -> hm_insert k v m) hm_empty pairs
+
+let hm_to_list m = hm_bindings m
+
+let hm_for_all f m =
+  try
+    hm_iter (fun k v -> if not (f k v) then raise Exit) m;
+    true
+  with Exit -> false
+
+let hm_exists f m =
+  try
+    hm_iter (fun k v -> if f k v then raise Exit) m;
+    false
+  with Exit -> true
+
+let hm_equal eq m1 m2 =
+  m1.hm_size = m2.hm_size &&
+  hm_for_all (fun k v ->
+    match hm_find k m2 with
+    | Some v2 -> eq v v2
+    | None -> false
+  ) m1
+
+let hm_merge f m1 m2 =
+  let result = hm_fold (fun acc k v ->
+    match hm_find k m2 with
+    | None -> hm_insert k (f k v None) acc
+    | Some v2 -> hm_insert k (f k v (Some v2)) acc
+  ) (hm_create ()) m1 in
+  hm_fold (fun acc k v ->
+    if not (hm_mem k m1) then
+      hm_insert k (f k v None) acc
+    else acc
+  ) result m2
+
+let hm_update k f m =
+  let old_v = hm_find k m in
+  match f old_v with
+  | None ->
+    (match old_v with
+     | None -> m
+     | Some _ -> hm_remove k m)
+  | Some new_v -> hm_insert k new_v m
+
+let hm_singleton k v = hm_insert k v hm_empty
+
+let hm_union f m1 m2 =
+  hm_fold (fun acc k v ->
+    match hm_find k acc with
+    | None -> hm_insert k v acc
+    | Some v' -> hm_insert k (f k v v') acc
+  ) m2 m1
+
+let hm_partition f m =
+  let yes = ref (hm_create ()) in
+  let no = ref (hm_create ()) in
+  hm_iter (fun k v ->
+    if f k v then yes := hm_insert k v !yes
+    else no := hm_insert k v !no
+  ) m;
+  (!yes, !no)
+
+let hm_cardinal m = m.hm_size
+
+let hm_choose m =
+  if hm_is_empty m then raise Not_found
+  else begin
+    let result = ref None in
+    (try
+      hm_iter (fun k v -> result := Some (k, v); raise Exit) m
+    with Exit -> ());
+    match !result with
+    | Some pair -> pair
+    | None -> raise Not_found
+  end
+
+(* ===== Hash Map Tests ===== *)
+
+let test_hashmap () = suite "Hash Map" (fun () ->
+  (* -- create and empty -- *)
+  let m0 = hm_create () in
+  assert_true ~msg:"empty is empty" (hm_is_empty m0);
+  assert_equal ~msg:"empty size" "0" (string_of_int (hm_size m0));
+
+  (* -- insert and find -- *)
+  let m1 = hm_insert "a" 1 m0 in
+  assert_equal ~msg:"find a" "1" (string_of_int (hm_find_exn "a" m1));
+  assert_equal ~msg:"size after insert" "1" (string_of_int (hm_size m1));
+  assert_true ~msg:"mem a" (hm_mem "a" m1);
+  assert_true ~msg:"not mem b" (not (hm_mem "b" m1));
+
+  (* -- original unchanged (persistence) -- *)
+  assert_true ~msg:"m0 still empty" (hm_is_empty m0);
+
+  (* -- multiple inserts -- *)
+  let m2 = hm_insert "b" 2 (hm_insert "c" 3 m1) in
+  assert_equal ~msg:"size 3" "3" (string_of_int (hm_size m2));
+  assert_equal ~msg:"find b" "2" (string_of_int (hm_find_exn "b" m2));
+  assert_equal ~msg:"find c" "3" (string_of_int (hm_find_exn "c" m2));
+
+  (* -- update existing key -- *)
+  let m3 = hm_insert "a" 10 m2 in
+  assert_equal ~msg:"update a" "10" (string_of_int (hm_find_exn "a" m3));
+  assert_equal ~msg:"size after update" "3" (string_of_int (hm_size m3));
+  (* old version still has 1 *)
+  assert_equal ~msg:"m2 still has a=1" "1" (string_of_int (hm_find_exn "a" m2));
+
+  (* -- find None for missing -- *)
+  assert_true ~msg:"find missing None" (hm_find "z" m2 = None);
+
+  (* -- find_exn raises -- *)
+  assert_raises ~msg:"find_exn raises" (fun () -> hm_find_exn "z" m2);
+
+  (* -- remove -- *)
+  let m4 = hm_remove "b" m2 in
+  assert_equal ~msg:"size after remove" "2" (string_of_int (hm_size m4));
+  assert_true ~msg:"b removed" (not (hm_mem "b" m4));
+  assert_true ~msg:"a still there" (hm_mem "a" m4);
+  assert_true ~msg:"c still there" (hm_mem "c" m4);
+
+  (* -- remove non-existent is identity -- *)
+  let m5 = hm_remove "zzz" m2 in
+  assert_equal ~msg:"remove missing size" "3" (string_of_int (hm_size m5));
+
+  (* -- of_list and to_list -- *)
+  let m6 = hm_of_list [("x", 10); ("y", 20); ("z", 30)] in
+  assert_equal ~msg:"of_list size" "3" (string_of_int (hm_size m6));
+  assert_equal ~msg:"of_list find x" "10" (string_of_int (hm_find_exn "x" m6));
+  assert_equal ~msg:"of_list find y" "20" (string_of_int (hm_find_exn "y" m6));
+  let bindings = List.sort compare (hm_to_list m6) in
+  assert_equal ~msg:"to_list length" "3" (string_of_int (List.length bindings));
+
+  (* -- keys and values -- *)
+  let ks = List.sort compare (hm_keys m6) in
+  assert_equal ~msg:"keys" "[x; y; z]" ("[" ^ String.concat "; " ks ^ "]");
+  let vs = List.sort compare (hm_values m6) in
+  assert_equal ~msg:"values" "[10; 20; 30]" (string_of_int_list vs);
+
+  (* -- fold -- *)
+  let sum = hm_fold (fun acc _k v -> acc + v) 0 m6 in
+  assert_equal ~msg:"fold sum" "60" (string_of_int sum);
+
+  let concat = hm_fold (fun acc k _v ->
+    if acc = "" then k else acc ^ "," ^ k
+  ) "" (hm_of_list [("only", 1)]) in
+  assert_equal ~msg:"fold single" "only" concat;
+
+  (* -- map -- *)
+  let m7 = hm_map (fun v -> v * 2) m6 in
+  assert_equal ~msg:"map x*2" "20" (string_of_int (hm_find_exn "x" m7));
+  assert_equal ~msg:"map y*2" "40" (string_of_int (hm_find_exn "y" m7));
+  assert_equal ~msg:"map z*2" "60" (string_of_int (hm_find_exn "z" m7));
+  (* original unchanged *)
+  assert_equal ~msg:"map original" "10" (string_of_int (hm_find_exn "x" m6));
+
+  (* -- mapi -- *)
+  let m7b = hm_mapi (fun k v -> String.length k + v) m6 in
+  assert_equal ~msg:"mapi x" "11" (string_of_int (hm_find_exn "x" m7b)); (* 1 + 10 *)
+  assert_equal ~msg:"mapi y" "21" (string_of_int (hm_find_exn "y" m7b)); (* 1 + 20 *)
+
+  (* -- filter -- *)
+  let m8 = hm_filter (fun _k v -> v > 15) m6 in
+  assert_equal ~msg:"filter size" "2" (string_of_int (hm_size m8));
+  assert_true ~msg:"filter keeps y" (hm_mem "y" m8);
+  assert_true ~msg:"filter keeps z" (hm_mem "z" m8);
+  assert_true ~msg:"filter removes x" (not (hm_mem "x" m8));
+
+  (* -- for_all -- *)
+  assert_true ~msg:"for_all >0" (hm_for_all (fun _k v -> v > 0) m6);
+  assert_true ~msg:"not for_all >25" (not (hm_for_all (fun _k v -> v > 25) m6));
+
+  (* -- exists -- *)
+  assert_true ~msg:"exists =30" (hm_exists (fun _k v -> v = 30) m6);
+  assert_true ~msg:"not exists =99" (not (hm_exists (fun _k v -> v = 99) m6));
+
+  (* -- equal -- *)
+  let m6copy = hm_of_list [("z", 30); ("x", 10); ("y", 20)] in
+  assert_true ~msg:"equal same" (hm_equal (=) m6 m6copy);
+  let m6diff = hm_insert "x" 999 m6 in
+  assert_true ~msg:"not equal diff val" (not (hm_equal (=) m6 m6diff));
+  let m6more = hm_insert "w" 40 m6 in
+  assert_true ~msg:"not equal diff size" (not (hm_equal (=) m6 m6more));
+
+  (* -- merge -- *)
+  let ma = hm_of_list [("a", 1); ("b", 2)] in
+  let mb = hm_of_list [("b", 20); ("c", 30)] in
+  let merged = hm_merge (fun _k v opt ->
+    match opt with None -> v | Some v2 -> v + v2
+  ) ma mb in
+  assert_equal ~msg:"merge size" "3" (string_of_int (hm_size merged));
+  assert_equal ~msg:"merge a" "1" (string_of_int (hm_find_exn "a" merged));
+  assert_equal ~msg:"merge b" "22" (string_of_int (hm_find_exn "b" merged));
+  assert_equal ~msg:"merge c" "30" (string_of_int (hm_find_exn "c" merged));
+
+  (* -- union -- *)
+  let u = hm_union (fun _k v1 v2 -> v1 + v2) ma mb in
+  assert_equal ~msg:"union a" "1" (string_of_int (hm_find_exn "a" u));
+  assert_equal ~msg:"union b" "22" (string_of_int (hm_find_exn "b" u));
+  assert_equal ~msg:"union c" "30" (string_of_int (hm_find_exn "c" u));
+
+  (* -- update -- *)
+  let m9 = hm_update "a" (function None -> Some 42 | Some v -> Some (v + 1)) m2 in
+  assert_equal ~msg:"update existing" "2" (string_of_int (hm_find_exn "a" m9));
+  let m9b = hm_update "new" (function None -> Some 42 | Some v -> Some (v + 1)) m2 in
+  assert_equal ~msg:"update new" "42" (string_of_int (hm_find_exn "new" m9b));
+  let m9c = hm_update "a" (fun _ -> None) m2 in
+  assert_true ~msg:"update remove" (not (hm_mem "a" m9c));
+  let m9d = hm_update "missing" (fun _ -> None) m2 in
+  assert_equal ~msg:"update remove missing" "3" (string_of_int (hm_size m9d));
+
+  (* -- singleton -- *)
+  let ms = hm_singleton "solo" 99 in
+  assert_equal ~msg:"singleton size" "1" (string_of_int (hm_size ms));
+  assert_equal ~msg:"singleton val" "99" (string_of_int (hm_find_exn "solo" ms));
+
+  (* -- partition -- *)
+  let (yes, no) = hm_partition (fun _k v -> v > 15) m6 in
+  assert_equal ~msg:"partition yes size" "2" (string_of_int (hm_size yes));
+  assert_equal ~msg:"partition no size" "1" (string_of_int (hm_size no));
+  assert_true ~msg:"partition yes has y" (hm_mem "y" yes);
+  assert_true ~msg:"partition no has x" (hm_mem "x" no);
+
+  (* -- cardinal == size -- *)
+  assert_equal ~msg:"cardinal" "3" (string_of_int (hm_cardinal m6));
+
+  (* -- choose -- *)
+  let (ck, cv) = hm_choose m6 in
+  assert_true ~msg:"choose is member" (hm_mem ck m6);
+  assert_equal ~msg:"choose val matches" (string_of_int cv) (string_of_int (hm_find_exn ck m6));
+
+  (* -- choose empty raises -- *)
+  assert_raises ~msg:"choose empty raises" (fun () -> hm_choose (hm_create ()));
+
+  (* -- integer keys -- *)
+  let mint = hm_of_list [(1, "one"); (2, "two"); (3, "three")] in
+  assert_equal ~msg:"int key find" "two" (hm_find_exn 2 mint);
+  assert_equal ~msg:"int key size" "3" (string_of_int (hm_size mint));
+
+  (* -- many insertions (trigger resize) -- *)
+  let big = ref (hm_create ~capacity:4 ()) in
+  for i = 0 to 99 do
+    big := hm_insert i (i * i) !big
+  done;
+  assert_equal ~msg:"big size" "100" (string_of_int (hm_size !big));
+  assert_equal ~msg:"big find 0" "0" (string_of_int (hm_find_exn 0 !big));
+  assert_equal ~msg:"big find 50" "2500" (string_of_int (hm_find_exn 50 !big));
+  assert_equal ~msg:"big find 99" "9801" (string_of_int (hm_find_exn 99 !big));
+  assert_true ~msg:"big not mem 100" (not (hm_mem 100 !big));
+
+  (* -- iter -- *)
+  let count = ref 0 in
+  hm_iter (fun _k _v -> incr count) m6;
+  assert_equal ~msg:"iter count" "3" (string_of_int !count);
+
+  (* -- empty operations -- *)
+  assert_true ~msg:"empty fold" (hm_fold (fun _ _ _ -> false) true (hm_create ()));
+  assert_true ~msg:"empty for_all" (hm_for_all (fun _ _ -> false) (hm_create ()));
+  assert_true ~msg:"empty not exists" (not (hm_exists (fun _ _ -> true) (hm_create ())));
+  assert_true ~msg:"empty filter" (hm_is_empty (hm_filter (fun _ _ -> true) (hm_create ())));
+  assert_true ~msg:"empty keys" (hm_keys (hm_create ()) = []);
+  assert_true ~msg:"empty values" (hm_values (hm_create ()) = []);
+  assert_true ~msg:"empty equal" (hm_equal (=) (hm_create ()) (hm_create ()));
+
+  (* -- of_list duplicate keys: last wins -- *)
+  let mdup = hm_of_list [("a", 1); ("a", 2); ("a", 3)] in
+  assert_equal ~msg:"of_list last wins" "3" (string_of_int (hm_find_exn "a" mdup));
+  assert_equal ~msg:"of_list dup size" "1" (string_of_int (hm_size mdup));
+
+  (* -- remove all entries -- *)
+  let m_all = hm_of_list [("a", 1); ("b", 2)] in
+  let m_none = hm_remove "b" (hm_remove "a" m_all) in
+  assert_true ~msg:"remove all empty" (hm_is_empty m_none);
+
+  (* -- persistence chain -- *)
+  let p0 = hm_insert "x" 1 hm_empty in
+  let p1 = hm_insert "y" 2 p0 in
+  let p2 = hm_remove "x" p1 in
+  assert_true ~msg:"p0 has x" (hm_mem "x" p0);
+  assert_true ~msg:"p0 no y" (not (hm_mem "y" p0));
+  assert_true ~msg:"p1 has both" (hm_mem "x" p1 && hm_mem "y" p1);
+  assert_true ~msg:"p2 no x" (not (hm_mem "x" p2));
+  assert_true ~msg:"p2 has y" (hm_mem "y" p2);
+
+  (* -- custom capacity -- *)
+  let mc = hm_create ~capacity:1 () in
+  let mc = hm_insert "a" 1 (hm_insert "b" 2 mc) in
+  assert_equal ~msg:"tiny cap size" "2" (string_of_int (hm_size mc));
+  assert_equal ~msg:"tiny cap find" "1" (string_of_int (hm_find_exn "a" mc));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -3658,6 +4076,7 @@ let () =
   test_rbtree ();
   test_sorting ();
   test_union_find ();
+  test_hashmap ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
