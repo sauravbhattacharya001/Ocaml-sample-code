@@ -2521,6 +2521,414 @@ let test_stream () = suite "Stream" (fun () ->
     (string_of_int_list (stream_take 5 composed));
 )
 
+(* ===== Red-Black Tree functions (from rbtree.ml) ===== *)
+
+type rb_color = RBRed | RBBlack
+
+type 'a rbtree =
+  | RBE
+  | RBT of rb_color * 'a rbtree * 'a * 'a rbtree
+
+let rb_empty = RBE
+
+let rb_is_empty = function RBE -> true | _ -> false
+
+let rec rb_member x = function
+  | RBE -> false
+  | RBT (_, left, v, right) ->
+    if x < v then rb_member x left
+    else if x > v then rb_member x right
+    else true
+
+let rb_balance = function
+  | RBBlack, RBT (RBRed, RBT (RBRed, a, x, b), y, c), z, d
+  | RBBlack, RBT (RBRed, a, x, RBT (RBRed, b, y, c)), z, d
+  | RBBlack, a, x, RBT (RBRed, RBT (RBRed, b, y, c), z, d)
+  | RBBlack, a, x, RBT (RBRed, b, y, RBT (RBRed, c, z, d)) ->
+    RBT (RBRed, RBT (RBBlack, a, x, b), y, RBT (RBBlack, c, z, d))
+  | color, left, v, right ->
+    RBT (color, left, v, right)
+
+let rb_insert x tree =
+  let rec ins = function
+    | RBE -> RBT (RBRed, RBE, x, RBE)
+    | RBT (color, left, v, right) ->
+      if x < v then rb_balance (color, ins left, v, right)
+      else if x > v then rb_balance (color, left, v, ins right)
+      else RBT (color, left, v, right)
+  in
+  match ins tree with
+  | RBT (_, left, v, right) -> RBT (RBBlack, left, v, right)
+  | RBE -> failwith "impossible"
+
+let rb_balance_del = function
+  | RBBlack, RBT (RBRed, RBT (RBRed, a, x, b), y, c), z, d ->
+    RBT (RBRed, RBT (RBBlack, a, x, b), y, RBT (RBBlack, c, z, d))
+  | RBBlack, RBT (RBRed, a, x, RBT (RBRed, b, y, c)), z, d ->
+    RBT (RBRed, RBT (RBBlack, a, x, b), y, RBT (RBBlack, c, z, d))
+  | RBBlack, a, x, RBT (RBRed, RBT (RBRed, b, y, c), z, d) ->
+    RBT (RBRed, RBT (RBBlack, a, x, b), y, RBT (RBBlack, c, z, d))
+  | RBBlack, a, x, RBT (RBRed, b, y, RBT (RBRed, c, z, d)) ->
+    RBT (RBRed, RBT (RBBlack, a, x, b), y, RBT (RBBlack, c, z, d))
+  | color, left, v, right ->
+    RBT (color, left, v, right)
+
+let rb_bubble_left = function
+  | RBT (RBBlack, RBT (RBRed, a, x, b), y, right) ->
+    rb_balance_del (RBBlack, RBT (RBRed, a, x, b), y, right)
+  | RBT (color, left, y, RBT (RBBlack, a, z, b)) ->
+    rb_balance_del (color, left, y, RBT (RBRed, a, z, b))
+  | RBT (color, left, y, RBT (RBRed, RBT (RBBlack, a, z, b), w, c)) ->
+    RBT (color, RBT (RBBlack, left, y, RBT (RBRed, a, z, b)), w, c)
+  | t -> t
+
+let rb_bubble_right = function
+  | RBT (color, RBT (RBBlack, a, x, b), y, right) ->
+    rb_balance_del (color, RBT (RBRed, a, x, b), y, right)
+  | RBT (RBBlack, RBT (RBRed, a, x, RBT (RBBlack, b, y, c)), z, right) ->
+    RBT (RBBlack, a, x, RBT (RBBlack, RBT (RBRed, b, y, c), z, right))
+  | t -> t
+
+let rec rb_min_elt = function
+  | RBE -> failwith "rb_min_elt: empty"
+  | RBT (_, RBE, v, _) -> v
+  | RBT (_, left, _, _) -> rb_min_elt left
+
+let rec rb_max_elt = function
+  | RBE -> failwith "rb_max_elt: empty"
+  | RBT (_, _, v, RBE) -> v
+  | RBT (_, _, _, right) -> rb_max_elt right
+
+let rb_min_elt_opt = function RBE -> None | t -> Some (rb_min_elt t)
+let rb_max_elt_opt = function RBE -> None | t -> Some (rb_max_elt t)
+
+let rec rb_remove_min = function
+  | RBE -> failwith "rb_remove_min: empty"
+  | RBT (_, RBE, _, right) -> right
+  | RBT (color, left, v, right) ->
+    rb_bubble_left (RBT (color, rb_remove_min left, v, right))
+
+let rb_delete x tree =
+  let rec del = function
+    | RBE -> RBE
+    | RBT (color, left, v, right) ->
+      if x < v then
+        rb_bubble_left (RBT (color, del left, v, right))
+      else if x > v then
+        rb_bubble_right (RBT (color, left, v, del right))
+      else
+        match left, right with
+        | RBE, _ -> right
+        | _, RBE -> left
+        | _ ->
+          let s = rb_min_elt right in
+          rb_bubble_right (RBT (color, left, s, rb_remove_min right))
+  in
+  match del tree with
+  | RBT (_, left, v, right) -> RBT (RBBlack, left, v, right)
+  | RBE -> RBE
+
+let rec rb_cardinal = function
+  | RBE -> 0
+  | RBT (_, left, _, right) -> 1 + rb_cardinal left + rb_cardinal right
+
+let rec rb_height = function
+  | RBE -> 0
+  | RBT (_, left, _, right) -> 1 + max (rb_height left) (rb_height right)
+
+let rec rb_black_height = function
+  | RBE -> 0
+  | RBT (RBBlack, left, _, _) -> 1 + rb_black_height left
+  | RBT (RBRed, left, _, _) -> rb_black_height left
+
+let rb_to_list tree =
+  let rec aux acc = function
+    | RBE -> acc
+    | RBT (_, left, v, right) -> aux (v :: aux acc right) left
+  in
+  aux [] tree
+
+let rec rb_fold f acc = function
+  | RBE -> acc
+  | RBT (_, left, v, right) ->
+    let acc' = rb_fold f acc left in
+    let acc'' = f acc' v in
+    rb_fold f acc'' right
+
+let rec rb_iter f = function
+  | RBE -> ()
+  | RBT (_, left, v, right) ->
+    rb_iter f left; f v; rb_iter f right
+
+let rec rb_for_all p = function
+  | RBE -> true
+  | RBT (_, left, v, right) ->
+    p v && rb_for_all p left && rb_for_all p right
+
+let rec rb_exists p = function
+  | RBE -> false
+  | RBT (_, left, v, right) ->
+    p v || rb_exists p left || rb_exists p right
+
+let rb_of_list lst =
+  List.fold_left (fun acc x -> rb_insert x acc) RBE lst
+
+let rb_singleton x = rb_insert x RBE
+
+let rb_union t1 t2 =
+  rb_fold (fun acc x -> rb_insert x acc) t1 t2
+
+let rb_inter t1 t2 =
+  rb_fold (fun acc x -> if rb_member x t2 then rb_insert x acc else acc) RBE t1
+
+let rb_diff t1 t2 =
+  rb_fold (fun acc x -> if not (rb_member x t2) then rb_insert x acc else acc) RBE t1
+
+let rb_subset t1 t2 =
+  rb_for_all (fun x -> rb_member x t2) t1
+
+let rb_equal t1 t2 =
+  rb_to_list t1 = rb_to_list t2
+
+let rb_filter p tree =
+  rb_fold (fun acc x -> if p x then rb_insert x acc else acc) RBE tree
+
+let rb_partition p tree =
+  rb_fold (fun (yes, no) x ->
+    if p x then (rb_insert x yes, no) else (yes, rb_insert x no))
+    (RBE, RBE) tree
+
+let rb_map f tree =
+  rb_fold (fun acc x -> rb_insert (f x) acc) RBE tree
+
+let rec rb_no_red_red = function
+  | RBE -> true
+  | RBT (RBRed, RBT (RBRed, _, _, _), _, _)
+  | RBT (RBRed, _, _, RBT (RBRed, _, _, _)) -> false
+  | RBT (_, left, _, right) ->
+    rb_no_red_red left && rb_no_red_red right
+
+let rec rb_valid_black_height = function
+  | RBE -> Some 0
+  | RBT (color, left, _, right) ->
+    match rb_valid_black_height left, rb_valid_black_height right with
+    | Some lh, Some rh when lh = rh ->
+      Some (if color = RBBlack then lh + 1 else lh)
+    | _ -> None
+
+let rec rb_is_bst_aux lo hi = function
+  | RBE -> true
+  | RBT (_, left, v, right) ->
+    (match lo with None -> true | Some l -> v > l) &&
+    (match hi with None -> true | Some h -> v < h) &&
+    rb_is_bst_aux lo (Some v) left &&
+    rb_is_bst_aux (Some v) hi right
+
+let rb_is_valid tree =
+  let root_black = match tree with RBE -> true | RBT (RBBlack, _, _, _) -> true | _ -> false in
+  root_black &&
+  rb_no_red_red tree &&
+  (rb_valid_black_height tree <> None) &&
+  rb_is_bst_aux None None tree
+
+(* ===== Red-Black Tree tests ===== *)
+
+let test_rbtree () = suite "Red-Black Tree" (fun () ->
+  (* -- Empty tree -- *)
+  assert_true ~msg:"empty is_empty" (rb_is_empty RBE);
+  assert_true ~msg:"empty is_valid" (rb_is_valid RBE);
+  assert_equal ~msg:"empty cardinal" "0" (string_of_int (rb_cardinal RBE));
+  assert_equal ~msg:"empty to_list" "[]" (string_of_int_list (rb_to_list RBE));
+  assert_true ~msg:"empty not member" (not (rb_member 1 RBE));
+
+  (* -- Singleton -- *)
+  let s = rb_singleton 42 in
+  assert_true ~msg:"singleton is_valid" (rb_is_valid s);
+  assert_equal ~msg:"singleton cardinal" "1" (string_of_int (rb_cardinal s));
+  assert_true ~msg:"singleton member" (rb_member 42 s);
+  assert_true ~msg:"singleton not member 0" (not (rb_member 0 s));
+  assert_equal ~msg:"singleton to_list" "[42]" (string_of_int_list (rb_to_list s));
+
+  (* -- Insert maintains sorted order -- *)
+  let t = rb_of_list [5; 3; 7; 1; 4; 6; 8] in
+  assert_equal ~msg:"of_list sorted" "[1; 3; 4; 5; 6; 7; 8]" (string_of_int_list (rb_to_list t));
+  assert_true ~msg:"of_list is_valid" (rb_is_valid t);
+  assert_equal ~msg:"of_list cardinal" "7" (string_of_int (rb_cardinal t));
+
+  (* -- Duplicate insert -- *)
+  let t_dup = rb_insert 5 t in
+  assert_equal ~msg:"duplicate insert no change" "7" (string_of_int (rb_cardinal t_dup));
+  assert_equal ~msg:"duplicate sorted" "[1; 3; 4; 5; 6; 7; 8]" (string_of_int_list (rb_to_list t_dup));
+
+  (* -- Member -- *)
+  assert_true ~msg:"member 1" (rb_member 1 t);
+  assert_true ~msg:"member 5" (rb_member 5 t);
+  assert_true ~msg:"member 8" (rb_member 8 t);
+  assert_true ~msg:"not member 0" (not (rb_member 0 t));
+  assert_true ~msg:"not member 9" (not (rb_member 9 t));
+  assert_true ~msg:"not member 2" (not (rb_member 2 t));
+
+  (* -- Min / Max -- *)
+  assert_equal ~msg:"min_elt" "1" (string_of_int (rb_min_elt t));
+  assert_equal ~msg:"max_elt" "8" (string_of_int (rb_max_elt t));
+  assert_equal ~msg:"min_elt_opt" "Some(1)" (string_of_option string_of_int (rb_min_elt_opt t));
+  assert_equal ~msg:"max_elt_opt" "Some(8)" (string_of_option string_of_int (rb_max_elt_opt t));
+  assert_equal ~msg:"min_elt_opt empty" "None" (string_of_option string_of_int (rb_min_elt_opt RBE));
+  assert_equal ~msg:"max_elt_opt empty" "None" (string_of_option string_of_int (rb_max_elt_opt RBE));
+  assert_raises ~msg:"min_elt empty raises" (fun () -> rb_min_elt RBE);
+  assert_raises ~msg:"max_elt empty raises" (fun () -> rb_max_elt RBE);
+
+  (* -- Delete leaf element -- *)
+  let t_del1 = rb_delete 1 t in
+  assert_equal ~msg:"delete 1" "[3; 4; 5; 6; 7; 8]" (string_of_int_list (rb_to_list t_del1));
+  assert_true ~msg:"delete 1 valid" (rb_is_valid t_del1);
+  assert_true ~msg:"1 removed" (not (rb_member 1 t_del1));
+
+  (* -- Delete root element -- *)
+  let t_del5 = rb_delete 5 t in
+  assert_equal ~msg:"delete 5" "[1; 3; 4; 6; 7; 8]" (string_of_int_list (rb_to_list t_del5));
+  assert_true ~msg:"delete 5 valid" (rb_is_valid t_del5);
+
+  (* -- Delete max -- *)
+  let t_del8 = rb_delete 8 t in
+  assert_equal ~msg:"delete 8" "[1; 3; 4; 5; 6; 7]" (string_of_int_list (rb_to_list t_del8));
+  assert_true ~msg:"delete 8 valid" (rb_is_valid t_del8);
+
+  (* -- Delete non-existent -- *)
+  let t_del99 = rb_delete 99 t in
+  assert_equal ~msg:"delete non-existent" "7" (string_of_int (rb_cardinal t_del99));
+  assert_true ~msg:"delete non-existent valid" (rb_is_valid t_del99);
+
+  (* -- Delete all elements -- *)
+  let t_empty = List.fold_left (fun acc x -> rb_delete x acc) t [1; 3; 4; 5; 6; 7; 8] in
+  assert_true ~msg:"delete all is_empty" (rb_is_empty t_empty);
+  assert_true ~msg:"delete all valid" (rb_is_valid t_empty);
+
+  (* -- Delete from empty -- *)
+  assert_true ~msg:"delete from empty" (rb_is_empty (rb_delete 1 RBE));
+
+  (* -- Height and black-height -- *)
+  let large = rb_of_list [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15] in
+  assert_true ~msg:"large is_valid" (rb_is_valid large);
+  let h = rb_height large in
+  let n = rb_cardinal large in
+  (* RB-tree height <= 2*log2(n+1) *)
+  let max_h = 2.0 *. (log (float_of_int (n + 1)) /. log 2.0) in
+  assert_true ~msg:"height bounded" (float_of_int h <= max_h +. 0.001);
+  assert_true ~msg:"black_height positive" (rb_black_height large > 0);
+
+  (* -- Fold (sum) -- *)
+  let sum = rb_fold (fun acc x -> acc + x) 0 t in
+  assert_equal ~msg:"fold sum" "34" (string_of_int sum);
+
+  (* -- Fold (count) -- *)
+  let count = rb_fold (fun acc _ -> acc + 1) 0 t in
+  assert_equal ~msg:"fold count" "7" (string_of_int count);
+
+  (* -- for_all / exists -- *)
+  assert_true ~msg:"for_all positive" (rb_for_all (fun x -> x > 0) t);
+  assert_true ~msg:"not for_all >3" (not (rb_for_all (fun x -> x > 3) t));
+  assert_true ~msg:"exists 7" (rb_exists (fun x -> x = 7) t);
+  assert_true ~msg:"not exists 99" (not (rb_exists (fun x -> x = 99) t));
+
+  (* -- Filter -- *)
+  let evens = rb_filter (fun x -> x mod 2 = 0) t in
+  assert_equal ~msg:"filter evens" "[4; 6; 8]" (string_of_int_list (rb_to_list evens));
+  assert_true ~msg:"filter valid" (rb_is_valid evens);
+
+  (* -- Partition -- *)
+  let (below5, above5) = rb_partition (fun x -> x < 5) t in
+  assert_equal ~msg:"partition below" "[1; 3; 4]" (string_of_int_list (rb_to_list below5));
+  assert_equal ~msg:"partition above" "[5; 6; 7; 8]" (string_of_int_list (rb_to_list above5));
+  assert_true ~msg:"partition below valid" (rb_is_valid below5);
+  assert_true ~msg:"partition above valid" (rb_is_valid above5);
+
+  (* -- Map -- *)
+  let doubled = rb_map (fun x -> x * 2) (rb_of_list [1; 2; 3]) in
+  assert_equal ~msg:"map double" "[2; 4; 6]" (string_of_int_list (rb_to_list doubled));
+  assert_true ~msg:"map valid" (rb_is_valid doubled);
+
+  (* -- Union -- *)
+  let a = rb_of_list [1; 3; 5; 7] in
+  let b = rb_of_list [2; 4; 6; 8] in
+  let u = rb_union a b in
+  assert_equal ~msg:"union disjoint" "[1; 2; 3; 4; 5; 6; 7; 8]" (string_of_int_list (rb_to_list u));
+  assert_true ~msg:"union valid" (rb_is_valid u);
+
+  let c = rb_of_list [3; 5; 9] in
+  let u2 = rb_union a c in
+  assert_equal ~msg:"union overlap" "[1; 3; 5; 7; 9]" (string_of_int_list (rb_to_list u2));
+  assert_true ~msg:"union overlap valid" (rb_is_valid u2);
+
+  (* -- Intersection -- *)
+  let i = rb_inter (rb_of_list [1; 2; 3; 4; 5]) (rb_of_list [3; 4; 5; 6; 7]) in
+  assert_equal ~msg:"inter" "[3; 4; 5]" (string_of_int_list (rb_to_list i));
+  assert_true ~msg:"inter valid" (rb_is_valid i);
+
+  let i_empty = rb_inter a b in
+  assert_true ~msg:"inter disjoint empty" (rb_is_empty i_empty);
+
+  (* -- Difference -- *)
+  let d = rb_diff (rb_of_list [1; 2; 3; 4; 5]) (rb_of_list [3; 4; 5; 6; 7]) in
+  assert_equal ~msg:"diff" "[1; 2]" (string_of_int_list (rb_to_list d));
+  assert_true ~msg:"diff valid" (rb_is_valid d);
+
+  (* -- Subset -- *)
+  assert_true ~msg:"subset yes" (rb_subset (rb_of_list [3; 5]) a);
+  assert_true ~msg:"subset no" (not (rb_subset (rb_of_list [3; 5; 9]) a));
+  assert_true ~msg:"subset empty" (rb_subset RBE a);
+  assert_true ~msg:"subset self" (rb_subset a a);
+
+  (* -- Equal -- *)
+  assert_true ~msg:"equal same" (rb_equal (rb_of_list [3; 1; 2]) (rb_of_list [1; 2; 3]));
+  assert_true ~msg:"not equal" (not (rb_equal a b));
+  assert_true ~msg:"equal empty" (rb_equal RBE RBE);
+
+  (* -- Iter -- *)
+  let buf = Buffer.create 16 in
+  rb_iter (fun x -> Buffer.add_string buf (string_of_int x ^ ",")) (rb_of_list [3; 1; 2]);
+  assert_equal ~msg:"iter order" "1,2,3," (Buffer.contents buf);
+
+  (* -- Stress: insert 100 elements, verify invariants at each step -- *)
+  let seq = List.init 100 (fun i -> (i * 37 + 13) mod 100) in
+  let (final, all_valid) = List.fold_left (fun (t, ok) x ->
+    let t' = rb_insert x t in
+    (t', ok && rb_is_valid t')
+  ) (RBE, true) seq in
+  assert_true ~msg:"stress 100 all valid" all_valid;
+  let final_list = rb_to_list final in
+  let sorted = List.sort compare final_list in
+  assert_true ~msg:"stress 100 sorted" (final_list = sorted);
+  (* Verify no duplicates *)
+  let unique = List.sort_uniq compare seq in
+  assert_equal ~msg:"stress 100 cardinal" (string_of_int (List.length unique))
+    (string_of_int (rb_cardinal final));
+
+  (* -- Stress: delete half -- *)
+  let to_delete = List.filteri (fun i _ -> i mod 2 = 0) (rb_to_list final) in
+  let (after_del, del_valid) = List.fold_left (fun (t, ok) x ->
+    let t' = rb_delete x t in
+    (t', ok && rb_is_valid t')
+  ) (final, true) to_delete in
+  assert_true ~msg:"stress delete valid" del_valid;
+  assert_equal ~msg:"stress delete cardinal"
+    (string_of_int (rb_cardinal final - List.length to_delete))
+    (string_of_int (rb_cardinal after_del));
+
+  (* -- Large sequential insert (worst case for plain BST) -- *)
+  let sequential = rb_of_list (List.init 50 (fun i -> i)) in
+  assert_true ~msg:"sequential valid" (rb_is_valid sequential);
+  assert_equal ~msg:"sequential cardinal" "50" (string_of_int (rb_cardinal sequential));
+  let sh = rb_height sequential in
+  (* Height must be << 50 for balanced tree *)
+  assert_true ~msg:"sequential balanced" (sh <= 12);
+
+  (* -- Reverse sequential -- *)
+  let rev_seq = rb_of_list (List.init 50 (fun i -> 49 - i)) in
+  assert_true ~msg:"reverse sequential valid" (rb_is_valid rev_seq);
+  assert_true ~msg:"reverse sequential equal" (rb_equal sequential rev_seq);
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -2536,6 +2944,7 @@ let () =
   test_parser ();
   test_regex ();
   test_stream ();
+  test_rbtree ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
