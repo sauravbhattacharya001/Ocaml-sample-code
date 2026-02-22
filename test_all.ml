@@ -3259,6 +3259,387 @@ let test_sorting () = suite "Sorting" (fun () ->
   assert_equal ~msg:"ins stability 2" "c" (snd (List.nth first_three 1));
 )
 
+(* ===== Union-Find functions (from union_find.ml) ===== *)
+
+module UfIntMap = Map.Make(Int)
+
+type uf_t = {
+  uf_parent : int UfIntMap.t;
+  uf_rank   : int UfIntMap.t;
+  uf_size   : int UfIntMap.t;
+  uf_n      : int;
+}
+
+let uf_create n =
+  if n < 0 then invalid_arg "UnionFind.create: negative size";
+  let parent = ref UfIntMap.empty in
+  let rank = ref UfIntMap.empty in
+  let size = ref UfIntMap.empty in
+  for i = 0 to n - 1 do
+    parent := UfIntMap.add i i !parent;
+    rank := UfIntMap.add i 0 !rank;
+    size := UfIntMap.add i 1 !size;
+  done;
+  { uf_parent = !parent; uf_rank = !rank; uf_size = !size; uf_n = n }
+
+let rec uf_find uf x =
+  if not (UfIntMap.mem x uf.uf_parent) then
+    invalid_arg (Printf.sprintf "UnionFind.find: element %d out of range" x);
+  let px = UfIntMap.find x uf.uf_parent in
+  if px = x then (x, uf)
+  else
+    let (root, uf') = uf_find uf px in
+    let uf'' = { uf' with uf_parent = UfIntMap.add x root uf'.uf_parent } in
+    (root, uf'')
+
+let rec uf_find_root uf x =
+  if not (UfIntMap.mem x uf.uf_parent) then
+    invalid_arg (Printf.sprintf "UnionFind.find_root: element %d out of range" x);
+  let px = UfIntMap.find x uf.uf_parent in
+  if px = x then x
+  else uf_find_root uf px
+
+let uf_connected uf x y =
+  uf_find_root uf x = uf_find_root uf y
+
+let uf_union uf x y =
+  let (rx, uf1) = uf_find uf x in
+  let (ry, uf2) = uf_find uf1 y in
+  if rx = ry then uf2
+  else
+    let rank_rx = UfIntMap.find rx uf2.uf_rank in
+    let rank_ry = UfIntMap.find ry uf2.uf_rank in
+    let size_rx = UfIntMap.find rx uf2.uf_size in
+    let size_ry = UfIntMap.find ry uf2.uf_size in
+    let new_size = size_rx + size_ry in
+    if rank_rx < rank_ry then
+      { uf2 with
+        uf_parent = UfIntMap.add rx ry uf2.uf_parent;
+        uf_size = UfIntMap.add ry new_size uf2.uf_size }
+    else if rank_rx > rank_ry then
+      { uf2 with
+        uf_parent = UfIntMap.add ry rx uf2.uf_parent;
+        uf_size = UfIntMap.add rx new_size uf2.uf_size }
+    else
+      { uf2 with
+        uf_parent = UfIntMap.add ry rx uf2.uf_parent;
+        uf_rank = UfIntMap.add rx (rank_rx + 1) uf2.uf_rank;
+        uf_size = UfIntMap.add rx new_size uf2.uf_size }
+
+let uf_num_components uf =
+  UfIntMap.fold (fun k v count ->
+    if k = v then count + 1 else count
+  ) uf.uf_parent 0
+
+let uf_component_size uf x =
+  let root = uf_find_root uf x in
+  UfIntMap.find root uf.uf_size
+
+let uf_roots uf =
+  UfIntMap.fold (fun k v acc ->
+    if k = v then k :: acc else acc
+  ) uf.uf_parent []
+  |> List.rev
+
+let uf_component_members uf x =
+  let root = uf_find_root uf x in
+  UfIntMap.fold (fun k _v acc ->
+    if uf_find_root uf k = root then k :: acc else acc
+  ) uf.uf_parent []
+  |> List.rev
+
+let uf_all_components uf =
+  let tbl = Hashtbl.create 16 in
+  UfIntMap.iter (fun k _v ->
+    let root = uf_find_root uf k in
+    let existing = try Hashtbl.find tbl root with Not_found -> [] in
+    Hashtbl.replace tbl root (k :: existing)
+  ) uf.uf_parent;
+  Hashtbl.fold (fun _root members acc ->
+    (List.sort compare members) :: acc
+  ) tbl []
+  |> List.sort compare
+
+let uf_cardinal uf = uf.uf_n
+
+let uf_is_single_component uf = uf_num_components uf = 1
+
+let uf_of_unions n pairs =
+  let uf = uf_create n in
+  List.fold_left (fun acc (x, y) -> uf_union acc x y) uf pairs
+
+let uf_kruskal n edges =
+  let sorted_edges = List.sort (fun (w1, _, _) (w2, _, _) -> compare w1 w2) edges in
+  let rec aux uf mst = function
+    | [] -> List.rev mst
+    | (w, u, v) :: rest ->
+      if uf_connected uf u v then
+        aux uf mst rest
+      else
+        let uf' = uf_union uf u v in
+        aux uf' ((w, u, v) :: mst) rest
+  in
+  aux (uf_create n) [] sorted_edges
+
+let uf_would_cycle uf u v = uf_connected uf u v
+
+let uf_to_string uf =
+  let components = uf_all_components uf in
+  let comp_strs = List.map (fun members ->
+    "{" ^ String.concat ", " (List.map string_of_int members) ^ "}"
+  ) components in
+  Printf.sprintf "UnionFind(%d elems, %d components): %s"
+    uf.uf_n (uf_num_components uf) (String.concat " " comp_strs)
+
+(* ===== Union-Find tests ===== *)
+
+let test_union_find () = suite "Union-Find" (fun () ->
+  let sil = string_of_int_list in
+  let sill lst =
+    "[" ^ String.concat "; "
+      (List.map (fun l -> "[" ^ String.concat "; " (List.map string_of_int l) ^ "]") lst) ^ "]"
+  in
+
+  (* -- create -- *)
+  let uf0 = uf_create 0 in
+  assert_equal ~msg:"create 0 cardinal" "0" (string_of_int (uf_cardinal uf0));
+  assert_equal ~msg:"create 0 components" "0" (string_of_int (uf_num_components uf0));
+
+  let uf1 = uf_create 1 in
+  assert_equal ~msg:"create 1 cardinal" "1" (string_of_int (uf_cardinal uf1));
+  assert_equal ~msg:"create 1 components" "1" (string_of_int (uf_num_components uf1));
+
+  let uf5 = uf_create 5 in
+  assert_equal ~msg:"create 5 cardinal" "5" (string_of_int (uf_cardinal uf5));
+  assert_equal ~msg:"create 5 components" "5" (string_of_int (uf_num_components uf5));
+
+  assert_raises ~msg:"create negative" (fun () -> uf_create (-1));
+
+  (* -- find_root on fresh -- *)
+  assert_equal ~msg:"find_root fresh 0" "0" (string_of_int (uf_find_root uf5 0));
+  assert_equal ~msg:"find_root fresh 4" "4" (string_of_int (uf_find_root uf5 4));
+
+  assert_raises ~msg:"find_root out of range" (fun () -> uf_find_root uf5 5);
+  assert_raises ~msg:"find_root negative" (fun () -> uf_find_root uf5 (-1));
+
+  (* -- find with path compression -- *)
+  let (r, _uf5') = uf_find uf5 3 in
+  assert_equal ~msg:"find fresh 3" "3" (string_of_int r);
+
+  assert_raises ~msg:"find out of range" (fun () -> uf_find uf5 10);
+
+  (* -- connected on fresh -- *)
+  assert_true ~msg:"connected self" (uf_connected uf5 0 0);
+  assert_true ~msg:"not connected fresh" (not (uf_connected uf5 0 1));
+  assert_true ~msg:"not connected fresh 2" (not (uf_connected uf5 2 4));
+
+  (* -- basic union -- *)
+  let uf_a = uf_union uf5 0 1 in
+  assert_true ~msg:"union 0-1 connected" (uf_connected uf_a 0 1);
+  assert_true ~msg:"union 0-1 not 0-2" (not (uf_connected uf_a 0 2));
+  assert_equal ~msg:"union 0-1 components" "4" (string_of_int (uf_num_components uf_a));
+
+  (* -- original unchanged (persistence) -- *)
+  assert_true ~msg:"persistence: original 5 components"
+    (uf_num_components uf5 = 5);
+  assert_true ~msg:"persistence: original 0-1 not connected"
+    (not (uf_connected uf5 0 1));
+
+  (* -- chain of unions -- *)
+  let uf_b = uf_union uf_a 2 3 in
+  assert_true ~msg:"chain 2-3 connected" (uf_connected uf_b 2 3);
+  assert_true ~msg:"chain 0-1 still connected" (uf_connected uf_b 0 1);
+  assert_true ~msg:"chain 0-2 not connected" (not (uf_connected uf_b 0 2));
+  assert_equal ~msg:"chain components" "3" (string_of_int (uf_num_components uf_b));
+
+  (* -- merging two groups -- *)
+  let uf_c = uf_union uf_b 1 3 in
+  assert_true ~msg:"merge 1-3 => 0-2 connected" (uf_connected uf_c 0 2);
+  assert_true ~msg:"merge 1-3 => 0-3 connected" (uf_connected uf_c 0 3);
+  assert_true ~msg:"merge 1-3 => 1-2 connected" (uf_connected uf_c 1 2);
+  assert_true ~msg:"merge 4 isolated" (not (uf_connected uf_c 0 4));
+  assert_equal ~msg:"merge components" "2" (string_of_int (uf_num_components uf_c));
+
+  (* -- union of already-connected -- *)
+  let uf_d = uf_union uf_c 0 2 in
+  assert_equal ~msg:"redundant union same components" "2"
+    (string_of_int (uf_num_components uf_d));
+
+  (* -- union all into one -- *)
+  let uf_e = uf_union uf_d 0 4 in
+  assert_true ~msg:"all one component" (uf_is_single_component uf_e);
+  assert_equal ~msg:"single component count" "1" (string_of_int (uf_num_components uf_e));
+
+  (* -- component_size -- *)
+  assert_equal ~msg:"size fresh singleton" "1" (string_of_int (uf_component_size uf5 0));
+  assert_equal ~msg:"size after union 0-1" "2" (string_of_int (uf_component_size uf_a 0));
+  assert_equal ~msg:"size after union 0-1 via 1" "2" (string_of_int (uf_component_size uf_a 1));
+  assert_equal ~msg:"size unaffected elem" "1" (string_of_int (uf_component_size uf_a 3));
+  assert_equal ~msg:"size merged group" "4" (string_of_int (uf_component_size uf_c 0));
+  assert_equal ~msg:"size all merged" "5" (string_of_int (uf_component_size uf_e 2));
+
+  (* -- roots -- *)
+  let roots5 = uf_roots uf5 in
+  assert_equal ~msg:"roots fresh 5" "[0; 1; 2; 3; 4]" (sil roots5);
+  let roots_a = uf_roots uf_a in
+  assert_equal ~msg:"roots after union count" "4" (string_of_int (List.length roots_a));
+
+  (* -- component_members -- *)
+  let members_fresh = uf_component_members uf5 2 in
+  assert_equal ~msg:"members fresh singleton" "[2]" (sil members_fresh);
+  let members_a = List.sort compare (uf_component_members uf_a 0) in
+  assert_equal ~msg:"members after union 0-1" "[0; 1]" (sil members_a);
+  let members_c = List.sort compare (uf_component_members uf_c 3) in
+  assert_equal ~msg:"members merged group" "[0; 1; 2; 3]" (sil members_c);
+
+  (* -- all_components -- *)
+  let comps_fresh = uf_all_components uf5 in
+  assert_equal ~msg:"all_components fresh"
+    "[[0]; [1]; [2]; [3]; [4]]" (sill comps_fresh);
+  let comps_a = uf_all_components uf_a in
+  assert_equal ~msg:"all_components after 0-1"
+    "[[0; 1]; [2]; [3]; [4]]" (sill comps_a);
+  let comps_c = uf_all_components uf_c in
+  assert_equal ~msg:"all_components merged"
+    "[[0; 1; 2; 3]; [4]]" (sill comps_c);
+  let comps_e = uf_all_components uf_e in
+  assert_equal ~msg:"all_components single"
+    "[[0; 1; 2; 3; 4]]" (sill comps_e);
+
+  (* -- of_unions -- *)
+  let uf_from = uf_of_unions 6 [(0, 1); (2, 3); (4, 5)] in
+  assert_equal ~msg:"of_unions components" "3"
+    (string_of_int (uf_num_components uf_from));
+  assert_true ~msg:"of_unions 0-1 connected" (uf_connected uf_from 0 1);
+  assert_true ~msg:"of_unions 2-3 connected" (uf_connected uf_from 2 3);
+  assert_true ~msg:"of_unions 4-5 connected" (uf_connected uf_from 4 5);
+  assert_true ~msg:"of_unions 0-2 not connected" (not (uf_connected uf_from 0 2));
+
+  let uf_chain = uf_of_unions 4 [(0, 1); (1, 2); (2, 3)] in
+  assert_true ~msg:"of_unions chain all connected" (uf_is_single_component uf_chain);
+
+  let uf_empty_pairs = uf_of_unions 3 [] in
+  assert_equal ~msg:"of_unions no pairs" "3"
+    (string_of_int (uf_num_components uf_empty_pairs));
+
+  (* -- would_cycle -- *)
+  assert_true ~msg:"would_cycle same component" (uf_would_cycle uf_a 0 1);
+  assert_true ~msg:"would_cycle self" (uf_would_cycle uf5 0 0);
+  assert_true ~msg:"no cycle diff components" (not (uf_would_cycle uf_a 0 2));
+
+  (* -- kruskal -- *)
+  (* Simple triangle: 0--1 (w=1), 1--2 (w=2), 0--2 (w=3) *)
+  let mst_tri = uf_kruskal 3 [(1, 0, 1); (2, 1, 2); (3, 0, 2)] in
+  assert_equal ~msg:"kruskal triangle edges" "2" (string_of_int (List.length mst_tri));
+  let mst_weight = List.fold_left (fun acc (w, _, _) -> acc + w) 0 mst_tri in
+  assert_equal ~msg:"kruskal triangle weight" "3" (string_of_int mst_weight);
+
+  (* Square with diagonal:
+       0-1 (1), 1-2 (2), 2-3 (3), 0-3 (4), 0-2 (5)
+     MST should pick edges with weight 1+2+3=6 *)
+  let mst_sq = uf_kruskal 4 [(1, 0, 1); (2, 1, 2); (3, 2, 3); (4, 0, 3); (5, 0, 2)] in
+  assert_equal ~msg:"kruskal square edges" "3" (string_of_int (List.length mst_sq));
+  let sq_weight = List.fold_left (fun acc (w, _, _) -> acc + w) 0 mst_sq in
+  assert_equal ~msg:"kruskal square weight" "6" (string_of_int sq_weight);
+
+  (* Disconnected graph: 0-1 (1), 2-3 (2) *)
+  let mst_disc = uf_kruskal 4 [(1, 0, 1); (2, 2, 3)] in
+  assert_equal ~msg:"kruskal disconnected edges" "2" (string_of_int (List.length mst_disc));
+
+  (* Empty graph *)
+  let mst_empty = uf_kruskal 3 [] in
+  assert_equal ~msg:"kruskal empty" "0" (string_of_int (List.length mst_empty));
+
+  (* Single node *)
+  let mst_single = uf_kruskal 1 [] in
+  assert_equal ~msg:"kruskal single" "0" (string_of_int (List.length mst_single));
+
+  (* Pre-sorted by weight *)
+  let mst_presorted = uf_kruskal 4 [(1, 0, 1); (2, 1, 2); (3, 2, 3); (10, 0, 3)] in
+  assert_equal ~msg:"kruskal presorted 3 edges" "3" (string_of_int (List.length mst_presorted));
+  let ps_weight = List.fold_left (fun acc (w, _, _) -> acc + w) 0 mst_presorted in
+  assert_equal ~msg:"kruskal presorted weight" "6" (string_of_int ps_weight);
+
+  (* -- to_string -- *)
+  let s0 = uf_to_string uf5 in
+  assert_true ~msg:"to_string contains 5 elems"
+    (String.length s0 > 0 && String.sub s0 0 14 = "UnionFind(5 el");
+  let s1 = uf_to_string uf_a in
+  assert_true ~msg:"to_string after union"
+    (String.length s1 > 0 && String.sub s1 0 14 = "UnionFind(5 el");
+
+  (* -- is_single_component -- *)
+  assert_true ~msg:"not single fresh 5" (not (uf_is_single_component uf5));
+  assert_true ~msg:"single after all unions" (uf_is_single_component uf_e);
+  assert_true ~msg:"single create 1" (uf_is_single_component (uf_create 1));
+
+  (* -- larger structure -- *)
+  let uf10 = uf_create 10 in
+  let uf10 = uf_union uf10 0 5 in
+  let uf10 = uf_union uf10 1 6 in
+  let uf10 = uf_union uf10 2 7 in
+  let uf10 = uf_union uf10 3 8 in
+  let uf10 = uf_union uf10 4 9 in
+  assert_equal ~msg:"10-elem paired components" "5"
+    (string_of_int (uf_num_components uf10));
+  assert_true ~msg:"10-elem 0-5 connected" (uf_connected uf10 0 5);
+  assert_true ~msg:"10-elem 0-1 not connected" (not (uf_connected uf10 0 1));
+  assert_equal ~msg:"10-elem pair size" "2" (string_of_int (uf_component_size uf10 0));
+
+  (* Now merge pairs: {0,5} U {1,6} *)
+  let uf10b = uf_union uf10 0 1 in
+  assert_true ~msg:"10-elem merged 0-6" (uf_connected uf10b 0 6);
+  assert_true ~msg:"10-elem merged 5-1" (uf_connected uf10b 5 1);
+  assert_equal ~msg:"10-elem merged size" "4" (string_of_int (uf_component_size uf10b 0));
+  assert_equal ~msg:"10-elem merged components" "4" (string_of_int (uf_num_components uf10b));
+
+  (* -- path compression test -- *)
+  (* Create a long chain: 0->1->2->3->4->5 *)
+  let uf_chain = uf_create 6 in
+  let uf_chain = uf_union uf_chain 0 1 in
+  let uf_chain = uf_union uf_chain 1 2 in
+  let uf_chain = uf_union uf_chain 2 3 in
+  let uf_chain = uf_union uf_chain 3 4 in
+  let uf_chain = uf_union uf_chain 4 5 in
+  assert_true ~msg:"chain all connected" (uf_is_single_component uf_chain);
+  (* Find from deep element triggers path compression *)
+  let (root5, uf_chain') = uf_find uf_chain 5 in
+  ignore uf_chain';
+  assert_true ~msg:"chain root found" (root5 >= 0 && root5 <= 5);
+  assert_equal ~msg:"chain size" "6" (string_of_int (uf_component_size uf_chain 0));
+
+  (* -- cardinal -- *)
+  assert_equal ~msg:"cardinal 0" "0" (string_of_int (uf_cardinal (uf_create 0)));
+  assert_equal ~msg:"cardinal 5" "5" (string_of_int (uf_cardinal uf5));
+  assert_equal ~msg:"cardinal 10" "10" (string_of_int (uf_cardinal uf10));
+  (* cardinal unchanged after unions *)
+  assert_equal ~msg:"cardinal after unions" "5" (string_of_int (uf_cardinal uf_e));
+
+  (* -- kruskal with equal weights picks in order -- *)
+  let mst_eq = uf_kruskal 3 [(1, 0, 1); (1, 1, 2); (1, 0, 2)] in
+  assert_equal ~msg:"kruskal equal weights 2 edges" "2"
+    (string_of_int (List.length mst_eq));
+
+  (* -- self-loop edge in kruskal -- *)
+  let mst_self = uf_kruskal 3 [(1, 0, 0); (2, 0, 1); (3, 1, 2)] in
+  (* Self-loop 0-0 should be skipped (already connected to itself) *)
+  assert_equal ~msg:"kruskal self-loop edges" "2"
+    (string_of_int (List.length mst_self));
+
+  (* -- union reflexive -- *)
+  let uf_ref = uf_union uf5 2 2 in
+  assert_equal ~msg:"union self components unchanged" "5"
+    (string_of_int (uf_num_components uf_ref));
+
+  (* -- stress: union all pairs 0..9 *)
+  let uf_stress = uf_create 10 in
+  let uf_stress = List.fold_left (fun acc i ->
+    uf_union acc i ((i + 1) mod 10)
+  ) uf_stress [0; 1; 2; 3; 4; 5; 6; 7; 8; 9] in
+  assert_true ~msg:"stress 10 single component" (uf_is_single_component uf_stress);
+  assert_equal ~msg:"stress 10 size" "10" (string_of_int (uf_component_size uf_stress 0));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -3276,6 +3657,7 @@ let () =
   test_stream ();
   test_rbtree ();
   test_sorting ();
+  test_union_find ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;

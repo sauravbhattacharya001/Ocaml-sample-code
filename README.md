@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find.
 
 ## Programs
 
@@ -37,6 +37,10 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
 | [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
 | [`regex.ml`](regex.ml) | Regular expression engine — NFA-based pattern matching | Algebraic data types, recursive descent parsing, Thompson's NFA, epsilon closure |
+| [`stream.ml`](stream.ml) | Lazy streams — infinite/lazy sequences with on-demand evaluation | Lazy evaluation, closures, unfold/iterate/cycle, infinite sequences, memoization |
+| [`rbtree.ml`](rbtree.ml) | Red-Black tree — Okasaki-style self-balancing BST | Persistent data structures, balance invariants, set operations, higher-order functions |
+| [`sorting.ml`](sorting.ml) | Sorting algorithms — 6 sorts with benchmarking utilities | Insertion, selection, quicksort (median-of-three), heapsort, natural mergesort, counting sort |
+| [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
 
 ## Getting Started
 
