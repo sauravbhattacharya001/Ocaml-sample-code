@@ -1,0 +1,33 @@
+opam-version: "2.0"
+name: "ocaml-sample-code"
+version: "1.0.0"
+synopsis: "Comprehensive collection of OCaml data structures and algorithms"
+description: """
+A curated set of OCaml programs demonstrating idiomatic implementations of
+fundamental data structures and algorithms: binary search trees, red-black
+trees, tries, heaps, hash maps, Bloom filters, union-find, graph algorithms
+(BFS/DFS/Dijkstra/Kruskal), sorting algorithms, regex engine, stream
+processing, and recursive descent parser.
+
+Designed as both a learning resource and reference implementation for OCaml
+developers.
+"""
+maintainer: "Saurav Bhattacharya <online.saurav@gmail.com>"
+authors: ["Saurav Bhattacharya"]
+license: "MIT"
+homepage: "https://github.com/sauravbhattacharya001/Ocaml-sample-code"
+bug-reports: "https://github.com/sauravbhattacharya001/Ocaml-sample-code/issues"
+dev-repo: "git+https://github.com/sauravbhattacharya001/Ocaml-sample-code.git"
+depends: [
+  "ocaml" {>= "4.14.0"}
+]
+depopts: [
+  "bisect_ppx"
+  "ocamlfind"
+]
+build: [
+  [make "all"]
+]
+install: [
+  [make "test"]
+]
