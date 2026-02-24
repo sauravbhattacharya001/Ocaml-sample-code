@@ -20,16 +20,25 @@ let add_vertex g v =
   if IntMap.mem v g.adj then g
   else { g with adj = IntMap.add v [] g.adj }
 
-(* Add an edge; creates vertices if they don't exist *)
+(* Insert into a sorted list, maintaining order. Returns the list unchanged
+   if the element already exists (deduplication). *)
+let rec sorted_insert x = function
+  | [] -> [x]
+  | h :: t as lst ->
+    if x < h then x :: lst
+    else if x = h then lst (* already present *)
+    else h :: sorted_insert x t
+
+(* Add an edge; creates vertices if they don't exist.
+   Adjacency lists are maintained in sorted order so neighbors
+   returns results without an extra sort pass. *)
 let add_edge g u v =
   let add_neighbor src dst adj =
-    let neighbors = try IntMap.find src adj with Not_found -> [] in
-    if List.mem dst neighbors then adj
-    else IntMap.add src (dst :: neighbors) adj
+    let ns = try IntMap.find src adj with Not_found -> [] in
+    IntMap.add src (sorted_insert dst ns) adj
   in
   let adj = add_neighbor u v g.adj in
   let adj = if not g.directed then add_neighbor v u adj else adj in
-  (* Ensure both vertices exist *)
   let adj = if not (IntMap.mem v adj) then IntMap.add v [] adj else adj in
   { g with adj }
 
@@ -38,9 +47,9 @@ let vertices g =
   IntMap.fold (fun k _ acc -> k :: acc) g.adj []
   |> List.sort compare
 
-(* Get neighbors of a vertex *)
+(* Get neighbors of a vertex (already sorted from insertion) *)
 let neighbors g v =
-  try IntMap.find v g.adj |> List.sort compare
+  try IntMap.find v g.adj
   with Not_found -> []
 
 (* Number of vertices *)
@@ -58,7 +67,7 @@ let num_edges g =
 let bfs g start =
   if not (IntMap.mem start g.adj) then []
   else begin
-    let visited = Hashtbl.create 16 in
+    let visited = Hashtbl.create (num_vertices g) in
     let queue = Queue.create () in
     let result = ref [] in
     Queue.push start queue;
@@ -81,8 +90,8 @@ let bfs_path g start goal =
   if not (IntMap.mem start g.adj) || not (IntMap.mem goal g.adj) then None
   else if start = goal then Some [start]
   else begin
-    let visited = Hashtbl.create 16 in
-    let parent = Hashtbl.create 16 in
+    let visited = Hashtbl.create (num_vertices g) in
+    let parent = Hashtbl.create (num_vertices g) in
     let queue = Queue.create () in
     Queue.push start queue;
     Hashtbl.replace visited start true;
@@ -115,7 +124,7 @@ let bfs_path g start goal =
 let dfs g start =
   if not (IntMap.mem start g.adj) then []
   else begin
-    let visited = Hashtbl.create 16 in
+    let visited = Hashtbl.create (num_vertices g) in
     let result = ref [] in
     let rec explore v =
       if not (Hashtbl.mem visited v) then begin
@@ -131,13 +140,28 @@ let dfs g start =
 (* --- Connected Components (undirected graphs) --- *)
 (* Returns a list of components, each a sorted list of vertices *)
 
+(* Internal DFS that uses a shared visited Hashtbl — avoids
+   creating a new table for every connected component. *)
+let dfs_collect g start visited =
+  let result = ref [] in
+  let rec explore v =
+    if not (Hashtbl.mem visited v) then begin
+      Hashtbl.replace visited v true;
+      result := v :: !result;
+      List.iter explore (neighbors g v)
+    end
+  in
+  explore start;
+  List.rev !result
+
+(* Returns a list of components, each a sorted list of vertices.
+   Uses a single shared visited table instead of creating one per component. *)
 let connected_components g =
-  let visited = Hashtbl.create 16 in
+  let visited = Hashtbl.create (num_vertices g) in
   let components = ref [] in
   List.iter (fun v ->
     if not (Hashtbl.mem visited v) then begin
-      let component = dfs g v in
-      List.iter (fun w -> Hashtbl.replace visited w true) component;
+      let component = dfs_collect g v visited in
       components := List.sort compare component :: !components
     end
   ) (vertices g);
@@ -149,7 +173,7 @@ let connected_components g =
 type color = White | Gray | Black
 
 let has_cycle g =
-  let color = Hashtbl.create 16 in
+  let color = Hashtbl.create (num_vertices g) in
   List.iter (fun v -> Hashtbl.replace color v White) (vertices g);
   let found_cycle = ref false in
   let rec visit v =
@@ -179,7 +203,7 @@ let has_cycle g =
 
 let topological_sort g =
   (* Compute in-degrees *)
-  let in_deg = Hashtbl.create 16 in
+  let in_deg = Hashtbl.create (num_vertices g) in
   List.iter (fun v -> Hashtbl.replace in_deg v 0) (vertices g);
   IntMap.iter (fun _ ns ->
     List.iter (fun w ->
