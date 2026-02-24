@@ -41,35 +41,12 @@ let insert word trie =
   in
   aux chars trie
 
-(* Check if a word exists in the trie — O(m) *)
-let member word trie =
-  let chars = chars_of_string word in
-  let rec aux chars node =
-    match chars with
-    | [] -> node.is_word
-    | c :: rest ->
-      match CharMap.find_opt c node.children with
-      | None -> false
-      | Some child -> aux rest child
-  in
-  aux chars trie
-
-(* Check if any word in the trie starts with the given prefix — O(m) *)
-let has_prefix prefix trie =
-  let chars = chars_of_string prefix in
-  let rec aux chars node =
-    match chars with
-    | [] -> true  (* reached the end of prefix, subtree exists *)
-    | c :: rest ->
-      match CharMap.find_opt c node.children with
-      | None -> false
-      | Some child -> aux rest child
-  in
-  aux chars trie
-
-(* Navigate to the subtrie at a given prefix — O(m) *)
-let find_subtrie prefix trie =
-  let chars = chars_of_string prefix in
+(** Navigate to the subtrie at a given path — O(m).
+    Returns [Some node] if the path exists, [None] otherwise.
+    This is the shared traversal logic used by [member],
+    [has_prefix], and [find_subtrie]. *)
+let walk path trie =
+  let chars = chars_of_string path in
   let rec aux chars node =
     match chars with
     | [] -> Some node
@@ -79,6 +56,20 @@ let find_subtrie prefix trie =
       | Some child -> aux rest child
   in
   aux chars trie
+
+(** Check if a word exists in the trie — O(m) *)
+let member word trie =
+  match walk word trie with
+  | Some node -> node.is_word
+  | None -> false
+
+(** Check if any word in the trie starts with the given prefix — O(m) *)
+let has_prefix prefix trie =
+  Option.is_some (walk prefix trie)
+
+(** Navigate to the subtrie at a given prefix — O(m) *)
+let find_subtrie prefix trie =
+  walk prefix trie
 
 (* Collect all words in a trie with a given prefix *)
 (* Uses an accumulator for efficient list building *)
@@ -265,6 +256,17 @@ let () =
   print_endline "--- Trie Structure ---";
   let small_trie = of_list ["an"; "ant"; "and"; "be"; "bee"; "been"] in
   print_string (to_string small_trie);
+  print_newline ();
+
+  (* --- walk (internal traversal primitive) --- *)
+  print_endline "\n--- walk: internal traversal ---";
+  (match walk "app" t with
+   | Some node ->
+     Printf.printf "walk \"app\": found subtrie (is_word=%b)\n" node.is_word
+   | None -> print_endline "walk \"app\": not found");
+  (match walk "xyz" t with
+   | Some _ -> print_endline "walk \"xyz\": found"
+   | None -> print_endline "walk \"xyz\": not found");
   print_newline ();
 
   (* Build from empty *)
