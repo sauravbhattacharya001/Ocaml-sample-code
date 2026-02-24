@@ -342,8 +342,9 @@ let char_matches (m : char_matcher) (c : char) : bool =
     if negated then not in_range else in_range
 
 (** Compute epsilon closure from a set of state ids.
-    Follows all epsilon and anchor transitions. *)
-let epsilon_closure (nfa : nfa) (state_ids : int list) (input : string) (str_pos : int) : int list =
+    Follows all epsilon and anchor transitions.
+    (Original list-based implementation — kept for reference/testing.) *)
+let epsilon_closure_list (nfa : nfa) (state_ids : int list) (input : string) (str_pos : int) : int list =
   let visited = Hashtbl.create 16 in
   let result = ref [] in
   let rec explore id =
@@ -365,11 +366,51 @@ let epsilon_closure (nfa : nfa) (state_ids : int list) (input : string) (str_pos
   List.iter explore state_ids;
   !result
 
+(** Compute epsilon closure using pre-allocated arrays.
+    Writes results into [out_states]. Returns (count, accept_reached).
+    Clears visited flags after each call so the arrays can be reused.
+
+    Performance advantages over [epsilon_closure_list]:
+    - No Hashtbl allocation per call (reuses bool array)
+    - No list cons cells (writes into int array)
+    - O(1) accept-state check (set flag during traversal)
+    - Visited cleanup is O(result size), not O(num_states) *)
+let epsilon_closure_fast (nfa : nfa) (states : int array) (n_states : int)
+    (visited : bool array) (out_states : int array) (input : string) (str_pos : int) : int * bool =
+  let count = ref 0 in
+  let accept = ref false in
+  let rec explore id =
+    if not visited.(id) then begin
+      visited.(id) <- true;
+      out_states.(!count) <- id;
+      incr count;
+      if id = nfa.accept then accept := true;
+      List.iter (fun t ->
+        match t with
+        | Epsilon target -> explore target
+        | On_anchor_start target ->
+          if str_pos = 0 then explore target
+        | On_anchor_end target ->
+          if str_pos = String.length input then explore target
+        | On_char _ -> ()
+      ) nfa.transitions.(id)
+    end
+  in
+  for i = 0 to n_states - 1 do
+    explore states.(i)
+  done;
+  (* Clean up visited flags for next call *)
+  for i = 0 to !count - 1 do
+    visited.(out_states.(i)) <- false
+  done;
+  (!count, !accept)
+
 (** Simulate the NFA on input starting at str_pos.
-    Returns the length of the longest match, or None. *)
-let simulate_at (nfa : nfa) (input : string) (start_pos : int) : int option =
+    Returns the length of the longest match, or None.
+    (Original list-based implementation — kept for reference/testing.) *)
+let simulate_at_list (nfa : nfa) (input : string) (start_pos : int) : int option =
   let len = String.length input in
-  let current = ref (epsilon_closure nfa [nfa.start] input start_pos) in
+  let current = ref (epsilon_closure_list nfa [nfa.start] input start_pos) in
   let last_match = ref (if List.mem nfa.accept !current then Some 0 else None) in
   let i = ref start_pos in
   while !i < len && !current <> [] do
@@ -383,8 +424,50 @@ let simulate_at (nfa : nfa) (input : string) (start_pos : int) : int option =
       ) acc nfa.transitions.(state_id)
     ) [] !current in
     incr i;
-    current := epsilon_closure nfa next input !i;
+    current := epsilon_closure_list nfa next input !i;
     if List.mem nfa.accept !current then
+      last_match := Some (!i - start_pos)
+  done;
+  !last_match
+
+(** Simulate the NFA on input starting at str_pos.
+    Returns the length of the longest match, or None.
+
+    Optimized version that eliminates per-character allocations:
+    - Pre-allocates bool array for visited tracking (no Hashtbl per call)
+    - Pre-allocates int arrays for current/next state sets (no list cons cells)
+    - Tracks accept-state reachability during epsilon closure (no O(N) List.mem)
+    - Uses array indexing for state iteration (no List.fold_left overhead) *)
+let simulate_at (nfa : nfa) (input : string) (start_pos : int) : int option =
+  let len = String.length input in
+  let n = nfa.num_states in
+  let visited = Array.make n false in
+  let current = Array.make n 0 in
+  let next_buf = Array.make n 0 in
+  let seed = Array.make 1 nfa.start in
+  let (cur_count, has_accept) = epsilon_closure_fast nfa seed 1 visited current input start_pos in
+  let cur_count = ref cur_count in
+  let last_match = ref (if has_accept then Some 0 else None) in
+  let i = ref start_pos in
+  while !i < len && !cur_count > 0 do
+    let c = input.[!i] in
+    let next_count = ref 0 in
+    for si = 0 to !cur_count - 1 do
+      let state_id = current.(si) in
+      List.iter (fun t ->
+        match t with
+        | On_char (matcher, target) ->
+          if char_matches matcher c then begin
+            next_buf.(!next_count) <- target;
+            incr next_count
+          end
+        | _ -> ()
+      ) nfa.transitions.(state_id)
+    done;
+    incr i;
+    let (nc, has_accept) = epsilon_closure_fast nfa next_buf !next_count visited current input !i in
+    cur_count := nc;
+    if has_accept then
       last_match := Some (!i - start_pos)
   done;
   !last_match
