@@ -363,6 +363,94 @@ let graph_has_cycle g =
   ) (graph_vertices g);
   !found_cycle
 
+(* Add a vertex (no-op if it already exists) *)
+let graph_add_vertex g v =
+  if IntMap.mem v g.adj then g
+  else { g with adj = IntMap.add v [] g.adj }
+
+(* BFS shortest path: returns the path from start to goal, or None *)
+let graph_bfs_path g start goal =
+  if not (IntMap.mem start g.adj) || not (IntMap.mem goal g.adj) then None
+  else if start = goal then Some [start]
+  else begin
+    let visited = Hashtbl.create 16 in
+    let parent = Hashtbl.create 16 in
+    let queue = Queue.create () in
+    Queue.push start queue;
+    Hashtbl.replace visited start true;
+    let found = ref false in
+    while not (Queue.is_empty queue) && not !found do
+      let v = Queue.pop queue in
+      List.iter (fun w ->
+        if not (Hashtbl.mem visited w) then begin
+          Hashtbl.replace visited w true;
+          Hashtbl.replace parent w v;
+          if w = goal then found := true
+          else Queue.push w queue
+        end
+      ) (graph_neighbors g v)
+    done;
+    if not !found then None
+    else begin
+      let rec build_path v acc =
+        if v = start then v :: acc
+        else build_path (Hashtbl.find parent v) (v :: acc)
+      in
+      Some (build_path goal [])
+    end
+  end
+
+(* Internal DFS that uses a shared visited Hashtbl *)
+let graph_dfs_collect g start visited =
+  let result = ref [] in
+  let rec explore v =
+    if not (Hashtbl.mem visited v) then begin
+      Hashtbl.replace visited v true;
+      result := v :: !result;
+      List.iter explore (graph_neighbors g v)
+    end
+  in
+  explore start;
+  List.rev !result
+
+(* Connected components — returns list of sorted vertex lists *)
+let graph_connected_components g =
+  let visited = Hashtbl.create 16 in
+  let components = ref [] in
+  List.iter (fun v ->
+    if not (Hashtbl.mem visited v) then begin
+      let component = graph_dfs_collect g v visited in
+      components := List.sort compare component :: !components
+    end
+  ) (graph_vertices g);
+  List.rev !components
+
+(* Topological sort — returns Some sorted_list or None if cycle *)
+let graph_topological_sort g =
+  let in_deg = Hashtbl.create 16 in
+  List.iter (fun v -> Hashtbl.replace in_deg v 0) (graph_vertices g);
+  IntMap.iter (fun _ ns ->
+    List.iter (fun w ->
+      let d = try Hashtbl.find in_deg w with Not_found -> 0 in
+      Hashtbl.replace in_deg w (d + 1)
+    ) ns
+  ) g.adj;
+  let queue = Queue.create () in
+  Hashtbl.iter (fun v d -> if d = 0 then Queue.push v queue) in_deg;
+  let result = ref [] in
+  while not (Queue.is_empty queue) do
+    let v = Queue.pop queue in
+    result := v :: !result;
+    List.iter (fun w ->
+      let d = Hashtbl.find in_deg w - 1 in
+      Hashtbl.replace in_deg w d;
+      if d = 0 then Queue.push w queue
+    ) (graph_neighbors g v)
+  done;
+  let sorted = List.rev !result in
+  if List.length sorted <> graph_num_vertices g then None
+  else Some sorted
+
 
 (* =============================================================== *)
 (*                          TEST SUITES                            *)
@@ -492,6 +580,39 @@ let test_fibonacci () = suite "Fibonacci" (fun () ->
 
   (* Larger values *)
   assert_true ~msg:"fib(30) = 832040" (fib_iter 30 = 832040);
+
+  (* Extended: Fibonacci properties *)
+  (* fib(n) + fib(n+1) = fib(n+2) *)
+  for i = 0 to 20 do
+    assert_true
+      ~msg:(Printf.sprintf "fib(%d) + fib(%d) = fib(%d)" i (i+1) (i+2))
+      (fib_iter i + fib_iter (i + 1) = fib_iter (i + 2))
+  done;
+
+  (* fib_sequence length *)
+  assert_true ~msg:"fib_sequence 0 is empty" (fib_sequence 0 = []);
+  assert_equal ~msg:"fib_sequence 1" "[0]" (string_of_int_list (fib_sequence 1));
+  assert_equal ~msg:"fib_sequence 2" "[0; 1]" (string_of_int_list (fib_sequence 2));
+
+  (* Monotonicity: fib(n) <= fib(n+1) for n >= 1 *)
+  for i = 1 to 30 do
+    assert_true
+      ~msg:(Printf.sprintf "fib(%d) <= fib(%d)" i (i+1))
+      (fib_iter i <= fib_iter (i + 1))
+  done;
+
+  (* Known larger Fibonacci numbers *)
+  assert_true ~msg:"fib(40) = 102334155" (fib_iter 40 = 102334155);
+  assert_true ~msg:"fib(3) = 2" (fib_iter 3 = 2);
+  assert_true ~msg:"fib(4) = 3" (fib_iter 4 = 3);
+  assert_true ~msg:"fib(5) = 5" (fib_iter 5 = 5);
+  assert_true ~msg:"fib(6) = 8" (fib_iter 6 = 8);
+  assert_true ~msg:"fib(7) = 13" (fib_iter 7 = 13);
+
+  (* Negative inputs for all implementations *)
+  assert_true ~msg:"fib_naive(-1) = 0" (fib_naive (-1) = 0);
+  assert_true ~msg:"fib_memo(-5) = 0" (fib_memo (-5) = 0);
+  assert_true ~msg:"fib_sequence negative" (fib_sequence (-1) = []);
 )
 
 let test_mergesort () = suite "Mergesort" (fun () ->
@@ -638,6 +759,19 @@ let test_list_last () = suite "List Last" (fun () ->
     (string_of_option string_of_int (list_last []));
   assert_equal ~msg:"last [1;2;3;4;5]" "Some(5)"
     (string_of_option string_of_int (list_last [1; 2; 3; 4; 5]));
+  (* Extended tests *)
+  assert_equal ~msg:"last [0]" "Some(0)"
+    (string_of_option string_of_int (list_last [0]));
+  assert_equal ~msg:"last negative" "Some(-1)"
+    (string_of_option string_of_int (list_last [1; 2; -1]));
+  assert_equal ~msg:"last two elements" "Some(2)"
+    (string_of_option string_of_int (list_last [1; 2]));
+  assert_equal ~msg:"last large list" "Some(100)"
+    (string_of_option string_of_int (list_last (List.init 100 (fun i -> i + 1))));
+  assert_equal ~msg:"last duplicates" "Some(5)"
+    (string_of_option string_of_int (list_last [5; 5; 5]));
+  assert_equal ~msg:"last max_int" "Some(max_int)"
+    (string_of_option (fun _ -> "max_int") (list_last [max_int]));
 )
 
 let test_graph () = suite "Graph" (fun () ->
@@ -694,6 +828,141 @@ let test_graph () = suite "Graph" (fun () ->
   assert_true ~msg:"empty graph 0 vertices" (graph_num_vertices eg = 0);
   assert_true ~msg:"empty graph 0 edges" (graph_num_edges eg = 0);
   assert_true ~msg:"empty graph no cycle" (not (graph_has_cycle eg));
+
+  (* === add_vertex === *)
+  let gv = empty_graph ~directed:false in
+  let gv = graph_add_vertex gv 10 in
+  assert_true ~msg:"add_vertex creates vertex" (graph_num_vertices gv = 1);
+  assert_true ~msg:"add_vertex vertex exists" (List.mem 10 (graph_vertices gv));
+  assert_true ~msg:"add_vertex no edges" (graph_num_edges gv = 0);
+  assert_true ~msg:"add_vertex empty neighbors" (graph_neighbors gv 10 = []);
+  (* add_vertex is idempotent *)
+  let gv2 = graph_add_vertex gv 10 in
+  assert_true ~msg:"add_vertex idempotent" (graph_num_vertices gv2 = 1);
+  (* add_vertex then add_edge *)
+  let gv3 = graph_add_vertex (graph_add_vertex gv 20) 30 in
+  assert_true ~msg:"add_vertex multiple" (graph_num_vertices gv3 = 3);
+  let gv3 = graph_add_edge gv3 10 20 in
+  assert_true ~msg:"add_vertex then edge" (graph_num_edges gv3 = 1);
+  assert_true ~msg:"add_vertex preserves isolated" (graph_neighbors gv3 30 = []);
+
+  (* === bfs_path === *)
+  (* Reuse g: 1-2, 1-3, 2-4, 3-4, 4-5 undirected *)
+  let path_1_5 = graph_bfs_path g 1 5 in
+  (match path_1_5 with
+   | None -> assert_true ~msg:"path 1->5 should exist" false
+   | Some p ->
+     assert_true ~msg:"path 1->5 starts at 1" (List.hd p = 1);
+     assert_true ~msg:"path 1->5 ends at 5" (List.nth p (List.length p - 1) = 5);
+     assert_true ~msg:"path 1->5 length <= 3" (List.length p <= 3));
+  (* Same vertex path *)
+  let path_self = graph_bfs_path g 1 1 in
+  (match path_self with
+   | None -> assert_true ~msg:"path 1->1 should exist" false
+   | Some p -> assert_equal ~msg:"path 1->1" "[1]" (string_of_int_list p));
+  (* No path to disconnected *)
+  let gd = graph_add_edge g 6 7 in
+  assert_true ~msg:"no path 1->6 disconnected" (graph_bfs_path gd 1 6 = None);
+  (* Non-existent vertex *)
+  assert_true ~msg:"path to non-existent" (graph_bfs_path g 1 99 = None);
+  assert_true ~msg:"path from non-existent" (graph_bfs_path g 99 1 = None);
+  (* Directed path *)
+  let dg_path = graph_bfs_path dg 1 4 in
+  (match dg_path with
+   | None -> assert_true ~msg:"directed path 1->4 should exist" false
+   | Some p ->
+     assert_equal ~msg:"directed path 1->4" "[1; 2; 3; 4]" (string_of_int_list p));
+  (* No reverse path in directed graph *)
+  assert_true ~msg:"no reverse directed path 4->1" (graph_bfs_path dg 4 1 = None);
+
+  (* === connected_components === *)
+  let cc = graph_connected_components g in
+  assert_true ~msg:"connected graph has 1 component" (List.length cc = 1);
+  assert_equal ~msg:"component is all vertices" "[1; 2; 3; 4; 5]"
+    (string_of_int_list (List.hd cc));
+  (* Disconnected graph *)
+  let cc2 = graph_connected_components gd in
+  assert_true ~msg:"disconnected graph has 2 components" (List.length cc2 = 2);
+  (* Components should be sorted vertex lists *)
+  List.iter (fun comp ->
+    assert_true ~msg:"component is sorted"
+      (comp = List.sort compare comp)
+  ) cc2;
+  (* Three components *)
+  let g3c = graph_add_vertex (graph_add_edge gd 8 9) 10 in
+  let cc3 = graph_connected_components g3c in
+  assert_true ~msg:"3 components + isolated = 4 components" (List.length cc3 = 4);
+  (* Empty graph *)
+  let cc_empty = graph_connected_components (empty_graph ~directed:false) in
+  assert_true ~msg:"empty graph has 0 components" (List.length cc_empty = 0);
+  (* Single vertex *)
+  let cc_single = graph_connected_components (graph_add_vertex (empty_graph ~directed:false) 1) in
+  assert_true ~msg:"single vertex = 1 component" (List.length cc_single = 1);
+  assert_equal ~msg:"single vertex component" "[1]"
+    (string_of_int_list (List.hd cc_single));
+
+  (* === topological_sort === *)
+  (* DAG: 1->2, 2->3, 3->4 *)
+  let topo = graph_topological_sort dg in
+  (match topo with
+   | None -> assert_true ~msg:"DAG should have topo sort" false
+   | Some sorted ->
+     assert_true ~msg:"topo sort has all vertices" (List.length sorted = graph_num_vertices dg);
+     (* Verify ordering: for every edge u->v, u appears before v *)
+     let pos = Hashtbl.create 16 in
+     List.iteri (fun i v -> Hashtbl.replace pos v i) sorted;
+     assert_true ~msg:"topo: 1 before 2" (Hashtbl.find pos 1 < Hashtbl.find pos 2);
+     assert_true ~msg:"topo: 2 before 3" (Hashtbl.find pos 2 < Hashtbl.find pos 3);
+     assert_true ~msg:"topo: 3 before 4" (Hashtbl.find pos 3 < Hashtbl.find pos 4));
+  (* Cyclic graph has no topo sort *)
+  assert_true ~msg:"cyclic has no topo sort" (graph_topological_sort cyclic = None);
+  (* Diamond DAG: 1->2, 1->3, 2->4, 3->4 *)
+  let diamond = List.fold_left (fun g (u, v) -> graph_add_edge g u v)
+    (empty_graph ~directed:true) [(1,2); (1,3); (2,4); (3,4)] in
+  let topo_diamond = graph_topological_sort diamond in
+  (match topo_diamond with
+   | None -> assert_true ~msg:"diamond DAG should have topo sort" false
+   | Some sorted ->
+     let pos = Hashtbl.create 16 in
+     List.iteri (fun i v -> Hashtbl.replace pos v i) sorted;
+     assert_true ~msg:"diamond: 1 before 2" (Hashtbl.find pos 1 < Hashtbl.find pos 2);
+     assert_true ~msg:"diamond: 1 before 3" (Hashtbl.find pos 1 < Hashtbl.find pos 3);
+     assert_true ~msg:"diamond: 2 before 4" (Hashtbl.find pos 2 < Hashtbl.find pos 4);
+     assert_true ~msg:"diamond: 3 before 4" (Hashtbl.find pos 3 < Hashtbl.find pos 4));
+  (* Empty graph topo sort *)
+  let topo_empty = graph_topological_sort (empty_graph ~directed:true) in
+  (match topo_empty with
+   | None -> assert_true ~msg:"empty graph topo sort should succeed" false
+   | Some sorted -> assert_true ~msg:"empty topo sort is empty" (sorted = []));
+  (* Single vertex topo sort *)
+  let topo_single = graph_topological_sort (graph_add_vertex (empty_graph ~directed:true) 1) in
+  (match topo_single with
+   | None -> assert_true ~msg:"single vertex topo sort should succeed" false
+   | Some sorted -> assert_equal ~msg:"single vertex topo sort" "[1]" (string_of_int_list sorted));
+  (* Longer chain *)
+  let chain = List.fold_left (fun g (u, v) -> graph_add_edge g u v)
+    (empty_graph ~directed:true) [(1,2); (2,3); (3,4); (4,5); (5,6)] in
+  let topo_chain = graph_topological_sort chain in
+  (match topo_chain with
+   | None -> assert_true ~msg:"chain topo sort should succeed" false
+   | Some sorted ->
+     assert_equal ~msg:"chain topo sort" "[1; 2; 3; 4; 5; 6]" (string_of_int_list sorted));
+
+  (* === dfs_collect === *)
+  let vis = Hashtbl.create 16 in
+  let comp1 = graph_dfs_collect gd 1 vis in
+  assert_true ~msg:"dfs_collect from 1 gets 5 vertices" (List.length comp1 = 5);
+  assert_true ~msg:"dfs_collect 1 contains 1" (List.mem 1 comp1);
+  assert_true ~msg:"dfs_collect 1 contains 5" (List.mem 5 comp1);
+  assert_true ~msg:"dfs_collect 1 not 6" (not (List.mem 6 comp1));
+  (* Shared visited: collecting from 6 should only get {6,7} *)
+  let comp2 = graph_dfs_collect gd 6 vis in
+  assert_true ~msg:"dfs_collect from 6 gets 2 vertices" (List.length comp2 = 2);
+  assert_true ~msg:"dfs_collect 6 contains 6" (List.mem 6 comp2);
+  assert_true ~msg:"dfs_collect 6 contains 7" (List.mem 7 comp2);
+  (* Already visited vertex returns empty *)
+  let comp3 = graph_dfs_collect gd 1 vis in
+  assert_true ~msg:"dfs_collect already visited returns empty" (List.length comp3 = 0);
 )
 
 (* ===== Trie functions (from trie.ml) ===== *)
