@@ -43,6 +43,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
 | [`hashmap.ml`](hashmap.ml) | Functional hash map — persistent immutable hash table | Separate chaining, auto-resize, fold/map/filter, merge/union, partition |
 | [`bloom_filter.ml`](bloom_filter.ml) | Bloom filter — probabilistic set membership | Double hashing, tunable FP rate, union, optimal sizing, saturation stats |
+| [`lru_cache.ml`](lru_cache.ml) | LRU Cache — bounded least-recently-used cache | Put/get with auto-eviction, hit/miss stats, peek, resize, filter, fold |
 
 ## Getting Started
 

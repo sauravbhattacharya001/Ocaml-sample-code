@@ -4612,6 +4612,294 @@ let test_bloom_filter () = suite "Bloom Filter" (fun () ->
   assert_true ~msg:"FPR increases" (fpr_many > fpr_few);
 )
 
+(* ===== LRU Cache helpers ===== *)
+
+(* Inline module to keep test_all self-contained *)
+module LRU = struct
+  type ('k, 'v) t = {
+    entries  : ('k * 'v) list;
+    index    : ('k, 'v) Hashtbl.t;
+    capacity : int;
+    hits     : int;
+    misses   : int;
+  }
+  let create capacity =
+    if capacity < 1 then invalid_arg "LRU: capacity must be >= 1"
+    else { entries = []; index = Hashtbl.create capacity;
+           capacity; hits = 0; misses = 0 }
+  let clear c =
+    { entries = []; index = Hashtbl.create c.capacity;
+      capacity = c.capacity; hits = 0; misses = 0 }
+  let remove_from_list k entries =
+    List.filter (fun (k', _) -> k' <> k) entries
+  let trim cap entries =
+    if List.length entries <= cap then (entries, [])
+    else let rec take acc n = function
+      | [] -> (List.rev acc, []) | _ when n >= cap -> (List.rev acc, [])
+      | x :: rest -> take (x :: acc) (n + 1) rest
+    in take [] 0 entries
+  let rebuild entries cap =
+    let tbl = Hashtbl.create cap in
+    List.iter (fun (k, v) -> Hashtbl.replace tbl k v) entries; tbl
+  let put k v c =
+    let cleaned = remove_from_list k c.entries in
+    let updated = (k, v) :: cleaned in
+    let (kept, _) = trim c.capacity updated in
+    let idx = rebuild kept c.capacity in
+    { entries = kept; index = idx; capacity = c.capacity;
+      hits = c.hits; misses = c.misses }
+  let get k c =
+    match Hashtbl.find_opt c.index k with
+    | None -> (None, { c with misses = c.misses + 1 })
+    | Some v ->
+      let entries = (k, v) :: (remove_from_list k c.entries) in
+      let idx = rebuild entries c.capacity in
+      (Some v, { entries; index = idx; capacity = c.capacity;
+                 hits = c.hits + 1; misses = c.misses })
+  let peek k c = Hashtbl.find_opt c.index k
+  let mem k c = Hashtbl.mem c.index k
+  let remove k c =
+    if not (Hashtbl.mem c.index k) then c
+    else let entries = remove_from_list k c.entries in
+      let idx = rebuild entries c.capacity in
+      { entries; index = idx; capacity = c.capacity;
+        hits = c.hits; misses = c.misses }
+  let evict c = match List.rev c.entries with
+    | [] -> (None, c)
+    | (k, v) :: _ ->
+      let entries = remove_from_list k c.entries in
+      let idx = rebuild entries c.capacity in
+      (Some (k, v), { entries; index = idx; capacity = c.capacity;
+                       hits = c.hits; misses = c.misses })
+  let size c = List.length c.entries
+  let capacity c = c.capacity
+  let is_empty c = c.entries = []
+  let is_full c = List.length c.entries >= c.capacity
+  let to_list c = c.entries
+  let keys c = List.map fst c.entries
+  let values c = List.map snd c.entries
+  let stats c =
+    let total = c.hits + c.misses in
+    let rate = if total = 0 then 0.0
+      else float_of_int c.hits /. float_of_int total in
+    (c.hits, c.misses, rate)
+  let resize new_cap c =
+    if new_cap < 1 then invalid_arg "LRU: capacity must be >= 1"
+    else let (kept, _) = trim new_cap c.entries in
+      let idx = rebuild kept new_cap in
+      { entries = kept; index = idx; capacity = new_cap;
+        hits = c.hits; misses = c.misses }
+  let of_list cap pairs =
+    if cap < 1 then invalid_arg "LRU: capacity must be >= 1"
+    else let c = create cap in
+      List.fold_left (fun c (k, v) -> put k v c) c (List.rev pairs)
+  let fold f init c = List.fold_left (fun acc (k, v) -> f acc k v) init c.entries
+  let iter f c = List.iter (fun (k, v) -> f k v) c.entries
+  let filter pred c =
+    let entries = List.filter (fun (k, v) -> pred k v) c.entries in
+    let idx = rebuild entries c.capacity in
+    { entries; index = idx; capacity = c.capacity;
+      hits = c.hits; misses = c.misses }
+  let map_values f c =
+    let entries = List.map (fun (k, v) -> (k, f v)) c.entries in
+    let idx = rebuild entries c.capacity in
+    { entries; index = idx; capacity = c.capacity;
+      hits = c.hits; misses = c.misses }
+end
+
+let test_lru_cache () = suite "LRU Cache" (fun () ->
+  (* create *)
+  let c = LRU.create 5 in
+  assert_true ~msg:"create: empty" (LRU.is_empty c);
+  assert_equal ~msg:"create: capacity" "5" (string_of_int (LRU.capacity c));
+  assert_equal ~msg:"create: size 0" "0" (string_of_int (LRU.size c));
+  assert_raises ~msg:"create: 0 raises" (fun () -> LRU.create 0);
+  assert_raises ~msg:"create: neg raises" (fun () -> LRU.create (-1));
+
+  (* put *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  assert_equal ~msg:"put: size 1" "1" (string_of_int (LRU.size c));
+  assert_true ~msg:"put: mem" (LRU.mem "a" c);
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  assert_equal ~msg:"put 3: size" "3" (string_of_int (LRU.size c));
+
+  (* eviction on overflow *)
+  let c = LRU.create 2 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  assert_true ~msg:"evict: a gone" (not (LRU.mem "a" c));
+  assert_true ~msg:"evict: b present" (LRU.mem "b" c);
+  assert_true ~msg:"evict: c present" (LRU.mem "c" c);
+
+  (* put updates value *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "a" 99 c in
+  assert_equal ~msg:"update: size 1" "1" (string_of_int (LRU.size c));
+  assert_equal ~msg:"update: val" "99"
+    (string_of_int (match LRU.peek "a" c with Some v -> v | None -> -1));
+
+  (* put promotes *)
+  let c = LRU.create 2 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "a" 10 c in
+  let c = LRU.put "c" 3 c in
+  assert_true ~msg:"promote: a survives" (LRU.mem "a" c);
+  assert_true ~msg:"promote: b evicted" (not (LRU.mem "b" c));
+
+  (* get *)
+  let c = LRU.create 3 in
+  let c = LRU.put "x" 42 c in
+  let (v, _) = LRU.get "x" c in
+  assert_equal ~msg:"get: found" "42"
+    (string_of_int (match v with Some x -> x | None -> -1));
+  let (v, _) = LRU.get "missing" c in
+  assert_true ~msg:"get: miss" (v = None);
+
+  (* get promotes *)
+  let c = LRU.create 2 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let (_, c) = LRU.get "a" c in
+  let c = LRU.put "c" 3 c in
+  assert_true ~msg:"get promote: a survives" (LRU.mem "a" c);
+  assert_true ~msg:"get promote: b evicted" (not (LRU.mem "b" c));
+
+  (* stats *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let (_, c) = LRU.get "a" c in
+  let (_, c) = LRU.get "miss" c in
+  let (h, m, _) = LRU.stats c in
+  assert_equal ~msg:"stats: hits" "1" (string_of_int h);
+  assert_equal ~msg:"stats: misses" "1" (string_of_int m);
+
+  (* peek does NOT promote *)
+  let c = LRU.create 2 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let _ = LRU.peek "a" c in
+  let c = LRU.put "c" 3 c in
+  assert_true ~msg:"peek no promote: a evicted" (not (LRU.mem "a" c));
+
+  (* remove *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.remove "a" c in
+  assert_equal ~msg:"remove: size" "1" (string_of_int (LRU.size c));
+  assert_true ~msg:"remove: a gone" (not (LRU.mem "a" c));
+  let c = LRU.remove "nonexistent" c in
+  assert_equal ~msg:"remove missing: ok" "1" (string_of_int (LRU.size c));
+
+  (* evict *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let (ev, c) = LRU.evict c in
+  assert_equal ~msg:"evict: got a" "a"
+    (match ev with Some (k, _) -> k | None -> "none");
+  assert_equal ~msg:"evict: size 1" "1" (string_of_int (LRU.size c));
+  let c = LRU.create 3 in
+  let (ev, _) = LRU.evict c in
+  assert_true ~msg:"evict empty: None" (ev = None);
+
+  (* is_full *)
+  let c = LRU.create 2 in
+  let c = LRU.put "a" 1 c in
+  assert_true ~msg:"not full" (not (LRU.is_full c));
+  let c = LRU.put "b" 2 c in
+  assert_true ~msg:"full" (LRU.is_full c);
+
+  (* to_list order *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  let lst = LRU.to_list c in
+  assert_equal ~msg:"to_list: first" "c" (fst (List.nth lst 0));
+  assert_equal ~msg:"to_list: last" "a" (fst (List.nth lst 2));
+
+  (* keys / values *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  assert_equal ~msg:"keys: 2" "2" (string_of_int (List.length (LRU.keys c)));
+  assert_equal ~msg:"values: 2" "2" (string_of_int (List.length (LRU.values c)));
+
+  (* clear *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.clear c in
+  assert_true ~msg:"clear: empty" (LRU.is_empty c);
+  assert_equal ~msg:"clear: cap" "3" (string_of_int (LRU.capacity c));
+
+  (* resize down *)
+  let c = LRU.create 5 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  let c = LRU.resize 2 c in
+  assert_equal ~msg:"resize: cap" "2" (string_of_int (LRU.capacity c));
+  assert_equal ~msg:"resize: size" "2" (string_of_int (LRU.size c));
+  assert_true ~msg:"resize: c kept" (LRU.mem "c" c);
+  assert_true ~msg:"resize: a evicted" (not (LRU.mem "a" c));
+  assert_raises ~msg:"resize: 0 raises" (fun () -> LRU.resize 0 (LRU.create 3));
+
+  (* of_list *)
+  let c = LRU.of_list 3 [("a", 1); ("b", 2); ("c", 3)] in
+  assert_equal ~msg:"of_list: size" "3" (string_of_int (LRU.size c));
+  let lst = LRU.to_list c in
+  assert_equal ~msg:"of_list: first is a" "a" (fst (List.hd lst));
+  assert_raises ~msg:"of_list: 0 raises" (fun () -> LRU.of_list 0 [("a", 1)]);
+
+  (* fold *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  let sum = LRU.fold (fun acc _k v -> acc + v) 0 c in
+  assert_equal ~msg:"fold: sum" "6" (string_of_int sum);
+
+  (* iter *)
+  let count = ref 0 in
+  LRU.iter (fun _k _v -> incr count) c;
+  assert_equal ~msg:"iter: 3" "3" (string_of_int !count);
+
+  (* filter *)
+  let c = LRU.create 5 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let c = LRU.put "c" 3 c in
+  let filtered = LRU.filter (fun _k v -> v > 1) c in
+  assert_equal ~msg:"filter: size" "2" (string_of_int (LRU.size filtered));
+  assert_true ~msg:"filter: a gone" (not (LRU.mem "a" filtered));
+
+  (* map_values *)
+  let c = LRU.create 3 in
+  let c = LRU.put "a" 1 c in
+  let c = LRU.put "b" 2 c in
+  let doubled = LRU.map_values (fun v -> v * 2) c in
+  assert_equal ~msg:"map: a=2" "2"
+    (string_of_int (match LRU.peek "a" doubled with Some v -> v | None -> -1));
+  assert_equal ~msg:"map: b=4" "4"
+    (string_of_int (match LRU.peek "b" doubled with Some v -> v | None -> -1));
+
+  (* stress *)
+  let c = LRU.create 100 in
+  let c = ref c in
+  for i = 0 to 999 do
+    c := LRU.put (string_of_int i) i !c
+  done;
+  assert_equal ~msg:"stress: size" "100" (string_of_int (LRU.size !c));
+  assert_true ~msg:"stress: 999 present" (LRU.mem "999" !c);
+  assert_true ~msg:"stress: 899 gone" (not (LRU.mem "899" !c));
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -4632,6 +4920,7 @@ let () =
   test_union_find ();
   test_hashmap ();
   test_bloom_filter ();
+  test_lru_cache ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
