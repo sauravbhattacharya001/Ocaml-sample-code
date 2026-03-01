@@ -4,7 +4,7 @@
 # Use the native-code compiler for best performance.
 # Change to 'ocamlc' for bytecode if ocamlopt is unavailable.
 OCAML = ocamlopt
-SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml heap.ml parser.ml trie.ml regex.ml stream.ml rbtree.ml sorting.ml union_find.ml
+SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml dijkstra.ml heap.ml parser.ml trie.ml regex.ml stream.ml rbtree.ml sorting.ml union_find.ml
 TARGETS = $(SOURCES:.ml=)
 
 .PHONY: all clean run test coverage coverage-html
@@ -39,6 +39,9 @@ run: all
 	@echo ""
 	@echo "=== graph ==="
 	@./graph
+	@echo ""
+	@echo "=== dijkstra ==="
+	@./dijkstra
 	@echo ""
 	@echo "=== heap ==="
 	@./heap
