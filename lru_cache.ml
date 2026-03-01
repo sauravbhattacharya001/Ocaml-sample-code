@@ -5,6 +5,10 @@
 (* is_full, to_list, keys, values, clear, resize, peek, stats,       *)
 (* evict, of_list, fold, iter, filter, map_values.                    *)
 (* All operations return new caches (purely functional).              *)
+(*                                                                     *)
+(* Performance: index is maintained incrementally — O(1) hash table   *)
+(* updates per operation instead of full rebuilds. Size is tracked    *)
+(* explicitly to avoid O(n) List.length calls.                        *)
 
 module LRUCache = struct
 
@@ -12,6 +16,7 @@ module LRUCache = struct
     entries  : ('k * 'v) list;   (* ordered: most recent first *)
     index    : ('k, 'v) Hashtbl.t; (* shadow index for O(1) lookup *)
     capacity : int;
+    size     : int;              (* tracked explicitly, no List.length *)
     hits     : int;
     misses   : int;
   }
@@ -22,12 +27,12 @@ module LRUCache = struct
     if capacity < 1 then
       invalid_arg "LRUCache.create: capacity must be >= 1"
     else
-      { entries = []; index = Hashtbl.create capacity;
-        capacity; hits = 0; misses = 0 }
+      { entries = []; index = Hashtbl.create (min capacity 256);
+        capacity; size = 0; hits = 0; misses = 0 }
 
   let clear cache =
-    { entries = []; index = Hashtbl.create cache.capacity;
-      capacity = cache.capacity; hits = 0; misses = 0 }
+    Hashtbl.reset cache.index;
+    { cache with entries = []; size = 0; hits = 0; misses = 0 }
 
   (* ---- Internal helpers ---- *)
 
@@ -35,46 +40,58 @@ module LRUCache = struct
   let remove_from_list k entries =
     List.filter (fun (k', _) -> k' <> k) entries
 
-  (* Trim list to capacity, returning (kept, evicted_keys) *)
-  let trim_to_capacity cap entries =
-    if List.length entries <= cap then (entries, [])
+  (* Trim list to capacity, evicting LRU entries from index.
+     Returns (kept_list, new_size). *)
+  let trim_to_capacity cap sz entries index =
+    if sz <= cap then (entries, sz)
     else
       let rec take acc n = function
-        | [] -> (List.rev acc, [])
-        | _ when n >= cap -> (List.rev acc, [])
-        | x :: rest -> take (x :: acc) (n + 1) rest
+        | [] -> (List.rev acc, n)
+        | _ when n >= cap -> (List.rev acc, cap)
+        | ((k, v) as x) :: rest ->
+          Hashtbl.replace index k v;  (* ensure kept entries are current *)
+          take (x :: acc) (n + 1) rest
       in
-      let (kept, _) = take [] 0 entries in
-      let evicted_keys =
-        let rec drop n = function
-          | [] -> []
-          | _ :: rest when n > 0 -> drop (n - 1) rest
-          | remaining -> List.map fst remaining
-        in
-        drop cap entries
+      (* Evict entries beyond capacity from the index *)
+      let rec drop_after n = function
+        | [] -> ()
+        | _ when n <= 0 -> ()
+        | (k, _) :: rest ->
+          Hashtbl.remove index k;
+          drop_after (n - 1) rest
       in
-      (kept, evicted_keys)
-
-  let rebuild_index entries cap =
-    let tbl = Hashtbl.create cap in
-    List.iter (fun (k, v) -> Hashtbl.replace tbl k v) entries;
-    tbl
+      let (kept, kept_sz) = take [] 0 entries in
+      let excess = sz - cap in
+      (* Walk from the end to remove evicted keys *)
+      let rev_entries = List.rev entries in
+      drop_after excess rev_entries;
+      (kept, kept_sz)
 
   (* ---- Core operations ---- *)
 
   (** Insert or update a key-value pair. If the cache is full and the
       key is new, the least recently used entry is evicted. *)
   let put k v cache =
-    (* Remove existing entry if present *)
-    let cleaned = remove_from_list k cache.entries in
+    let existed = Hashtbl.mem cache.index k in
+    (* Update index incrementally *)
+    Hashtbl.replace cache.index k v;
+    (* Remove existing entry from list if present *)
+    let cleaned = if existed then remove_from_list k cache.entries
+                  else cache.entries in
+    let new_sz = if existed then cache.size else cache.size + 1 in
     (* Add to front (most recent) *)
     let updated = (k, v) :: cleaned in
-    (* Trim if over capacity *)
-    let (kept, _evicted) = trim_to_capacity cache.capacity updated in
-    let idx = rebuild_index kept cache.capacity in
-    { entries = kept; index = idx;
-      capacity = cache.capacity;
-      hits = cache.hits; misses = cache.misses }
+    (* Evict LRU if over capacity *)
+    if new_sz > cache.capacity then begin
+      match List.rev updated with
+      | [] -> { cache with entries = updated; size = new_sz }
+      | (lru_k, _) :: _ ->
+        Hashtbl.remove cache.index lru_k;
+        let trimmed = remove_from_list lru_k updated in
+        { cache with entries = trimmed; size = cache.capacity }
+    end
+    else
+      { cache with entries = updated; size = new_sz }
 
   (** Look up a key. Returns (Some value, updated_cache) where the
       accessed entry is moved to the front, or (None, cache) on miss.
@@ -86,11 +103,10 @@ module LRUCache = struct
     | Some v ->
       let cleaned = remove_from_list k cache.entries in
       let entries = (k, v) :: cleaned in
-      let idx = rebuild_index entries cache.capacity in
+      (* No index rebuild needed — same keys, same values *)
       (Some v,
-       { entries; index = idx;
-         capacity = cache.capacity;
-         hits = cache.hits + 1; misses = cache.misses })
+       { cache with entries;
+         hits = cache.hits + 1 })
 
   (** Look up a key without promoting it (no reorder, no stats). *)
   let peek k cache =
@@ -103,12 +119,11 @@ module LRUCache = struct
   (** Remove a key from the cache. *)
   let remove k cache =
     if not (Hashtbl.mem cache.index k) then cache
-    else
+    else begin
+      Hashtbl.remove cache.index k;
       let entries = remove_from_list k cache.entries in
-      let idx = rebuild_index entries cache.capacity in
-      { entries; index = idx;
-        capacity = cache.capacity;
-        hits = cache.hits; misses = cache.misses }
+      { cache with entries; size = cache.size - 1 }
+    end
 
   (** Explicitly evict the least recently used entry.
       Returns (Some (key, value), updated_cache) or (None, cache). *)
@@ -116,19 +131,17 @@ module LRUCache = struct
     match List.rev cache.entries with
     | [] -> (None, cache)
     | (k, v) :: _ ->
+      Hashtbl.remove cache.index k;
       let entries = remove_from_list k cache.entries in
-      let idx = rebuild_index entries cache.capacity in
       (Some (k, v),
-       { entries; index = idx;
-         capacity = cache.capacity;
-         hits = cache.hits; misses = cache.misses })
+       { cache with entries; size = cache.size - 1 })
 
   (* ---- Queries ---- *)
 
-  let size cache = List.length cache.entries
+  let size cache = cache.size
   let capacity cache = cache.capacity
-  let is_empty cache = cache.entries = []
-  let is_full cache = List.length cache.entries >= cache.capacity
+  let is_empty cache = cache.size = 0
+  let is_full cache = cache.size >= cache.capacity
 
   (** Return entries in access order (most recent first). *)
   let to_list cache = cache.entries
@@ -149,12 +162,13 @@ module LRUCache = struct
   let resize new_capacity cache =
     if new_capacity < 1 then
       invalid_arg "LRUCache.resize: capacity must be >= 1"
-    else
-      let (kept, _) = trim_to_capacity new_capacity cache.entries in
-      let idx = rebuild_index kept new_capacity in
-      { entries = kept; index = idx;
-        capacity = new_capacity;
-        hits = cache.hits; misses = cache.misses }
+    else if new_capacity >= cache.size then
+      { cache with capacity = new_capacity }
+    else begin
+      let (kept, kept_sz) =
+        trim_to_capacity new_capacity cache.size cache.entries cache.index in
+      { cache with entries = kept; size = kept_sz; capacity = new_capacity }
+    end
 
   (** Build a cache from an association list (first element = most recent). *)
   let of_list capacity pairs =
@@ -177,17 +191,19 @@ module LRUCache = struct
   (** Keep only entries matching a predicate. *)
   let filter pred cache =
     let entries = List.filter (fun (k, v) -> pred k v) cache.entries in
-    let idx = rebuild_index entries cache.capacity in
-    { entries; index = idx;
-      capacity = cache.capacity;
-      hits = cache.hits; misses = cache.misses }
+    let new_size = List.length entries in
+    (* Incrementally remove filtered-out keys from the index *)
+    if new_size < cache.size then begin
+      Hashtbl.reset cache.index;
+      List.iter (fun (k, v) -> Hashtbl.replace cache.index k v) entries
+    end;
+    { cache with entries; size = new_size }
 
   (** Apply a function to all values, keeping keys and order. *)
   let map_values f cache =
     let entries = List.map (fun (k, v) -> (k, f v)) cache.entries in
-    let idx = rebuild_index entries cache.capacity in
-    { entries; index = idx;
-      capacity = cache.capacity;
-      hits = cache.hits; misses = cache.misses }
+    (* Update index with new values *)
+    List.iter (fun (k, v) -> Hashtbl.replace cache.index k v) entries;
+    { cache with entries }
 
 end
