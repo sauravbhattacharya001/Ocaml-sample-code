@@ -4900,6 +4900,451 @@ let test_lru_cache () = suite "LRU Cache" (fun () ->
   assert_true ~msg:"stress: 899 gone" (not (LRU.mem "899" !c));
 )
 
+(* ===== Skip List helpers ===== *)
+
+(* Inline module to keep test_all self-contained *)
+module SL = struct
+  let max_level = 32
+
+  type 'a node = {
+    key     : 'a;
+    forward : 'a node option array;
+  }
+
+  type 'a t = {
+    header    : 'a node;
+    mutable level : int;
+    mutable length : int;
+    compare   : 'a -> 'a -> int;
+  }
+
+  let make_node key lvl =
+    { key; forward = Array.make (lvl + 1) None }
+
+  let random_level () =
+    let rec go lvl =
+      if lvl >= max_level - 1 then lvl
+      else if Random.bool () then go (lvl + 1)
+      else lvl
+    in
+    go 0
+
+  let create ?(compare = Stdlib.compare) () =
+    let header = { key = Obj.magic 0; forward = Array.make max_level None } in
+    { header; level = 0; length = 0; compare }
+
+  let size sl = sl.length
+  let is_empty sl = sl.length = 0
+  let height sl = if sl.length = 0 then 0 else sl.level + 1
+
+  let mem key sl =
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key < 0 -> x := next
+        | _ -> continue_ := false
+      done
+    done;
+    match !x.forward.(0) with
+    | Some n -> sl.compare n.key key = 0
+    | None   -> false
+
+  let find key sl =
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key < 0 -> x := next
+        | _ -> continue_ := false
+      done
+    done;
+    match !x.forward.(0) with
+    | Some n when sl.compare n.key key = 0 -> Some n.key
+    | _ -> None
+
+  let insert key sl =
+    let update = Array.make max_level sl.header in
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key < 0 -> x := next
+        | _ -> continue_ := false
+      done;
+      update.(i) <- !x
+    done;
+    let is_dup = match !x.forward.(0) with
+      | Some n -> sl.compare n.key key = 0
+      | None   -> false
+    in
+    if not is_dup then begin
+      let lvl = random_level () in
+      if lvl > sl.level then begin
+        for i = sl.level + 1 to lvl do
+          update.(i) <- sl.header
+        done;
+        sl.level <- lvl
+      end;
+      let new_node = make_node key lvl in
+      for i = 0 to lvl do
+        new_node.forward.(i) <- update.(i).forward.(i);
+        update.(i).forward.(i) <- Some new_node
+      done;
+      sl.length <- sl.length + 1
+    end
+
+  let remove key sl =
+    let update = Array.make max_level sl.header in
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key < 0 -> x := next
+        | _ -> continue_ := false
+      done;
+      update.(i) <- !x
+    done;
+    match !x.forward.(0) with
+    | Some n when sl.compare n.key key = 0 ->
+      for i = 0 to sl.level do
+        match update.(i).forward.(i) with
+        | Some fwd when fwd == n ->
+          update.(i).forward.(i) <- n.forward.(i)
+        | _ -> ()
+      done;
+      while sl.level > 0 && sl.header.forward.(sl.level) = None do
+        sl.level <- sl.level - 1
+      done;
+      sl.length <- sl.length - 1;
+      true
+    | _ -> false
+
+  let to_list sl =
+    let acc = ref [] in
+    let x = ref sl.header.forward.(0) in
+    while !x <> None do
+      (match !x with
+       | Some n -> acc := n.key :: !acc; x := n.forward.(0)
+       | None -> ())
+    done;
+    List.rev !acc
+
+  let iter f sl =
+    let x = ref sl.header.forward.(0) in
+    while !x <> None do
+      (match !x with
+       | Some n -> f n.key; x := n.forward.(0)
+       | None -> ())
+    done
+
+  let fold f acc sl =
+    let result = ref acc in
+    let x = ref sl.header.forward.(0) in
+    while !x <> None do
+      (match !x with
+       | Some n -> result := f !result n.key; x := n.forward.(0)
+       | None -> ())
+    done;
+    !result
+
+  let min_elt sl =
+    match sl.header.forward.(0) with
+    | Some n -> Some n.key
+    | None   -> None
+
+  let max_elt sl =
+    if sl.length = 0 then None
+    else begin
+      let x = ref sl.header in
+      for i = sl.level downto 0 do
+        let continue_ = ref true in
+        while !continue_ do
+          match !x.forward.(i) with
+          | Some next -> x := next
+          | None -> continue_ := false
+        done
+      done;
+      Some !x.key
+    end
+
+  let range_query ~lo ~hi sl =
+    if sl.compare lo hi > 0 then []
+    else begin
+      let x = ref sl.header in
+      for i = sl.level downto 0 do
+        let continue_ = ref true in
+        while !continue_ do
+          match !x.forward.(i) with
+          | Some next when sl.compare next.key lo < 0 -> x := next
+          | _ -> continue_ := false
+        done
+      done;
+      let acc = ref [] in
+      let cur = ref !x.forward.(0) in
+      let stop = ref false in
+      while not !stop do
+        match !cur with
+        | Some n when sl.compare n.key hi <= 0 ->
+          if sl.compare n.key lo >= 0 then
+            acc := n.key :: !acc;
+          cur := n.forward.(0)
+        | _ -> stop := true
+      done;
+      List.rev !acc
+    end
+
+  let floor key sl =
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key <= 0 -> x := next
+        | _ -> continue_ := false
+      done
+    done;
+    if !x == sl.header then None
+    else Some !x.key
+
+  let ceil key sl =
+    let x = ref sl.header in
+    for i = sl.level downto 0 do
+      let continue_ = ref true in
+      while !continue_ do
+        match !x.forward.(i) with
+        | Some next when sl.compare next.key key < 0 -> x := next
+        | _ -> continue_ := false
+      done
+    done;
+    match !x.forward.(0) with
+    | Some n when sl.compare n.key key >= 0 -> Some n.key
+    | _ -> None
+
+  let of_list ?(compare = Stdlib.compare) lst =
+    let sl = create ~compare () in
+    List.iter (fun k -> insert k sl) lst;
+    sl
+end
+
+(* ===== Skip List tests ===== *)
+
+let test_skip_list () =
+  current_suite := "SkipList";
+  Printf.printf "Testing SkipList...\n";
+
+  (* -- Empty skip list -- *)
+  let sl = SL.create () in
+  assert_true ~msg:"empty: is_empty" (SL.is_empty sl);
+  assert_equal ~msg:"empty: size" "0" (string_of_int (SL.size sl));
+  assert_equal ~msg:"empty: height" "0" (string_of_int (SL.height sl));
+  assert_true ~msg:"empty: to_list" (SL.to_list sl = []);
+  assert_true ~msg:"empty: min_elt" (SL.min_elt sl = None);
+  assert_true ~msg:"empty: max_elt" (SL.max_elt sl = None);
+  assert_true ~msg:"empty: mem 0" (not (SL.mem 0 sl));
+  assert_true ~msg:"empty: find 0" (SL.find 0 sl = None);
+  assert_true ~msg:"empty: floor 5" (SL.floor 5 sl = None);
+  assert_true ~msg:"empty: ceil 5" (SL.ceil 5 sl = None);
+  assert_true ~msg:"empty: range" (SL.range_query ~lo:0 ~hi:10 sl = []);
+  assert_true ~msg:"empty: remove" (not (SL.remove 1 sl));
+
+  (* -- Single element -- *)
+  SL.insert 42 sl;
+  assert_true ~msg:"single: not empty" (not (SL.is_empty sl));
+  assert_equal ~msg:"single: size" "1" (string_of_int (SL.size sl));
+  assert_true ~msg:"single: height >= 1" (SL.height sl >= 1);
+  assert_true ~msg:"single: mem 42" (SL.mem 42 sl);
+  assert_true ~msg:"single: find 42" (SL.find 42 sl = Some 42);
+  assert_true ~msg:"single: not mem 99" (not (SL.mem 99 sl));
+  assert_true ~msg:"single: to_list" (SL.to_list sl = [42]);
+  assert_true ~msg:"single: min_elt" (SL.min_elt sl = Some 42);
+  assert_true ~msg:"single: max_elt" (SL.max_elt sl = Some 42);
+
+  (* -- Duplicate insert -- *)
+  SL.insert 42 sl;
+  assert_equal ~msg:"dup: size still 1" "1" (string_of_int (SL.size sl));
+  assert_true ~msg:"dup: to_list" (SL.to_list sl = [42]);
+
+  (* -- Multiple elements, sorted order -- *)
+  SL.insert 10 sl;
+  SL.insert 30 sl;
+  SL.insert 20 sl;
+  SL.insert 50 sl;
+  SL.insert 40 sl;
+  assert_equal ~msg:"multi: size" "6" (string_of_int (SL.size sl));
+  assert_true ~msg:"multi: sorted"
+    (SL.to_list sl = [10; 20; 30; 40; 42; 50]);
+  assert_true ~msg:"multi: min" (SL.min_elt sl = Some 10);
+  assert_true ~msg:"multi: max" (SL.max_elt sl = Some 50);
+  assert_true ~msg:"multi: mem 30" (SL.mem 30 sl);
+  assert_true ~msg:"multi: mem 42" (SL.mem 42 sl);
+  assert_true ~msg:"multi: not mem 25" (not (SL.mem 25 sl));
+
+  (* -- Remove -- *)
+  assert_true ~msg:"remove 30: found" (SL.remove 30 sl);
+  assert_equal ~msg:"remove 30: size" "5" (string_of_int (SL.size sl));
+  assert_true ~msg:"remove 30: not mem" (not (SL.mem 30 sl));
+  assert_true ~msg:"remove 30: list"
+    (SL.to_list sl = [10; 20; 40; 42; 50]);
+  assert_true ~msg:"remove missing" (not (SL.remove 99 sl));
+  assert_equal ~msg:"remove missing: size" "5" (string_of_int (SL.size sl));
+
+  (* Remove head element *)
+  assert_true ~msg:"remove head" (SL.remove 10 sl);
+  assert_true ~msg:"remove head: min" (SL.min_elt sl = Some 20);
+  assert_true ~msg:"remove head: list"
+    (SL.to_list sl = [20; 40; 42; 50]);
+
+  (* Remove tail element *)
+  assert_true ~msg:"remove tail" (SL.remove 50 sl);
+  assert_true ~msg:"remove tail: max" (SL.max_elt sl = Some 42);
+  assert_true ~msg:"remove tail: list"
+    (SL.to_list sl = [20; 40; 42]);
+
+  (* Remove all *)
+  assert_true ~msg:"remove all 1" (SL.remove 20 sl);
+  assert_true ~msg:"remove all 2" (SL.remove 40 sl);
+  assert_true ~msg:"remove all 3" (SL.remove 42 sl);
+  assert_true ~msg:"remove all: empty" (SL.is_empty sl);
+  assert_true ~msg:"remove all: height 0" (SL.height sl = 0);
+
+  (* -- Range queries -- *)
+  let sl2 = SL.create () in
+  List.iter (fun x -> SL.insert x sl2) [5; 10; 15; 20; 25; 30; 35; 40];
+  assert_true ~msg:"range [10,30]"
+    (SL.range_query ~lo:10 ~hi:30 sl2 = [10; 15; 20; 25; 30]);
+  assert_true ~msg:"range [12,28]"
+    (SL.range_query ~lo:12 ~hi:28 sl2 = [15; 20; 25]);
+  assert_true ~msg:"range [5,5]"
+    (SL.range_query ~lo:5 ~hi:5 sl2 = [5]);
+  assert_true ~msg:"range [40,40]"
+    (SL.range_query ~lo:40 ~hi:40 sl2 = [40]);
+  assert_true ~msg:"range [6,9]"
+    (SL.range_query ~lo:6 ~hi:9 sl2 = []);
+  assert_true ~msg:"range [0,100]"
+    (SL.range_query ~lo:0 ~hi:100 sl2 =
+     [5; 10; 15; 20; 25; 30; 35; 40]);
+  assert_true ~msg:"range inverted"
+    (SL.range_query ~lo:30 ~hi:10 sl2 = []);
+
+  (* -- Floor and ceil -- *)
+  assert_true ~msg:"floor 10" (SL.floor 10 sl2 = Some 10);
+  assert_true ~msg:"floor 12" (SL.floor 12 sl2 = Some 10);
+  assert_true ~msg:"floor 4" (SL.floor 4 sl2 = None);
+  assert_true ~msg:"floor 40" (SL.floor 40 sl2 = Some 40);
+  assert_true ~msg:"floor 100" (SL.floor 100 sl2 = Some 40);
+  assert_true ~msg:"ceil 10" (SL.ceil 10 sl2 = Some 10);
+  assert_true ~msg:"ceil 12" (SL.ceil 12 sl2 = Some 15);
+  assert_true ~msg:"ceil 41" (SL.ceil 41 sl2 = None);
+  assert_true ~msg:"ceil 1" (SL.ceil 1 sl2 = Some 5);
+  assert_true ~msg:"ceil 40" (SL.ceil 40 sl2 = Some 40);
+
+  (* -- Fold -- *)
+  let sum = SL.fold (fun acc x -> acc + x) 0 sl2 in
+  assert_equal ~msg:"fold sum" "180" (string_of_int sum);
+  let product = SL.fold (fun acc x -> acc * x) 1 sl2 in
+  assert_equal ~msg:"fold product"
+    (string_of_int (5 * 10 * 15 * 20 * 25 * 30 * 35 * 40))
+    (string_of_int product);
+
+  (* -- Iter -- *)
+  let iter_acc = ref [] in
+  SL.iter (fun x -> iter_acc := x :: !iter_acc) sl2;
+  assert_true ~msg:"iter order"
+    (List.rev !iter_acc = [5; 10; 15; 20; 25; 30; 35; 40]);
+
+  (* -- of_list -- *)
+  let sl3 = SL.of_list [9; 3; 7; 1; 5] in
+  assert_equal ~msg:"of_list: size" "5" (string_of_int (SL.size sl3));
+  assert_true ~msg:"of_list: sorted"
+    (SL.to_list sl3 = [1; 3; 5; 7; 9]);
+
+  (* of_list with duplicates *)
+  let sl4 = SL.of_list [5; 3; 5; 1; 3; 1] in
+  assert_equal ~msg:"of_list dup: size" "3" (string_of_int (SL.size sl4));
+  assert_true ~msg:"of_list dup: sorted"
+    (SL.to_list sl4 = [1; 3; 5]);
+
+  (* -- Custom compare (reverse order) -- *)
+  let rev_sl = SL.create ~compare:(fun a b -> compare b a) () in
+  List.iter (fun x -> SL.insert x rev_sl) [10; 30; 20];
+  assert_true ~msg:"reverse: to_list"
+    (SL.to_list rev_sl = [30; 20; 10]);
+  assert_true ~msg:"reverse: min_elt" (SL.min_elt rev_sl = Some 30);
+  assert_true ~msg:"reverse: max_elt" (SL.max_elt rev_sl = Some 10);
+
+  (* -- String skip list -- *)
+  let str_sl = SL.create ~compare:String.compare () in
+  List.iter (fun s -> SL.insert s str_sl) ["cherry"; "apple"; "banana"; "date"];
+  assert_equal ~msg:"string: size" "4" (string_of_int (SL.size str_sl));
+  assert_true ~msg:"string: sorted"
+    (SL.to_list str_sl = ["apple"; "banana"; "cherry"; "date"]);
+  assert_true ~msg:"string: mem banana" (SL.mem "banana" str_sl);
+  assert_true ~msg:"string: floor 'c'" (SL.floor "c" str_sl = Some "banana");
+  assert_true ~msg:"string: ceil 'c'" (SL.ceil "c" str_sl = Some "cherry");
+
+  (* -- Stress test: insert + verify sorted + remove all -- *)
+  let stress_sl = SL.create () in
+  let n = 500 in
+  (* Shuffle: insert 0..499 in random order *)
+  let arr = Array.init n (fun i -> i) in
+  for i = n - 1 downto 1 do
+    let j = Random.int (i + 1) in
+    let tmp = arr.(i) in
+    arr.(i) <- arr.(j);
+    arr.(j) <- tmp
+  done;
+  Array.iter (fun x -> SL.insert x stress_sl) arr;
+  assert_equal ~msg:"stress: size" "500" (string_of_int (SL.size stress_sl));
+
+  let sorted = SL.to_list stress_sl in
+  let expected = List.init n (fun i -> i) in
+  assert_true ~msg:"stress: sorted order" (sorted = expected);
+  assert_true ~msg:"stress: min" (SL.min_elt stress_sl = Some 0);
+  assert_true ~msg:"stress: max" (SL.max_elt stress_sl = Some 499);
+  assert_true ~msg:"stress: mem 250" (SL.mem 250 stress_sl);
+  assert_true ~msg:"stress: not mem 500" (not (SL.mem 500 stress_sl));
+
+  (* Range query on stress list *)
+  let range = SL.range_query ~lo:100 ~hi:199 stress_sl in
+  assert_equal ~msg:"stress range: length" "100" (string_of_int (List.length range));
+  assert_true ~msg:"stress range: first" (List.hd range = 100);
+  assert_true ~msg:"stress range: last"
+    (List.nth range 99 = 199);
+
+  (* Floor/ceil on stress list *)
+  assert_true ~msg:"stress: floor 250" (SL.floor 250 stress_sl = Some 250);
+  assert_true ~msg:"stress: ceil 250" (SL.ceil 250 stress_sl = Some 250);
+
+  (* Remove even numbers *)
+  for i = 0 to 249 do
+    ignore (SL.remove (i * 2) stress_sl)
+  done;
+  assert_equal ~msg:"stress remove: size" "250" (string_of_int (SL.size stress_sl));
+  assert_true ~msg:"stress remove: no evens" (not (SL.mem 0 stress_sl));
+  assert_true ~msg:"stress remove: has odds" (SL.mem 1 stress_sl);
+  assert_true ~msg:"stress remove: min" (SL.min_elt stress_sl = Some 1);
+  assert_true ~msg:"stress remove: max" (SL.max_elt stress_sl = Some 499);
+
+  (* Remove all remaining *)
+  let remaining = SL.to_list stress_sl in
+  List.iter (fun x -> ignore (SL.remove x stress_sl)) remaining;
+  assert_true ~msg:"stress remove all: empty" (SL.is_empty stress_sl);
+  assert_equal ~msg:"stress remove all: size" "0" (string_of_int (SL.size stress_sl));
+
+  (* -- Re-insert after clearing -- *)
+  SL.insert 100 stress_sl;
+  SL.insert 50 stress_sl;
+  assert_equal ~msg:"reuse: size" "2" (string_of_int (SL.size stress_sl));
+  assert_true ~msg:"reuse: sorted" (SL.to_list stress_sl = [50; 100]);
+
+  Printf.printf "  SkipList: done\n";
+()
+
 (* ===== Main ===== *)
 
 let () =
@@ -4921,6 +5366,7 @@ let () =
   test_hashmap ();
   test_bloom_filter ();
   test_lru_cache ();
+  test_skip_list ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;

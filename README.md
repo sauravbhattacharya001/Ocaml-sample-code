@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing.
+**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms.
 
 ## Programs
 
@@ -45,6 +45,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`bloom_filter.ml`](bloom_filter.ml) | Bloom filter — probabilistic set membership | Double hashing, tunable FP rate, union, optimal sizing, saturation stats |
 | [`lru_cache.ml`](lru_cache.ml) | LRU Cache — bounded least-recently-used cache | Put/get with auto-eviction, hit/miss stats, peek, resize, filter, fold |
 | [`segment_tree.ml`](segment_tree.ml) | Segment Tree — efficient range queries and point updates | Functors, monoid abstraction, sum/min/max queries, O(log n) update |
+| [`skip_list.ml`](skip_list.ml) | Skip List — probabilistic sorted data structure | Randomized levels, O(log n) search/insert/delete, range queries, floor/ceil |
 
 ## Getting Started
 
