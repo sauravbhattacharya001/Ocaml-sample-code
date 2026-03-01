@@ -48,6 +48,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`segment_tree.ml`](segment_tree.ml) | Segment Tree — efficient range queries and point updates | Functors, monoid abstraction, sum/min/max queries, O(log n) update |
 | [`skip_list.ml`](skip_list.ml) | Skip List — probabilistic sorted data structure | Randomized levels, O(log n) search/insert/delete, range queries, floor/ceil |
 | [`rope.ml`](rope.ml) | Rope — balanced binary tree for efficient string operations | O(log n) concat/split/insert/delete, text editing, balancing, line operations |
+| [`btree.ml`](btree.ml) | B-Tree — self-balancing search tree with configurable degree | Multi-way branching, node splitting, in-order traversal, search, bulk insertion |
 
 ## Getting Started
 
