@@ -167,33 +167,60 @@ let connected_components g =
   ) (vertices g);
   List.rev !components
 
-(* --- Cycle Detection (directed graphs) --- *)
-(* Uses DFS with three states: White (unseen), Gray (in progress), Black (done) *)
+(* --- Cycle Detection --- *)
+(* For directed graphs: DFS with three-color marking (White/Gray/Black).
+   A back edge to a Gray node indicates a cycle.
+   For undirected graphs: DFS with parent tracking.
+   A visited neighbor that is not the parent indicates a cycle. *)
 
 type color = White | Gray | Black
 
 let has_cycle g =
-  let color = Hashtbl.create (num_vertices g) in
-  List.iter (fun v -> Hashtbl.replace color v White) (vertices g);
-  let found_cycle = ref false in
-  let rec visit v =
-    if !found_cycle then ()
-    else begin
-      Hashtbl.replace color v Gray;
-      List.iter (fun w ->
-        if not !found_cycle then
-          match Hashtbl.find color w with
-          | Gray -> found_cycle := true  (* back edge = cycle *)
-          | White -> visit w
-          | Black -> ()
-      ) (neighbors g v);
-      Hashtbl.replace color v Black
-    end
-  in
-  List.iter (fun v ->
-    if Hashtbl.find color v = White then visit v
-  ) (vertices g);
-  !found_cycle
+  if g.directed then begin
+    (* Directed: standard three-color DFS *)
+    let color = Hashtbl.create (num_vertices g) in
+    List.iter (fun v -> Hashtbl.replace color v White) (vertices g);
+    let found_cycle = ref false in
+    let rec visit v =
+      if !found_cycle then ()
+      else begin
+        Hashtbl.replace color v Gray;
+        List.iter (fun w ->
+          if not !found_cycle then
+            match Hashtbl.find color w with
+            | Gray -> found_cycle := true
+            | White -> visit w
+            | Black -> ()
+        ) (neighbors g v);
+        Hashtbl.replace color v Black
+      end
+    in
+    List.iter (fun v ->
+      if Hashtbl.find color v = White then visit v
+    ) (vertices g);
+    !found_cycle
+  end else begin
+    (* Undirected: DFS with parent tracking to skip the trivial back-edge *)
+    let visited = Hashtbl.create (num_vertices g) in
+    let found_cycle = ref false in
+    let rec visit v parent =
+      if !found_cycle then ()
+      else begin
+        Hashtbl.replace visited v true;
+        List.iter (fun w ->
+          if not !found_cycle then
+            if Hashtbl.mem visited w then begin
+              if w <> parent then found_cycle := true
+            end else
+              visit w v
+        ) (neighbors g v)
+      end
+    in
+    List.iter (fun v ->
+      if not (Hashtbl.mem visited v) then visit v (-1)
+    ) (vertices g);
+    !found_cycle
+  end
 
 (* --- Topological Sort (directed acyclic graphs) --- *)
 (* Returns Some sorted_list if no cycle, None if cycle detected *)
@@ -268,6 +295,16 @@ let () =
   List.iteri (fun i c ->
     Printf.printf "  Component %d: %s\n" (i + 1) (string_of_int_list c)
   ) components;
+  print_newline ();
+
+  print_endline "=== Undirected Cycle Detection ===";
+  (* Tree: no cycle *)
+  let tree = empty_graph ~directed:false in
+  let tree = List.fold_left (fun g (u, v) -> add_edge g u v)
+    tree [(1,2); (2,3)] in
+  Printf.printf "Tree (1-2-3) has cycle: %b (expected false)\n" (has_cycle tree);
+  (* Undirected graph with cycle *)
+  Printf.printf "Graph with cycle (1-2,2-4,3-4,1-3) has cycle: %b (expected true)\n" (has_cycle g);
   print_newline ();
 
   print_endline "=== Directed Acyclic Graph (DAG) ===";
