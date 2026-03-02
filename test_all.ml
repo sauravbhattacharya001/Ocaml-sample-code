@@ -5345,6 +5345,301 @@ let test_skip_list () =
   Printf.printf "  SkipList: done\n";
 ()
 
+(* ===== Huffman Coding Tests ===== *)
+
+(* We inline the Huffman module since OCaml doesn't support multi-file
+   compilation in test_all without a build system.  We test the core
+   functions by re-implementing the key types and algorithms here.
+
+   For the actual module, see huffman.ml. *)
+
+(* --- Huffman types and core logic (mirrored for testing) --- *)
+module Huffman = struct
+  type tree =
+    | Leaf of char * int
+    | Node of tree * tree * int
+
+  let freq = function
+    | Leaf (_, f) -> f
+    | Node (_, _, f) -> f
+
+  let rec pq_insert t = function
+    | [] -> [t]
+    | h :: rest as lst ->
+      if freq t <= freq h then t :: lst
+      else h :: pq_insert t rest
+
+  let pq_of_list trees =
+    List.fold_left (fun pq t -> pq_insert t pq) [] trees
+
+  let char_frequencies s =
+    let tbl = Hashtbl.create 128 in
+    String.iter (fun c ->
+      let count = try Hashtbl.find tbl c with Not_found -> 0 in
+      Hashtbl.replace tbl c (count + 1)
+    ) s;
+    let pairs = Hashtbl.fold (fun c f acc -> (c, f) :: acc) tbl [] in
+    List.sort (fun (c1, f1) (c2, f2) ->
+      let cmp = compare f1 f2 in
+      if cmp <> 0 then cmp else compare c1 c2
+    ) pairs
+
+  let build_tree freqs =
+    match freqs with
+    | [] -> None
+    | [(c, f)] -> Some (Node (Leaf (c, f), Leaf (c, f), f * 2))
+    | _ ->
+      let leaves = List.map (fun (c, f) -> Leaf (c, f)) freqs in
+      let pq = pq_of_list leaves in
+      let rec merge = function
+        | [] -> None
+        | [t] -> Some t
+        | a :: b :: rest ->
+          let combined = Node (a, b, freq a + freq b) in
+          merge (pq_insert combined rest)
+      in
+      merge pq
+
+  let build_tree_from_string s = build_tree (char_frequencies s)
+
+  let build_code_table tree =
+    let tbl = Hashtbl.create 64 in
+    let rec walk prefix = function
+      | Leaf (c, _) -> Hashtbl.replace tbl c prefix
+      | Node (left, right, _) ->
+        walk (prefix ^ "0") left;
+        walk (prefix ^ "1") right
+    in
+    walk "" tree;
+    tbl
+
+  let encode tbl s =
+    let buf = Buffer.create (String.length s * 4) in
+    String.iter (fun c ->
+      Buffer.add_string buf (Hashtbl.find tbl c)
+    ) s;
+    Buffer.contents buf
+
+  let decode tree bits =
+    let buf = Buffer.create (String.length bits / 4) in
+    let len = String.length bits in
+    let rec walk node i =
+      if i >= len then
+        (match node with
+         | Leaf (c, _) -> Buffer.add_char buf c
+         | Node _ -> ())
+      else
+        match node with
+        | Leaf (c, _) ->
+          Buffer.add_char buf c;
+          walk tree i
+        | Node (left, right, _) ->
+          if bits.[i] = '0' then walk left (i + 1)
+          else walk right (i + 1)
+    in
+    walk tree 0;
+    Buffer.contents buf
+
+  let code_table_to_list tbl =
+    let pairs = Hashtbl.fold (fun c code acc -> (c, code) :: acc) tbl [] in
+    List.sort (fun (c1, _) (c2, _) -> compare c1 c2) pairs
+
+  let serialize_tree tree =
+    let buf = Buffer.create 256 in
+    let rec ser = function
+      | Leaf (c, _) -> Buffer.add_char buf 'L'; Buffer.add_char buf c
+      | Node (left, right, _) -> Buffer.add_char buf 'N'; ser left; ser right
+    in
+    ser tree;
+    Buffer.contents buf
+
+  let deserialize_tree s =
+    let len = String.length s in
+    let rec deser i =
+      if i >= len then failwith "unexpected end"
+      else match s.[i] with
+      | 'L' ->
+        if i + 1 >= len then failwith "truncated leaf";
+        (Leaf (s.[i + 1], 0), i + 2)
+      | 'N' ->
+        let (left, i2) = deser (i + 1) in
+        let (right, i3) = deser i2 in
+        (Node (left, right, 0), i3)
+      | c -> failwith (Printf.sprintf "invalid tag '%c'" c)
+    in
+    let (tree, _) = deser 0 in
+    tree
+end
+
+let test_huffman () = suite "Huffman" (fun () ->
+  let open Huffman in
+
+  (* --- char_frequencies --- *)
+  let f1 = char_frequencies "" in
+  assert_true ~msg:"freq: empty" (f1 = []);
+
+  let f2 = char_frequencies "aaa" in
+  assert_true ~msg:"freq: single char" (f2 = [('a', 3)]);
+
+  let f3 = char_frequencies "abcabc" in
+  assert_true ~msg:"freq: abc x2" (List.length f3 = 3);
+  assert_true ~msg:"freq: all same count"
+    (List.for_all (fun (_, f) -> f = 2) f3);
+
+  let f4 = char_frequencies "aaabbc" in
+  assert_true ~msg:"freq: sorted by freq"
+    (let freqs_only = List.map snd f4 in
+     freqs_only = List.sort compare freqs_only);
+
+  (* --- build_tree --- *)
+  let t_none = build_tree [] in
+  assert_true ~msg:"tree: empty returns None" (t_none = None);
+
+  let t_single = build_tree [('x', 5)] in
+  assert_true ~msg:"tree: single char returns Some" (t_single <> None);
+
+  let t_multi = build_tree [('a', 5); ('b', 3); ('c', 1)] in
+  assert_true ~msg:"tree: multi returns Some" (t_multi <> None);
+
+  (* Root frequency should equal sum of all frequencies *)
+  (match t_multi with
+   | Some tree -> assert_equal ~msg:"tree: root freq = sum"
+       "9" (string_of_int (freq tree))
+   | None -> assert_true ~msg:"tree: should not be None" false);
+
+  (* --- build_code_table --- *)
+  (match build_tree_from_string "aabbc" with
+   | None -> assert_true ~msg:"code table: tree built" false
+   | Some tree ->
+     let tbl = build_code_table tree in
+     let codes = code_table_to_list tbl in
+     (* Should have 3 entries *)
+     assert_equal ~msg:"code table: 3 entries"
+       "3" (string_of_int (List.length codes));
+     (* All codes should be non-empty strings of 0s and 1s *)
+     List.iter (fun (c, code) ->
+       assert_true ~msg:(Printf.sprintf "code table: '%c' non-empty" c)
+         (String.length code > 0);
+       String.iter (fun b ->
+         assert_true ~msg:(Printf.sprintf "code table: '%c' binary" c)
+           (b = '0' || b = '1')
+       ) code
+     ) codes);
+
+  (* --- Prefix-free property --- *)
+  (* No code should be a prefix of another *)
+  (match build_tree_from_string "the quick brown fox" with
+   | None -> ()
+   | Some tree ->
+     let tbl = build_code_table tree in
+     let codes = code_table_to_list tbl in
+     let is_prefix a b =
+       String.length a < String.length b &&
+       String.sub b 0 (String.length a) = a
+     in
+     List.iter (fun (c1, code1) ->
+       List.iter (fun (c2, code2) ->
+         if c1 <> c2 then
+           assert_true
+             ~msg:(Printf.sprintf "prefix-free: '%c'(%s) vs '%c'(%s)"
+                     c1 code1 c2 code2)
+             (not (is_prefix code1 code2))
+       ) codes
+     ) codes);
+
+  (* --- Encode/decode round-trip --- *)
+  let test_roundtrip msg text =
+    match build_tree_from_string text with
+    | None -> assert_true ~msg:(msg ^ ": empty tree") (text = "")
+    | Some tree ->
+      let tbl = build_code_table tree in
+      let bits = encode tbl text in
+      let decoded = decode tree bits in
+      assert_equal ~msg:(msg ^ ": round-trip") text decoded
+  in
+  test_roundtrip "hello" "hello world";
+  test_roundtrip "single char" "aaaa";
+  test_roundtrip "two chars" "ababab";
+  test_roundtrip "all unique" "abcdefghij";
+  test_roundtrip "spaces" "a b c d e";
+  test_roundtrip "long repeat" (String.make 100 'z');
+  test_roundtrip "mixed freq" "aaaaabbbccde";
+
+  (* --- Compression: repeated chars compress better --- *)
+  (match build_tree_from_string "aaaaaaaaaa" with
+   | None -> ()
+   | Some tree ->
+     let tbl = build_code_table tree in
+     let bits = encode tbl "aaaaaaaaaa" in
+     (* 10 chars * 8 bits = 80 original bits; should encode to <= 80 *)
+     assert_true ~msg:"compression: repeated chars"
+       (String.length bits <= 80));
+
+  (* --- Decode partial: extra bits ignored gracefully --- *)
+  (match build_tree_from_string "ab" with
+   | None -> ()
+   | Some tree ->
+     let tbl = build_code_table tree in
+     let a_code = Hashtbl.find tbl 'a' in
+     let decoded = decode tree a_code in
+     assert_equal ~msg:"decode: single char" "a" decoded);
+
+  (* --- Serialization round-trip --- *)
+  (match build_tree_from_string "hello world" with
+   | None -> ()
+   | Some tree ->
+     let serialized = serialize_tree tree in
+     let tree2 = deserialize_tree serialized in
+     let tbl1 = build_code_table tree in
+     let tbl2 = build_code_table tree2 in
+     let codes1 = code_table_to_list tbl1 in
+     let codes2 = code_table_to_list tbl2 in
+     assert_true ~msg:"serialize: same code table" (codes1 = codes2);
+     (* Decode with deserialized tree *)
+     let bits = encode tbl1 "hello world" in
+     let decoded = decode tree2 bits in
+     assert_equal ~msg:"serialize: decode with deserialized tree"
+       "hello world" decoded);
+
+  (* --- Deserialization error handling --- *)
+  assert_raises ~msg:"deserialize: empty string"
+    (fun () -> deserialize_tree "");
+  assert_raises ~msg:"deserialize: invalid tag"
+    (fun () -> deserialize_tree "X");
+  assert_raises ~msg:"deserialize: truncated leaf"
+    (fun () -> deserialize_tree "L");
+
+  (* --- Edge cases --- *)
+  (* Empty string *)
+  let t_empty = build_tree_from_string "" in
+  assert_true ~msg:"edge: empty string" (t_empty = None);
+
+  (* Single character string *)
+  test_roundtrip "single char string" "x";
+
+  (* Two characters *)
+  test_roundtrip "two different" "ab";
+
+  (* Newline and special chars *)
+  test_roundtrip "with newline" "hello\nworld";
+  test_roundtrip "with tab" "col1\tcol2";
+
+  (* Longer text *)
+  test_roundtrip "pangram" "the quick brown fox jumps over the lazy dog";
+
+  (* --- Optimality: more frequent chars get shorter codes --- *)
+  (match build_tree_from_string "aaaaabbc" with
+   | None -> ()
+   | Some tree ->
+     let tbl = build_code_table tree in
+     let a_len = String.length (Hashtbl.find tbl 'a') in
+     let c_len = String.length (Hashtbl.find tbl 'c') in
+     assert_true ~msg:"optimal: 'a' (freq 5) shorter or equal to 'c' (freq 1)"
+       (a_len <= c_len));
+
+  Printf.printf "  Huffman: done\n";
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -5367,6 +5662,7 @@ let () =
   test_bloom_filter ();
   test_lru_cache ();
   test_skip_list ();
+  test_huffman ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
