@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skip List — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>⏭️ Skip List</h1>
+    <p class="subtitle">Probabilistic sorted data structure with O(log n) expected-time operations</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>randomized data structure</strong> that provides O(log n) expected-time
+      search, insert, and delete in a sorted sequence. Elements are promoted to higher
+      "express lane" levels with probability 1/2, creating a hierarchy that enables
+      binary-search-like traversal without requiring strict balancing.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Probabilistic algorithms</strong> — randomized level promotion</li>
+        <li><strong>Multi-level indexing</strong> — express lanes for fast traversal</li>
+        <li><strong>Imperative nodes</strong> — mutable forward pointers for authentic behavior</li>
+        <li><strong>Comparison functions</strong> — custom ordering via <code>~compare</code></li>
+        <li><strong>Range queries</strong> — efficient extraction of sorted sub-ranges</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>create</code></td><td>Create empty skip list with optional comparator</td></tr>
+        <tr><td><code>insert</code></td><td>Add an element</td></tr>
+        <tr><td><code>mem</code></td><td>Test membership</td></tr>
+        <tr><td><code>find</code></td><td>Look up an element</td></tr>
+        <tr><td><code>remove</code></td><td>Delete an element</td></tr>
+        <tr><td><code>range_query</code></td><td>All elements in [lo, hi] range</td></tr>
+        <tr><td><code>floor</code> / <code>ceil</code></td><td>Nearest element ≤ or ≥ a value</td></tr>
+        <tr><td><code>min_elt</code> / <code>max_elt</code></td><td>Smallest/largest element</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Structure</h2>
+      <pre><code>(* Level 3:  H ──────────────────→ 6 ──────→ nil
+   Level 2:  H ────→ 3 ──────→ 6 ──→ 9 → nil
+   Level 1:  H → 1 → 3 → 4 → 6 → 7 → 9 → nil *)
+
+(* Each node has forward pointers at multiple levels *)
+(* Higher levels skip more elements — like express lanes *)
+(* Search starts at top level, drops down on overshoot *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Why Skip Lists?</h2>
+      <p>Skip lists provide the same O(log n) performance as balanced trees (AVL, red-black)
+      but with simpler implementation and no complex rotation logic. The trade-off: performance
+      is <em>expected</em> rather than worst-case guaranteed, depending on random coin flips.
+      In practice, they work beautifully — Redis uses skip lists for sorted sets.</p>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/skip_list.ml">View source: skip_list.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

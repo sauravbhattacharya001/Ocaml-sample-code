@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloom Filter — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🌸 Bloom Filter</h1>
+    <p class="subtitle">Probabilistic set membership with no false negatives</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>space-efficient probabilistic data structure</strong> that tests whether an
+      element is a member of a set. May return false positives ("maybe in set") but
+      <strong>never false negatives</strong> ("definitely not in set"). Used in databases,
+      caches, and network protocols to avoid expensive lookups.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Probabilistic data structures</strong> — trading certainty for space</li>
+        <li><strong>Hash functions</strong> — multiple independent hashes via double hashing</li>
+        <li><strong>Bit arrays</strong> — compact boolean storage</li>
+        <li><strong>False positive analysis</strong> — mathematical bounds on error rate</li>
+        <li><strong>Optimal sizing</strong> — computing ideal filter size and hash count</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* 1. Create: bit array of size m, k hash functions *)
+(* 2. Add: set bits at h₁(x), h₂(x), ..., hₖ(x) *)
+(* 3. Query: check if ALL k bits are set *)
+(*    - All set → "probably in set" (false positive possible) *)
+(*    - Any unset → "definitely not in set" (guaranteed) *)
+
+let bf = create ~expected_items:1000 ~false_positive_rate:0.01
+let bf = add "hello" bf
+let _ = mem "hello" bf    (* → true  (definitely added) *)
+let _ = mem "world" bf    (* → false (definitely not, or rare FP) *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>create</code></td><td>Create filter with target capacity and FP rate</td></tr>
+        <tr><td><code>add</code></td><td>Insert an element</td></tr>
+        <tr><td><code>mem</code></td><td>Test membership (may return false positive)</td></tr>
+        <tr><td><code>false_positive_rate</code></td><td>Current estimated FP probability</td></tr>
+        <tr><td><code>size_bytes</code></td><td>Memory usage of the filter</td></tr>
+        <tr><td><code>union</code></td><td>Merge two filters (bitwise OR)</td></tr>
+        <tr><td><code>intersection</code></td><td>Intersect two filters (bitwise AND)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>When to Use</h2>
+      <ul>
+        <li><strong>Database queries</strong> — skip disk reads for keys that definitely don't exist</li>
+        <li><strong>Web crawlers</strong> — avoid re-visiting URLs</li>
+        <li><strong>Spell checkers</strong> — fast "not a word" rejection</li>
+        <li><strong>Network routing</strong> — content-addressable caches</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/bloom_filter.ml">View source: bloom_filter.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Red-Black Tree — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔴⚫ Red-Black Tree</h1>
+    <p class="subtitle">Self-balancing binary search tree with guaranteed O(log n) operations</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>Implements a <strong>persistent red-black tree</strong> — a self-balancing BST that
+      maintains balance invariants through node coloring. Guarantees O(log n) for insert,
+      delete, and lookup. All operations return new trees (functional/immutable).</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic data types</strong> — tree with color, left, key, value, right</li>
+        <li><strong>Pattern matching</strong> — the elegant four-case balance function</li>
+        <li><strong>Invariant maintenance</strong> — red-black properties preserved on mutation</li>
+        <li><strong>Persistent data structures</strong> — path copying for immutability</li>
+        <li><strong>Polymorphic comparison</strong> — generic key types</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Red-Black Invariants</h2>
+      <ol>
+        <li>Every node is red or black</li>
+        <li>The root is always black</li>
+        <li>No red node has a red child</li>
+        <li>Every path from root to leaf has the same number of black nodes</li>
+      </ol>
+      <p>These invariants guarantee the tree height is at most <strong>2·log₂(n+1)</strong>,
+      ensuring logarithmic operations.</p>
+    </section>
+
+    <section>
+      <h2>The Balance Function</h2>
+      <pre><code>(* Okasaki's elegant four-case balance *)
+let balance = function
+  | Black, Node(Red, Node(Red,a,x,b), y, c), z, d
+  | Black, Node(Red, a, x, Node(Red,b,y,c)), z, d
+  | Black, a, x, Node(Red, Node(Red,b,y,c), z, d)
+  | Black, a, x, Node(Red, b, y, Node(Red,c,z,d))
+    → Node(Red, Node(Black,a,x,b), y, Node(Black,c,z,d))
+  | color, left, key, right
+    → Node(color, left, key, right)</code></pre>
+      <p>This single function handles all four rotation cases with pattern matching —
+      one of the most elegant examples of algebraic data types in action.</p>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>insert</code></td><td>Add a key-value pair, rebalancing as needed</td></tr>
+        <tr><td><code>find</code></td><td>Look up a key (returns <code>option</code>)</td></tr>
+        <tr><td><code>remove</code></td><td>Delete a key, maintaining balance</td></tr>
+        <tr><td><code>mem</code></td><td>Check if a key exists</td></tr>
+        <tr><td><code>min_binding</code> / <code>max_binding</code></td><td>Smallest/largest key</td></tr>
+        <tr><td><code>fold</code> / <code>iter</code></td><td>In-order traversal</td></tr>
+        <tr><td><code>of_list</code> / <code>to_list</code></td><td>Convert to/from sorted lists</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/rbtree.ml">View source: rbtree.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

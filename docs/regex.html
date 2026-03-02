@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regex Engine — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔍 Regular Expression Engine</h1>
+    <p class="subtitle">Thompson's NFA construction with guaranteed linear-time matching</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A complete regular expression engine built from scratch. Uses <strong>Thompson's NFA
+      construction</strong> to guarantee <strong>O(n·m)</strong> matching time (n = input length,
+      m = pattern size) — no pathological backtracking like PCRE-based engines.</p>
+      <p>This is a production-quality approach: the same algorithm used by <code>grep</code>,
+      RE2, and Go's <code>regexp</code> package.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic data types</strong> — regex AST and NFA state representation</li>
+        <li><strong>Recursive descent parsing</strong> — regex syntax → AST with operator precedence</li>
+        <li><strong>Thompson's construction</strong> — AST → NFA with ε-transitions</li>
+        <li><strong>NFA simulation</strong> — set-based epsilon-closure (no backtracking)</li>
+        <li><strong>Module design</strong> — clean API surface with internal implementation</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Supported Syntax</h2>
+      <table>
+        <tr><th>Pattern</th><th>Matches</th></tr>
+        <tr><td><code>.</code></td><td>Any character (except newline)</td></tr>
+        <tr><td><code>\d</code> <code>\w</code> <code>\s</code></td><td>Digit, word char, whitespace</td></tr>
+        <tr><td><code>\D</code> <code>\W</code> <code>\S</code></td><td>Negated character classes</td></tr>
+        <tr><td><code>[abc]</code></td><td>Character class</td></tr>
+        <tr><td><code>[a-z]</code></td><td>Character range</td></tr>
+        <tr><td><code>[^abc]</code></td><td>Negated character class</td></tr>
+        <tr><td><code>*</code> <code>+</code> <code>?</code></td><td>Zero+, one+, optional</td></tr>
+        <tr><td><code>|</code></td><td>Alternation</td></tr>
+        <tr><td><code>(...)</code></td><td>Grouping</td></tr>
+        <tr><td><code>^</code> <code>$</code></td><td>Start/end anchors</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>compile</code></td><td>Parse pattern string → compiled regex</td></tr>
+        <tr><td><code>matches</code></td><td>Full-string match test</td></tr>
+        <tr><td><code>find</code></td><td>Find first match (returns position + text)</td></tr>
+        <tr><td><code>find_all</code></td><td>Find all non-overlapping matches</td></tr>
+        <tr><td><code>replace</code></td><td>Replace first match with string</td></tr>
+        <tr><td><code>replace_all</code></td><td>Replace all matches</td></tr>
+        <tr><td><code>split</code></td><td>Split string on pattern</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Architecture: Thompson's NFA</h2>
+      <pre><code>(* 1. Parse: string → AST *)
+type regex = Char of char_matcher | Seq of regex * regex
+           | Alt of regex * regex | Star of regex | ...
+
+(* 2. Compile: AST → NFA (Thompson's construction) *)
+(* Each regex node becomes a small NFA fragment *)
+(* Fragments are connected via ε-transitions *)
+
+(* 3. Simulate: NFA × string → bool *)
+(* Track set of active states; advance on each character *)
+(* No backtracking — always O(n × m) *)</code></pre>
+      <p>This three-phase architecture separates concerns cleanly: parsing validates
+      syntax, compilation builds the automaton, and simulation runs it efficiently.</p>
+    </section>
+
+    <section>
+      <h2>Usage</h2>
+      <pre><code>let r = compile "ab+c" in
+matches r "abbc"          (* → true  *)
+matches r "ac"            (* → false *)
+find r "xxxabbcyyy"       (* → Some (3, "abbc") *)
+find_all r "abc abbc"     (* → ["abc"; "abbc"] *)
+replace r "abc" "X"       (* → "X" *)
+split r "xabcyabbcz"      (* → ["x"; "y"; "z"] *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Why No Backtracking?</h2>
+      <p>Many regex engines (Perl, Python, Java) use backtracking, which can take
+      <strong>exponential time</strong> on pathological patterns like <code>(a+)+b</code>
+      against <code>"aaaaaa..."</code>. Thompson's NFA avoids this entirely by tracking
+      <em>all</em> possible states simultaneously — if any state reaches an accept state,
+      the match succeeds.</p>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/regex.ml">View source: regex.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

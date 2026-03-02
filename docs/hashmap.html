@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hash Map — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🗄️ Hash Map</h1>
+    <p class="subtitle">Persistent functional hash map with separate chaining</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>An <strong>immutable hash map</strong> using separate chaining with resizable bucket
+      arrays. All operations return new maps — old versions remain valid (structural sharing
+      via <code>Array.copy</code>). Automatically resizes when load factor exceeds 0.75.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Persistent data structures</strong> — immutable maps with structural sharing</li>
+        <li><strong>Hash tables</strong> — bucket arrays, hash functions, collision resolution</li>
+        <li><strong>Load factor management</strong> — automatic resizing at 75% capacity</li>
+        <li><strong>Functor-style API</strong> — <code>FunMap</code> module with comprehensive operations</li>
+        <li><strong>Higher-order functions</strong> — fold, map, filter, merge, for_all, exists</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>create</code></td><td>Create empty map with optional capacity</td></tr>
+        <tr><td><code>insert</code></td><td>Add/update a key-value pair</td></tr>
+        <tr><td><code>find</code></td><td>Look up by key (returns <code>option</code>)</td></tr>
+        <tr><td><code>remove</code></td><td>Remove a key</td></tr>
+        <tr><td><code>mem</code></td><td>Check membership</td></tr>
+        <tr><td><code>fold</code> / <code>iter</code></td><td>Traverse all bindings</td></tr>
+        <tr><td><code>map</code> / <code>mapi</code></td><td>Transform values (with or without keys)</td></tr>
+        <tr><td><code>filter</code></td><td>Keep bindings matching a predicate</td></tr>
+        <tr><td><code>merge</code></td><td>Combine two maps with a merge function</td></tr>
+        <tr><td><code>equal</code></td><td>Structural equality comparison</td></tr>
+        <tr><td><code>of_list</code> / <code>to_list</code></td><td>Convert to/from association lists</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Usage</h2>
+      <pre><code>open FunMap
+
+let m = empty
+  |> insert "alice" 30
+  |> insert "bob" 25
+  |> insert "charlie" 35
+
+let _ = find "alice" m         (* → Some 30 *)
+let _ = mem "dave" m           (* → false *)
+let _ = size m                 (* → 3 *)
+
+(* Immutable: original 'm' unchanged after operations *)
+let m2 = remove "bob" m       (* m still has 3 entries *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Resizing Strategy</h2>
+      <p>The map starts with 16 buckets and doubles capacity when the load factor
+      (size/capacity) exceeds 0.75. Resizing rehashes all entries into the new
+      bucket array. This amortizes to O(1) per insertion.</p>
+      <pre><code>let should_resize m =
+  m.size > (m.capacity * 3 / 4)</code></pre>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/hashmap.ml">View source: hashmap.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

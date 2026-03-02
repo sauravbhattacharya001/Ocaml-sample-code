@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LRU Cache — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🧊 LRU Cache</h1>
+    <p class="subtitle">Bounded-capacity cache with least-recently-used eviction</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>purely functional LRU cache</strong> that evicts the least recently used entry
+      when the cache is full. Uses an access-ordered list combined with a shadow hash table
+      index for O(1) lookups. All operations return new caches (immutable).</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Bounded data structures</strong> — fixed capacity with automatic eviction</li>
+        <li><strong>Functional persistence</strong> — old cache versions remain valid</li>
+        <li><strong>Shadow indexing</strong> — hash table maintained alongside list for O(1) lookups</li>
+        <li><strong>Cache statistics</strong> — hit/miss tracking for performance monitoring</li>
+        <li><strong>Higher-order functions</strong> — fold, iter, filter, map over cache entries</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>create</code></td><td>Create cache with given capacity</td></tr>
+        <tr><td><code>put</code></td><td>Insert/update entry (evicts LRU if full)</td></tr>
+        <tr><td><code>get</code></td><td>Look up and promote to most-recently-used</td></tr>
+        <tr><td><code>peek</code></td><td>Look up without changing access order</td></tr>
+        <tr><td><code>remove</code></td><td>Remove a specific key</td></tr>
+        <tr><td><code>resize</code></td><td>Change capacity (evicts if shrinking)</td></tr>
+        <tr><td><code>stats</code></td><td>Get hit rate, miss count, fill percentage</td></tr>
+        <tr><td><code>to_list</code></td><td>Entries in access order (most recent first)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Usage</h2>
+      <pre><code>open LRUCache
+
+let cache = create 3
+  |> put "a" 1
+  |> put "b" 2
+  |> put "c" 3
+
+(* Cache is full — adding "d" evicts "a" (least recently used) *)
+let cache = put "d" 4 cache
+let _ = get "a" cache   (* → (None, cache') — evicted *)
+let _ = get "b" cache   (* → (Some 2, cache') — still present *)
+
+(* Accessing "b" makes it most-recent; "c" becomes LRU *)
+let cache = snd (get "b" cache)
+let cache = put "e" 5 cache  (* evicts "c" now, not "b" *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Cache Statistics</h2>
+      <pre><code>let s = stats cache in
+Printf.printf "Hit rate: %.1f%%\n" (s.hit_rate *. 100.0);
+Printf.printf "Entries: %d / %d\n" s.size s.capacity;
+(* → Hit rate: 66.7% *)
+(* → Entries: 3 / 3 *)</code></pre>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/lru_cache.ml">View source: lru_cache.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

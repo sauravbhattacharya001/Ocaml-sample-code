@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Huffman Coding — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>📦 Huffman Coding</h1>
+    <p class="subtitle">Data compression with variable-length prefix codes</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>Implements <strong>Huffman coding</strong>, an optimal prefix-free compression algorithm.
+      Builds a binary tree from character frequencies, assigning shorter codes to more frequent
+      characters. Includes encoding, decoding, code table display, and compression statistics.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic data types</strong> — binary tree with Leaf and Node constructors</li>
+        <li><strong>Priority queues</strong> — greedy construction using min-frequency merging</li>
+        <li><strong>Recursive tree traversal</strong> — code generation via path accumulation</li>
+        <li><strong>Bit manipulation</strong> — packing variable-length codes into bytes</li>
+        <li><strong>Hash tables</strong> — character frequency counting and code lookup</li>
+        <li><strong>Compression analysis</strong> — ratio calculation, bits-per-character stats</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>build_tree</code></td><td>Construct Huffman tree from character frequencies</td></tr>
+        <tr><td><code>generate_codes</code></td><td>Extract prefix codes from tree</td></tr>
+        <tr><td><code>encode</code></td><td>Compress string → bit sequence</td></tr>
+        <tr><td><code>decode</code></td><td>Decompress bit sequence → original string</td></tr>
+        <tr><td><code>compress</code></td><td>Full compression pipeline (string → compressed data)</td></tr>
+        <tr><td><code>decompress</code></td><td>Full decompression pipeline</td></tr>
+        <tr><td><code>compression_ratio</code></td><td>Calculate space savings</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Huffman tree *)
+type tree = Leaf of char * int | Node of tree * tree * int
+
+(* Algorithm:
+   1. Count character frequencies
+   2. Create leaf node per character
+   3. Repeatedly merge two lowest-frequency nodes
+   4. Result: optimal binary tree
+   5. Left edge = 0, right edge = 1 → code for each char *)
+
+(* Example: "hello" *)
+(* 'h':1 'e':1 'l':2 'o':1 *)
+(* Codes: 'l'→"0" 'h'→"100" 'e'→"101" 'o'→"11" *)
+(* Encoded: 100 101 0 0 11 = "10010100011" (11 bits vs 40) *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Optimality</h2>
+      <p>Huffman coding produces the <strong>optimal prefix-free code</strong> for a given
+      character frequency distribution. The greedy algorithm (always merging the two
+      least-frequent nodes) provably minimizes the expected code length. The prefix-free
+      property means no code is a prefix of another, so decoding is unambiguous.</p>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/huffman.ml">View source: huffman.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

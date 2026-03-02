@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dijkstra's Algorithm — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🗺️ Dijkstra's Shortest Path</h1>
+    <p class="subtitle">Weighted graphs, priority queues, and shortest path algorithms</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>Implements <strong>Dijkstra's algorithm</strong> for single-source shortest paths
+      in weighted graphs, plus <strong>Floyd-Warshall</strong> for all-pairs shortest paths
+      and <strong>Prim's algorithm</strong> for minimum spanning trees.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Weighted adjacency lists</strong> — <code>IntMap</code>-based graph representation</li>
+        <li><strong>Priority queues</strong> — sorted-list implementation for educational clarity</li>
+        <li><strong>Dijkstra's algorithm</strong> — greedy BFS with distance relaxation</li>
+        <li><strong>Floyd-Warshall</strong> — dynamic programming on all vertex pairs</li>
+        <li><strong>Prim's MST</strong> — greedy minimum spanning tree construction</li>
+        <li><strong>Path reconstruction</strong> — predecessor tracking for route recovery</li>
+        <li><strong>Hash tables</strong> — mutable state for O(1) distance lookups</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>dijkstra</code></td><td>Single-source shortest paths from a vertex</td></tr>
+        <tr><td><code>shortest_distance</code></td><td>Distance between two specific vertices</td></tr>
+        <tr><td><code>shortest_path</code></td><td>Full path + distance between two vertices</td></tr>
+        <tr><td><code>floyd_warshall</code></td><td>All-pairs shortest paths (O(V³))</td></tr>
+        <tr><td><code>prim_mst</code></td><td>Minimum spanning tree (undirected graphs)</td></tr>
+        <tr><td><code>add_edge</code></td><td>Add a weighted edge (handles direction)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Graph Representation</h2>
+      <pre><code>type weighted_graph = {
+  adj: (int * float) list IntMap.t;  (* vertex → [(neighbor, weight)] *)
+  directed: bool;
+}
+
+(* Build a graph *)
+let g = empty_graph ~directed:false
+  |> add_edge 0 1 4.0
+  |> add_edge 0 2 1.0
+  |> add_edge 2 1 2.0</code></pre>
+    </section>
+
+    <section>
+      <h2>Algorithm Walkthrough</h2>
+      <pre><code>(* Dijkstra's: greedily expand nearest unvisited vertex *)
+(* 1. Start: dist[source] = 0, all others = ∞ *)
+(* 2. Pick unvisited vertex u with smallest dist[u] *)
+(* 3. For each neighbor v: relax edge if dist[u]+w < dist[v] *)
+(* 4. Mark u visited; repeat until queue empty *)
+
+let (dist, prev) = dijkstra g 0 in
+shortest_path g 0 3
+(* → Some ([0; 2; 1; 3], 7.0) *)</code></pre>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/dijkstra.ml">View source: dijkstra.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>
