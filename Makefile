@@ -4,62 +4,49 @@
 # Use the native-code compiler for best performance.
 # Change to 'ocamlc' for bytecode if ocamlopt is unavailable.
 OCAML = ocamlopt
-SOURCES = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml mergesort.ml graph.ml dijkstra.ml heap.ml parser.ml trie.ml regex.ml stream.ml rbtree.ml sorting.ml union_find.ml rope.ml btree.ml json.ml matrix.ml huffman.ml queue.ml fenwick_tree.ml
-TARGETS = $(SOURCES:.ml=)
+
+# Sources that need no external packages
+SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
+	mergesort.ml graph.ml dijkstra.ml heap.ml parser.ml trie.ml regex.ml \
+	stream.ml rbtree.ml sorting.ml union_find.ml rope.ml btree.ml json.ml \
+	matrix.ml huffman.ml queue.ml fenwick_tree.ml hashmap.ml \
+	bloom_filter.ml interval_tree.ml lru_cache.ml segment_tree.ml \
+	skip_list.ml suffix_array.ml
+
+# Sources that require ocamlfind + external packages
+SOURCES_PKG = csv.ml
+# csv.ml needs: ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv
+
+SOURCES = $(SOURCES_PLAIN) $(SOURCES_PKG)
+TARGETS_PLAIN = $(SOURCES_PLAIN:.ml=)
+TARGETS_PKG = $(SOURCES_PKG:.ml=)
+TARGETS = $(TARGETS_PLAIN) $(TARGETS_PKG)
 
 .PHONY: all clean run test coverage coverage-html
 
 all: $(TARGETS)
 
-%: %.ml
+# Plain sources: no special flags
+$(TARGETS_PLAIN): %: %.ml
 	$(OCAML) -o $@ $<
+
+# csv needs the str package via ocamlfind
+csv: csv.ml
+	ocamlfind $(OCAML) -package str -linkpkg $< -o $@
 
 test: test_all
 	@echo "=== Running tests ==="
 	@./test_all
 
 run: all
-	@echo "=== hello ==="
-	@./hello
+	@for prog in $(TARGETS_PLAIN); do \
+		echo "=== $$prog ===" ; \
+		./$$prog ; \
+		echo "" ; \
+	done
+	@echo "=== csv ==="
+	@./csv
 	@echo ""
-	@echo "=== fibonacci ==="
-	@./fibonacci
-	@echo ""
-	@echo "=== factor ==="
-	@./factor
-	@echo ""
-	@echo "=== list_last_elem ==="
-	@./list_last_elem
-	@echo ""
-	@echo "=== bst ==="
-	@./bst
-	@echo ""
-	@echo "=== mergesort ==="
-	@./mergesort
-	@echo ""
-	@echo "=== graph ==="
-	@./graph
-	@echo ""
-	@echo "=== dijkstra ==="
-	@./dijkstra
-	@echo ""
-	@echo "=== heap ==="
-	@./heap
-	@echo ""
-	@echo "=== parser ==="
-	@./parser
-	@echo ""
-	@echo "=== trie ==="
-	@./trie
-	@echo ""
-	@echo "=== regex ==="
-	@./regex
-	@echo ""
-	@echo "=== stream ==="
-	@./stream
-	@echo ""
-	@echo "=== json ==="
-	@./json
 
 # Coverage: build test suite with bisect_ppx instrumentation
 # Requires: opam install bisect_ppx ocamlfind

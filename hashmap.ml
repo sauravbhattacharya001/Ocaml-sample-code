@@ -135,15 +135,24 @@ module FunMap = struct
 
   let to_list m = bindings m
 
+  (** Merge two maps using [f key (Some v1 | None) (Some v2 | None)].
+      For each key present in either map, [f] receives [Some] for the map(s)
+      containing that key and [None] for the map(s) that don't.
+      If [f] returns [Some v], the key is bound to [v] in the result;
+      if [f] returns [None], the key is omitted. *)
   let merge f m1 m2 =
-    let result = fold (fun acc k v ->
-      match find k m2 with
-      | None -> insert k (f k v None) acc
-      | Some v2 -> insert k (f k v (Some v2)) acc
+    (* Keys in m1: pass (Some v1, find_in_m2) *)
+    let result = fold (fun acc k v1 ->
+      match f k (Some v1) (find k m2) with
+      | Some v -> insert k v acc
+      | None -> acc
     ) (create ()) m1 in
-    fold (fun acc k v ->
+    (* Keys only in m2: pass (None, Some v2) *)
+    fold (fun acc k v2 ->
       if not (mem k m1) then
-        insert k (f k v None) acc
+        match f k None (Some v2) with
+        | Some v -> insert k v acc
+        | None -> acc
       else acc
     ) result m2
 

@@ -4061,14 +4061,16 @@ let hm_equal eq m1 m2 =
   ) m1
 
 let hm_merge f m1 m2 =
-  let result = hm_fold (fun acc k v ->
-    match hm_find k m2 with
-    | None -> hm_insert k (f k v None) acc
-    | Some v2 -> hm_insert k (f k v (Some v2)) acc
+  let result = hm_fold (fun acc k v1 ->
+    match f k (Some v1) (hm_find k m2) with
+    | Some v -> hm_insert k v acc
+    | None -> acc
   ) (hm_create ()) m1 in
-  hm_fold (fun acc k v ->
+  hm_fold (fun acc k v2 ->
     if not (hm_mem k m1) then
-      hm_insert k (f k v None) acc
+      match f k None (Some v2) with
+      | Some v -> hm_insert k v acc
+      | None -> acc
     else acc
   ) result m2
 
@@ -4223,8 +4225,11 @@ let test_hashmap () = suite "Hash Map" (fun () ->
   (* -- merge -- *)
   let ma = hm_of_list [("a", 1); ("b", 2)] in
   let mb = hm_of_list [("b", 20); ("c", 30)] in
-  let merged = hm_merge (fun _k v opt ->
-    match opt with None -> v | Some v2 -> v + v2
+  let merged = hm_merge (fun _k opt1 opt2 ->
+    match opt1, opt2 with
+    | Some v1, Some v2 -> Some (v1 + v2)
+    | Some v, None | None, Some v -> Some v
+    | None, None -> None
   ) ma mb in
   assert_equal ~msg:"merge size" "3" (string_of_int (hm_size merged));
   assert_equal ~msg:"merge a" "1" (string_of_int (hm_find_exn "a" merged));
