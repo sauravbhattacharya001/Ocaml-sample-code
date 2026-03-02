@@ -130,6 +130,30 @@ type json =
 (*   JSON Parser                                                *)
 (* =========================================================== *)
 
+(* ── Depth-limited parsing ──────────────────────────────────── *)
+(* Protects against stack overflow from deeply nested JSON.     *)
+(* A mutable counter is incremented on '[' / '{' and decremented*)
+(* on return; parsing fails when the depth exceeds the limit.   *)
+
+(** Maximum nesting depth allowed during parsing (arrays + objects).
+    Default 512 — generous for real-world JSON, but prevents
+    pathological inputs like 100 000 nested brackets from
+    blowing the OCaml call stack. *)
+let max_parse_depth = ref 512
+
+let current_depth = ref 0
+
+let with_depth_check (p : json parser) : json parser =
+  fun input pos ->
+    if !current_depth >= !max_parse_depth then
+      Error (Printf.sprintf "maximum nesting depth (%d) exceeded" !max_parse_depth, pos)
+    else begin
+      incr current_depth;
+      let result = p input pos in
+      decr current_depth;
+      result
+    end
+
 (* Forward reference for recursive grammar *)
 let json_parser_ref : json parser ref = ref (fail "not initialized")
 
@@ -261,12 +285,14 @@ let json_string : json parser =
   map (fun s -> String s) json_string_raw
 
 let json_array : json parser =
-  between
-    (lexeme (char_ '['))
-    (char_ ']')
-    (sep_by (lexeme (fun input pos -> !json_parser_ref input pos))
-            (lexeme (char_ ',')))
-  |> map (fun items -> Array items)
+  with_depth_check (
+    between
+      (lexeme (char_ '['))
+      (char_ ']')
+      (sep_by (lexeme (fun input pos -> !json_parser_ref input pos))
+              (lexeme (char_ ',')))
+    |> map (fun items -> Array items)
+  )
 
 let json_pair : (string * json) parser =
   lexeme json_string_raw >>= fun key ->
@@ -275,11 +301,13 @@ let json_pair : (string * json) parser =
   return_ (key, value)
 
 let json_object : json parser =
-  between
-    (lexeme (char_ '{'))
-    (char_ '}')
-    (sep_by json_pair (lexeme (char_ ',')))
-  |> map (fun pairs -> Object pairs)
+  with_depth_check (
+    between
+      (lexeme (char_ '{'))
+      (char_ '}')
+      (sep_by json_pair (lexeme (char_ ',')))
+    |> map (fun pairs -> Object pairs)
+  )
 
 let json_value : json parser =
   lexeme (
@@ -293,7 +321,9 @@ let json_value : json parser =
 
 let () = json_parser_ref := json_value
 
-let parse (input : string) : (json, string) Stdlib.result =
+let parse ?(max_depth = 512) (input : string) : (json, string) Stdlib.result =
+  max_parse_depth := max_depth;
+  current_depth := 0;
   run json_value input
 
 (* =========================================================== *)
@@ -323,6 +353,7 @@ and escape_json_string (s : string) : string =
     match c with
     | '"' -> Buffer.add_string buf "\\\""
     | '\\' -> Buffer.add_string buf "\\\\"
+    | '/' -> Buffer.add_string buf "\\/"  (* prevent </script> XSS in HTML contexts *)
     | '\n' -> Buffer.add_string buf "\\n"
     | '\r' -> Buffer.add_string buf "\\r"
     | '\t' -> Buffer.add_string buf "\\t"

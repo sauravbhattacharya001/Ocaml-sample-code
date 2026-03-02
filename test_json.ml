@@ -65,6 +65,15 @@ let run_parser p input = match (spaces *> p <* spaces) input 0 with
 type json = Null | Bool of bool | Number of float | String of string | Array of json list | Object of (string * json) list
 
 let json_parser_ref : json parser ref = ref (fail "not initialized")
+
+(* Depth-limited parsing — prevents stack overflow from deeply nested input *)
+let max_parse_depth = ref 512
+let current_depth = ref 0
+let with_depth_check (p : json parser) : json parser = fun input pos ->
+  if !current_depth >= !max_parse_depth then
+    Error (Printf.sprintf "maximum nesting depth (%d) exceeded" !max_parse_depth, pos)
+  else begin incr current_depth; let result = p input pos in decr current_depth; result end
+
 let json_null = string_ "null" *> return_ Null
 let json_bool = (string_ "true" *> return_ (Bool true)) <|> (string_ "false" *> return_ (Bool false))
 let json_number : json parser = fun input pos ->
@@ -113,12 +122,15 @@ let escape_sequence =
 let string_char = escape_sequence <|> (satisfy (fun c -> c <> '"' && c <> '\\' && Char.code c >= 0x20) "string character" |> map (String.make 1))
 let json_string_raw = char_ '"' *> many string_char >>= fun parts -> char_ '"' *> return_ (String.concat "" parts)
 let json_string = map (fun s -> String s) json_string_raw
-let json_array = between (lexeme (char_ '[')) (char_ ']') (sep_by (lexeme (fun i p -> !json_parser_ref i p)) (lexeme (char_ ','))) |> map (fun items -> Array items)
+let json_array = with_depth_check (between (lexeme (char_ '[')) (char_ ']') (sep_by (lexeme (fun i p -> !json_parser_ref i p)) (lexeme (char_ ','))) |> map (fun items -> Array items))
 let json_pair = lexeme json_string_raw >>= fun key -> lexeme (char_ ':') *> lexeme (fun i p -> !json_parser_ref i p) >>= fun value -> return_ (key, value)
-let json_object = between (lexeme (char_ '{')) (char_ '}') (sep_by json_pair (lexeme (char_ ','))) |> map (fun pairs -> Object pairs)
+let json_object = with_depth_check (between (lexeme (char_ '{')) (char_ '}') (sep_by json_pair (lexeme (char_ ','))) |> map (fun pairs -> Object pairs))
 let json_value = lexeme (try_ json_null <|> try_ json_bool <|> try_ json_number <|> try_ json_string <|> try_ json_array <|> json_object)
 let () = json_parser_ref := json_value
-let parse input = run_parser json_value input
+let parse ?(max_depth=512) input =
+  max_parse_depth := max_depth;
+  current_depth := 0;
+  run_parser json_value input
 
 let rec to_string_compact = function
   | Null -> "null" | Bool b -> if b then "true" else "false"
@@ -130,6 +142,7 @@ and escape_json_string s =
   let buf = Buffer.create (String.length s) in
   String.iter (fun c -> match c with
     | '"' -> Buffer.add_string buf "\\\"" | '\\' -> Buffer.add_string buf "\\\\"
+    | '/' -> Buffer.add_string buf "\\/"
     | '\n' -> Buffer.add_string buf "\\n" | '\r' -> Buffer.add_string buf "\\r" | '\t' -> Buffer.add_string buf "\\t"
     | c when Char.code c < 0x20 -> Buffer.add_string buf (Printf.sprintf "\\u%04x" (Char.code c))
     | c -> Buffer.add_char buf c) s;
@@ -453,6 +466,99 @@ let () =
     let s = to_string_compact j in
     let j2 = parse_ok s in
     assert_true ~msg:"construct and parse back" (equal j j2);
+  );
+
+  suite "JSON depth limit (security)" (fun () ->
+    (* Normal nesting should work fine *)
+    assert_true ~msg:"depth 5 ok" (
+      match parse "[[[[[ 1 ]]]]]" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"depth 10 ok" (
+      match parse "[[[[[[[[[[1]]]]]]]]]]" with Stdlib.Ok _ -> true | _ -> false);
+    (* Custom low depth limit should reject deep nesting *)
+    assert_true ~msg:"depth 3 rejects depth 5" (
+      match parse ~max_depth:3 "[[[[[1]]]]]" with
+      | Stdlib.Error msg -> String.length msg > 0
+      | _ -> false);
+    assert_true ~msg:"depth 2 rejects depth 3" (
+      match parse ~max_depth:2 "[[[1]]]" with
+      | Stdlib.Error msg -> String.length msg > 0
+      | _ -> false);
+    assert_true ~msg:"depth 1 allows single array" (
+      match parse ~max_depth:1 "[1, 2, 3]" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"depth 1 rejects nested array" (
+      match parse ~max_depth:1 "[[1]]" with
+      | Stdlib.Error _ -> true | _ -> false);
+    (* Object nesting counted too *)
+    assert_true ~msg:"depth 2 allows single object" (
+      match parse ~max_depth:2 "{\"a\": {\"b\": 1}}" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"depth 1 rejects nested object" (
+      match parse ~max_depth:1 "{\"a\": {\"b\": 1}}" with
+      | Stdlib.Error _ -> true | _ -> false);
+    (* Mixed array + object nesting *)
+    assert_true ~msg:"depth 3 allows mixed nesting" (
+      match parse ~max_depth:3 "[{\"a\": [1]}]" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"depth 2 rejects deep mixed" (
+      match parse ~max_depth:2 "[{\"a\": [1]}]" with
+      | Stdlib.Error _ -> true | _ -> false);
+    (* Error message mentions depth limit *)
+    assert_true ~msg:"error message mentions depth" (
+      match parse ~max_depth:2 "[[[1]]]" with
+      | Stdlib.Error msg ->
+        let has_depth = ref false in
+        (try
+          let _ = Scanf.sscanf msg "%_s@depth%_s" () in
+          has_depth := true
+        with _ -> ());
+        (* Simple check: message contains "depth" *)
+        let rec check i =
+          if i + 5 > String.length msg then false
+          else if String.sub msg i 5 = "depth" then true
+          else check (i + 1)
+        in check 0
+      | _ -> false);
+    (* Depth resets between parse calls *)
+    assert_true ~msg:"depth resets between calls" (
+      let _ = parse ~max_depth:2 "[[[1]]]" in (* fails *)
+      match parse ~max_depth:100 "[[[1]]]" with Stdlib.Ok _ -> true | _ -> false);
+    (* Large depth works with high limit *)
+    assert_true ~msg:"depth 50 with high limit" (
+      let buf = Buffer.create 200 in
+      for _ = 1 to 50 do Buffer.add_char buf '[' done;
+      Buffer.add_char buf '1';
+      for _ = 1 to 50 do Buffer.add_char buf ']' done;
+      match parse ~max_depth:512 (Buffer.contents buf) with Stdlib.Ok _ -> true | _ -> false);
+    (* Non-nested structures unaffected by depth limit *)
+    assert_true ~msg:"flat array ok with depth 1" (
+      match parse ~max_depth:1 "[1, 2, 3, 4, 5]" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"flat object ok with depth 1" (
+      match parse ~max_depth:1 "{\"a\": 1, \"b\": 2}" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"scalar ok with depth 0" (
+      match parse ~max_depth:0 "42" with Stdlib.Ok _ -> true | _ -> false);
+    assert_true ~msg:"array rejected with depth 0" (
+      match parse ~max_depth:0 "[1]" with Stdlib.Error _ -> true | _ -> false);
+  );
+
+  suite "JSON forward-slash escaping (XSS prevention)" (fun () ->
+    (* Forward slash should be escaped in output *)
+    assert_equal ~msg:"slash escaped in compact" "\"a\\/b\"" (to_string_compact (String "a/b"));
+    assert_equal ~msg:"script tag escaped" "\"<\\/script>\"" (to_string_compact (String "</script>"));
+    assert_equal ~msg:"url escaped" "\"https:\\/\\/example.com\\/path\"" (to_string_compact (String "https://example.com/path"));
+    (* Parser still accepts both escaped and unescaped slashes *)
+    assert_true ~msg:"parse escaped slash" (parse_ok "\"a\\/b\"" = String "a/b");
+    assert_true ~msg:"parse unescaped slash" (parse_ok "\"a/b\"" = String "a/b");
+    (* Round-trip with slashes *)
+    assert_true ~msg:"slash round-trip" (
+      let j = String "path/to/file" in
+      let s = to_string_compact j in
+      equal j (parse_ok s));
+    (* HTML context safety *)
+    assert_true ~msg:"no raw </script> in output" (
+      let s = to_string_compact (String "</script><script>alert(1)</script>") in
+      let rec has_raw_close i =
+        if i + 9 > String.length s then false
+        else if String.sub s i 9 = "</script>" then true
+        else has_raw_close (i + 1)
+      in not (has_raw_close 0));
   );
 
   Printf.printf "\n=== JSON Parser Test Results ===\n";
