@@ -52,6 +52,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`json.ml`](json.ml) | JSON parser — complete RFC 8259 parser with queries and transforms | Recursive descent, mutual recursion, Unicode escapes, pretty printing, dot-notation queries |
 | [`matrix.ml`](matrix.ml) | Matrix — linear algebra with functors and modules | Functors, module signatures, Gaussian elimination, determinant, inverse, matrix power, norms |
 | [`csv.ml`](csv.ml) | CSV parser & data analyzer — RFC 4180 parsing with type inference | String parsing, type inference, fold-based aggregation, group-by, filtering, sorting, pretty-printing |
+| [`fenwick_tree.ml`](fenwick_tree.ml) | Fenwick Tree (Binary Indexed Tree) — prefix sums and point updates | Imperative arrays, bit manipulation, functors, O(log n) queries, order statistics |
 
 ## Getting Started
 
