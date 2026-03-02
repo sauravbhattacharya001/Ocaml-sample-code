@@ -49,6 +49,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`skip_list.ml`](skip_list.ml) | Skip List — probabilistic sorted data structure | Randomized levels, O(log n) search/insert/delete, range queries, floor/ceil |
 | [`rope.ml`](rope.ml) | Rope — balanced binary tree for efficient string operations | O(log n) concat/split/insert/delete, text editing, balancing, line operations |
 | [`btree.ml`](btree.ml) | B-Tree — self-balancing search tree with configurable degree | Multi-way branching, node splitting, in-order traversal, search, bulk insertion |
+| [`json.ml`](json.ml) | JSON parser — complete RFC 8259 parser with queries and transforms | Recursive descent, mutual recursion, Unicode escapes, pretty printing, dot-notation queries |
 
 ## Getting Started
 

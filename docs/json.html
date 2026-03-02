@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Parser — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>JSON Parser</h1>
+    <p class="subtitle">A complete JSON parser built with parser combinators</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>This module implements a <strong>full RFC 8259 JSON parser</strong> using the parser combinator
+      pattern. It demonstrates how small, composable parsing functions can be combined to handle
+      a real-world data format — including strings with Unicode escapes, floating-point numbers
+      with scientific notation, and arbitrarily nested structures.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Recursive descent parsing</strong> — mutual recursion between JSON value types</li>
+        <li><strong>Monadic composition</strong> — sequencing parsers with bind (<code>&gt;&gt;=</code>)</li>
+        <li><strong>Algebraic data types</strong> — the <code>json</code> type models all JSON values</li>
+        <li><strong>Higher-order functions</strong> — parsers as first-class values</li>
+        <li><strong>Unicode handling</strong> — <code>\uXXXX</code> escapes with surrogate pair support</li>
+        <li><strong>Pretty printing</strong> — compact and indented output</li>
+        <li><strong>Functional transforms</strong> — map, filter, fold over JSON structures</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>JSON Data Type</h2>
+      <pre><code>type json =
+  | Null
+  | Bool of bool
+  | Number of float
+  | String of string
+  | Array of json list
+  | Object of (string * json) list</code></pre>
+      <p>This algebraic data type naturally represents every JSON value. Pattern matching
+      makes it easy to destructure and transform JSON data.</p>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>parse</code></td><td>Parse a string into a <code>json</code> value</td></tr>
+        <tr><td><code>to_string_compact</code></td><td>Serialize to minimal JSON string</td></tr>
+        <tr><td><code>to_string_pretty</code></td><td>Serialize with indentation</td></tr>
+        <tr><td><code>query</code></td><td>Dot-notation path access (<code>"user.name"</code>)</td></tr>
+        <tr><td><code>equal</code></td><td>Deep structural equality (order-independent for objects)</td></tr>
+        <tr><td><code>map_array</code></td><td>Transform array elements</td></tr>
+        <tr><td><code>filter_array</code></td><td>Filter array elements</td></tr>
+        <tr><td><code>fold_array</code></td><td>Reduce array to a single value</td></tr>
+        <tr><td><code>merge</code></td><td>Merge two objects (right-biased)</td></tr>
+        <tr><td><code>type_name</code></td><td>Get the type as a string</td></tr>
+        <tr><td><code>keys</code> / <code>values</code></td><td>Extract object keys or values</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Parser Architecture</h2>
+      <p>The parser is built from small combinators, each handling one piece of the JSON grammar:</p>
+      <pre><code>(* The grammar, expressed as combinators *)
+json_value = json_null | json_bool | json_number
+           | json_string | json_array | json_object
+
+(* Arrays: [ value, value, ... ] *)
+json_array = between '[' ']' (sep_by json_value ',')
+
+(* Objects: { "key": value, ... } *)
+json_object = between '{' '}' (sep_by (key ':' value) ',')</code></pre>
+
+      <p>Mutual recursion is handled via a forward reference (<code>json_parser_ref</code>),
+      allowing arrays and objects to contain any JSON value, including themselves.</p>
+    </section>
+
+    <section>
+      <h2>Query Examples</h2>
+      <pre><code>(* Dot-notation access into nested structures *)
+let json = parse "{\"user\": {\"scores\": [95, 87, 92]}}"
+query "user.scores.0" json    (* => Some (Number 95.0) *)
+query "user.scores.-1" json   (* => Some (Number 92.0) — negative index *)
+query "missing.path" json     (* => None *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Running</h2>
+      <pre><code>ocamlfind ocamlopt json.ml -o json &amp;&amp; ./json
+# Or simply:
+make json &amp;&amp; ./json</code></pre>
+    </section>
+
+    <section>
+      <h2>Source</h2>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/json.ml">json.ml</a>
+      — ~600 lines, zero dependencies</p>
+    </section>
+  </main>
+</body>
+</html>
