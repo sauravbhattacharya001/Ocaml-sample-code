@@ -256,6 +256,42 @@ Features: `.` (any char), `*+?` (quantifiers), `|` (alternation), `()` (grouping
 
 ---
 
+## Stage 11: Linear Algebra & Functors
+
+### [`matrix.ml`](matrix.ml) — Matrix Operations via Functors
+
+**Concepts:** Module signatures (`NUM`), functors (`Make`), abstract types, imperative arrays, Gaussian elimination, numerical algorithms
+
+This is the capstone example for OCaml's module system. A `NUM` signature defines what it means to be a numeric type, then a `Make` functor produces a complete matrix library for any type implementing `NUM`:
+
+```ocaml
+module type NUM = sig
+  type t
+  val zero : t
+  val one : t
+  val add : t -> t -> t
+  val mul : t -> t -> t
+  (* ... *)
+end
+
+module Make (N : NUM) = struct
+  type t = { rows: int; cols: int; data: N.t array array }
+  let mul a b = (* matrix multiplication using N.mul and N.add *)
+  let det m = (* Gaussian elimination with partial pivoting *)
+  let inverse m = (* Gauss-Jordan elimination *)
+  (* ... *)
+end
+
+module FloatMatrix = Make(Float_Num)
+module IntMatrix   = Make(Int_Num)
+```
+
+Features: create/identity/diagonal, add/sub/mul/scale/hadamard, transpose, determinant (Gaussian elimination with partial pivoting), inverse (Gauss-Jordan), trace, matrix power (fast exponentiation), Frobenius/max norms, predicates (symmetric, diagonal, triangular), fold/map/iter, pretty printing.
+
+**Key takeaway:** Functors let you write algorithms once and reuse them across types. The `Make(Float_Num)` and `Make(Int_Num)` instantiations produce completely separate, type-safe matrix implementations from the same code. This is OCaml's answer to generics/templates — more powerful because functors can express complex constraints.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -284,7 +320,7 @@ After working through these examples, try:
 | Input validation | `factor.ml` |
 | Mutual recursion | `factor.ml` |
 | Benchmarking | `fibonacci.ml` |
-| Modules & functors | `graph.ml`, `trie.ml` |
+| Modules & functors | `graph.ml`, `trie.ml`, `matrix.ml` |
 | Record types | `graph.ml`, `trie.ml` |
 | Imperative queues | `graph.ml` |
 | Graph algorithms (BFS/DFS) | `graph.ml` |
@@ -302,3 +338,7 @@ After working through these examples, try:
 | Epsilon closure / NFA simulation | `regex.ml` |
 | Regular expressions | `regex.ml` |
 | Character classes & escapes | `regex.ml` |
+| Module signatures & abstract types | `matrix.ml` |
+| Imperative arrays | `matrix.ml` |
+| Gaussian elimination | `matrix.ml` |
+| Numerical algorithms | `matrix.ml` |
