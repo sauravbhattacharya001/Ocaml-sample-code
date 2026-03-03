@@ -77,10 +77,13 @@ let vigenere_decrypt key ciphertext =
 (* ── XOR Cipher ──────────────────────────────────────────────────── *)
 
 let xor_cipher key data =
-  let key_len = String.length key in
-  string_map_i (fun i c ->
-    Char.chr (Char.code c lxor Char.code key.[i mod key_len])
-  ) data
+  if String.length key = 0 then
+    invalid_arg "xor_cipher: key must not be empty"
+  else
+    let key_len = String.length key in
+    string_map_i (fun i c ->
+      Char.chr (Char.code c lxor Char.code key.[i mod key_len])
+    ) data
 
 let bytes_to_hex s =
   let buf = Buffer.create (String.length s * 2) in
@@ -88,10 +91,14 @@ let bytes_to_hex s =
   Buffer.contents buf
 
 let hex_to_bytes hex =
-  let len = String.length hex / 2 in
-  String.init len (fun i ->
-    Char.chr (int_of_string ("0x" ^ String.sub hex (i * 2) 2))
-  )
+  let hex_len = String.length hex in
+  if hex_len mod 2 <> 0 then
+    invalid_arg (Printf.sprintf "hex_to_bytes: odd-length hex string (%d chars)" hex_len)
+  else
+    let len = hex_len / 2 in
+    String.init len (fun i ->
+      Char.chr (int_of_string ("0x" ^ String.sub hex (i * 2) 2))
+    )
 
 (* ── Rail Fence Cipher ───────────────────────────────────────────── *)
 
