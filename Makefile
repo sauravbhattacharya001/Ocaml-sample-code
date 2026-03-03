@@ -38,6 +38,9 @@ test: test_all
 	@echo "=== Running tests ==="
 	@./test_all
 
+test_skip_list: skip_list.ml test_skip_list.ml
+	$(OCAML) -o test_skip_list skip_list.ml test_skip_list.ml
+
 run: all
 	@for prog in $(TARGETS_PLAIN); do \
 		echo "=== $$prog ===" ; \
@@ -64,5 +67,5 @@ coverage-html: coverage
 	@echo "Coverage report: _coverage/index.html"
 
 clean:
-	rm -f $(TARGETS) test_all test_all_cov *.cmi *.cmx *.cmo *.o bisect*.coverage
+	rm -f $(TARGETS) test_all test_all_cov test_skip_list *.cmi *.cmx *.cmo *.o bisect*.coverage
 	rm -rf _coverage

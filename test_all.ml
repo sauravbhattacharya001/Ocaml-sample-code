@@ -4934,8 +4934,8 @@ module SL = struct
     in
     go 0
 
-  let create ?(compare = Stdlib.compare) () =
-    let header = { key = Obj.magic 0; forward = Array.make max_level None } in
+  let create ?(compare = Stdlib.compare) ~dummy () =
+    let header = { key = dummy; forward = Array.make max_level None } in
     { header; level = 0; length = 0; compare }
 
   let size sl = sl.length
@@ -5131,9 +5131,12 @@ module SL = struct
     | _ -> None
 
   let of_list ?(compare = Stdlib.compare) lst =
-    let sl = create ~compare () in
-    List.iter (fun k -> insert k sl) lst;
-    sl
+    match lst with
+    | [] -> invalid_arg "SkipList.of_list: empty list"
+    | hd :: _ ->
+      let sl = create ~compare ~dummy:hd () in
+      List.iter (fun k -> insert k sl) lst;
+      sl
 end
 
 (* ===== Skip List tests ===== *)
@@ -5143,7 +5146,7 @@ let test_skip_list () =
   Printf.printf "Testing SkipList...\n";
 
   (* -- Empty skip list -- *)
-  let sl = SL.create () in
+  let sl = SL.create ~dummy:0 () in
   assert_true ~msg:"empty: is_empty" (SL.is_empty sl);
   assert_equal ~msg:"empty: size" "0" (string_of_int (SL.size sl));
   assert_equal ~msg:"empty: height" "0" (string_of_int (SL.height sl));
@@ -5218,7 +5221,7 @@ let test_skip_list () =
   assert_true ~msg:"remove all: height 0" (SL.height sl = 0);
 
   (* -- Range queries -- *)
-  let sl2 = SL.create () in
+  let sl2 = SL.create ~dummy:0 () in
   List.iter (fun x -> SL.insert x sl2) [5; 10; 15; 20; 25; 30; 35; 40];
   assert_true ~msg:"range [10,30]"
     (SL.range_query ~lo:10 ~hi:30 sl2 = [10; 15; 20; 25; 30]);
@@ -5275,7 +5278,7 @@ let test_skip_list () =
     (SL.to_list sl4 = [1; 3; 5]);
 
   (* -- Custom compare (reverse order) -- *)
-  let rev_sl = SL.create ~compare:(fun a b -> compare b a) () in
+  let rev_sl = SL.create ~compare:(fun a b -> compare b a) ~dummy:0 () in
   List.iter (fun x -> SL.insert x rev_sl) [10; 30; 20];
   assert_true ~msg:"reverse: to_list"
     (SL.to_list rev_sl = [30; 20; 10]);
@@ -5283,7 +5286,7 @@ let test_skip_list () =
   assert_true ~msg:"reverse: max_elt" (SL.max_elt rev_sl = Some 10);
 
   (* -- String skip list -- *)
-  let str_sl = SL.create ~compare:String.compare () in
+  let str_sl = SL.create ~compare:String.compare ~dummy:"" () in
   List.iter (fun s -> SL.insert s str_sl) ["cherry"; "apple"; "banana"; "date"];
   assert_equal ~msg:"string: size" "4" (string_of_int (SL.size str_sl));
   assert_true ~msg:"string: sorted"
@@ -5293,7 +5296,7 @@ let test_skip_list () =
   assert_true ~msg:"string: ceil 'c'" (SL.ceil "c" str_sl = Some "cherry");
 
   (* -- Stress test: insert + verify sorted + remove all -- *)
-  let stress_sl = SL.create () in
+  let stress_sl = SL.create ~dummy:0 () in
   let n = 500 in
   (* Shuffle: insert 0..499 in random order *)
   let arr = Array.init n (fun i -> i) in

@@ -40,12 +40,14 @@ module SkipList = struct
 
   (* ---- Construction ---- *)
 
-  (** [create ~compare] builds an empty skip list.
-      [compare] must define a total order (like [Stdlib.compare]). *)
-  let create ?(compare = Stdlib.compare) () =
-    (* The header's key is never inspected — it's a sentinel. We use
-       Obj.magic to avoid requiring a dummy value from the caller. *)
-    let header = { key = Obj.magic 0; forward = Array.make max_level None } in
+  (** [create ~compare ~dummy ()] builds an empty skip list.
+      [compare] must define a total order (like [Stdlib.compare]).
+      [dummy] is a throw-away value used only for the sentinel node's
+      key field — it is never returned or compared. This replaces the
+      previous [Obj.magic] cast, which was type-unsafe and could cause
+      segfaults or undefined behavior with non-integer element types. *)
+  let create ?(compare = Stdlib.compare) ~dummy () =
+    let header = { key = dummy; forward = Array.make max_level None } in
     { header; level = 0; length = 0; compare }
 
   (** [size sl] returns the number of elements. *)
@@ -284,10 +286,15 @@ module SkipList = struct
     | Some n when sl.compare n.key key >= 0 -> Some n.key
     | _ -> None
 
-  (** [of_list ~compare lst] builds a skip list from a list of elements. *)
+  (** [of_list ~compare lst] builds a skip list from a list of elements.
+      Requires a non-empty list (the first element is used as the dummy
+      sentinel value). Raises [Invalid_argument] on an empty list. *)
   let of_list ?(compare = Stdlib.compare) lst =
-    let sl = create ~compare () in
-    List.iter (fun k -> insert k sl) lst;
-    sl
+    match lst with
+    | [] -> invalid_arg "SkipList.of_list: empty list"
+    | hd :: _ ->
+      let sl = create ~compare ~dummy:hd () in
+      List.iter (fun k -> insert k sl) lst;
+      sl
 
 end
