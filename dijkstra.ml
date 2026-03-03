@@ -48,7 +48,9 @@ let num_edges g =
   if g.directed then total else total / 2
 
 (* --- Priority Queue (min-heap via sorted list) --- *)
-(* Simple implementation suitable for educational purposes *)
+(* Simple sorted-list implementation for educational clarity.
+   Polymorphic in the value type: works with plain ints (Dijkstra)
+   and edge tuples (Prim's) alike. *)
 
 let pq_empty = []
 
@@ -67,6 +69,7 @@ let pq_pop = function
 
 (* --- Dijkstra's Algorithm --- *)
 (* Returns a map from each reachable vertex to (distance, predecessor option) *)
+(* Uses a recursive loop instead of a mutable while-flag — idiomatic OCaml. *)
 
 let dijkstra g source =
   let dist = Hashtbl.create (num_vertices g) in
@@ -74,27 +77,29 @@ let dijkstra g source =
   let visited = Hashtbl.create (num_vertices g) in
 
   Hashtbl.replace dist source 0.0;
-  let pq = ref (pq_insert pq_empty (0.0, source)) in
 
-  let continue = ref true in
-  while !continue do
-    match pq_pop !pq with
-    | None -> continue := false
+  let rec loop pq =
+    match pq_pop pq with
+    | None -> ()
     | Some ((d, u), rest) ->
-      pq := rest;
-      if not (Hashtbl.mem visited u) then begin
+      if Hashtbl.mem visited u then
+        loop rest
+      else begin
         Hashtbl.replace visited u true;
-        List.iter (fun (v, w) ->
+        let pq' = List.fold_left (fun q (v, w) ->
           let new_dist = d +. w in
           let old_dist = try Hashtbl.find dist v with Not_found -> infinity in
           if new_dist < old_dist then begin
             Hashtbl.replace dist v new_dist;
             Hashtbl.replace prev v u;
-            pq := pq_insert !pq (new_dist, v)
-          end
-        ) (neighbors g u)
+            pq_insert q (new_dist, v)
+          end else q
+        ) rest (neighbors g u)
+        in
+        loop pq'
       end
-  done;
+  in
+  loop (pq_insert pq_empty (0.0, source));
   (dist, prev)
 
 (* Get shortest distance from source to target *)
@@ -152,7 +157,10 @@ let floyd_warshall g =
   (verts, dist, idx)
 
 (* --- Prim's Minimum Spanning Tree (undirected only) --- *)
-(* Returns list of (u, v, weight) edges in the MST *)
+(* Returns list of (u, v, weight) edges in the MST.
+   Uses proper (from, to) edge tuples in the priority queue instead
+   of the previous int-encoding hack (u * 10000 + v) which silently
+   produced wrong results for vertex IDs >= 10000. *)
 
 let prim_mst g =
   if g.directed then failwith "MST requires undirected graph";
@@ -161,30 +169,31 @@ let prim_mst g =
   | start :: _ ->
     let in_mst = Hashtbl.create (num_vertices g) in
     let edges = ref [] in
-    let pq = ref pq_empty in
 
     Hashtbl.replace in_mst start true;
-    List.iter (fun (v, w) ->
-      pq := pq_insert !pq (w, (start * 10000 + v))  (* encode edge as single int *)
-    ) (neighbors g start);
+    let init_pq = List.fold_left (fun q (v, w) ->
+      pq_insert q (w, (start, v))
+    ) pq_empty (neighbors g start)
+    in
 
-    let continue = ref true in
-    while !continue do
-      match pq_pop !pq with
-      | None -> continue := false
-      | Some ((w, encoded), rest) ->
-        pq := rest;
-        let u = encoded / 10000 in
-        let v = encoded mod 10000 in
-        if not (Hashtbl.mem in_mst v) then begin
+    let rec loop pq =
+      match pq_pop pq with
+      | None -> ()
+      | Some ((w, (u, v)), rest) ->
+        if Hashtbl.mem in_mst v then
+          loop rest
+        else begin
           Hashtbl.replace in_mst v true;
           edges := (u, v, w) :: !edges;
-          List.iter (fun (next, nw) ->
-            if not (Hashtbl.mem in_mst next) then
-              pq := pq_insert !pq (nw, (v * 10000 + next))
-          ) (neighbors g v)
+          let pq' = List.fold_left (fun q (next, nw) ->
+            if Hashtbl.mem in_mst next then q
+            else pq_insert q (nw, (v, next))
+          ) rest (neighbors g v)
+          in
+          loop pq'
         end
-    done;
+    in
+    loop init_pq;
     List.rev !edges
 
 (* --- Pretty Printing --- *)
