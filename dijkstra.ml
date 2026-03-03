@@ -123,7 +123,12 @@ let shortest_path g source target =
   end
 
 (* --- All-Pairs Shortest Paths (Floyd-Warshall) --- *)
-(* Returns a 2D distance matrix as a hashtable of (i,j) -> distance *)
+(* Returns [Some (verts, dist, idx)] on success, or [None] if the graph
+   contains a negative weight cycle (detected by a negative diagonal entry
+   after relaxation).  Note: Dijkstra's algorithm assumes non-negative edge
+   weights and will produce incorrect results if negative edges are present. *)
+
+exception Negative_cycle
 
 let floyd_warshall g =
   let verts = vertices g in
@@ -154,7 +159,14 @@ let floyd_warshall g =
     done
   done;
 
-  (verts, dist, idx)
+  (* Detect negative weight cycles: if any diagonal entry is negative,
+     a negative cycle exists and the distance matrix is meaningless. *)
+  let has_neg_cycle = ref false in
+  for i = 0 to n - 1 do
+    if dist.(i).(i) < 0.0 then has_neg_cycle := true
+  done;
+  if !has_neg_cycle then None
+  else Some (verts, dist, idx)
 
 (* --- Prim's Minimum Spanning Tree (undirected only) --- *)
 (* Returns list of (u, v, weight) edges in the MST.
@@ -247,20 +259,22 @@ let () =
   print_newline ();
 
   print_endline "--- Floyd-Warshall All-Pairs Shortest Paths ---";
-  let (verts, fw_dist, idx) = floyd_warshall g in
-  Printf.printf "     ";
-  List.iter (fun v -> Printf.printf "%6d" v) verts;
-  print_newline ();
-  List.iter (fun u ->
-    Printf.printf "  %d: " u;
-    let i = Hashtbl.find idx u in
-    List.iter (fun v ->
-      let j = Hashtbl.find idx v in
-      if fw_dist.(i).(j) = infinity then Printf.printf "   inf"
-      else Printf.printf "%6.1f" fw_dist.(i).(j)
-    ) verts;
-    print_newline ()
-  ) verts;
+  (match floyd_warshall g with
+  | None -> print_endline "  Negative weight cycle detected!"
+  | Some (verts, fw_dist, idx) ->
+    Printf.printf "     ";
+    List.iter (fun v -> Printf.printf "%6d" v) verts;
+    print_newline ();
+    List.iter (fun u ->
+      Printf.printf "  %d: " u;
+      let i = Hashtbl.find idx u in
+      List.iter (fun v ->
+        let j = Hashtbl.find idx v in
+        if fw_dist.(i).(j) = infinity then Printf.printf "   inf"
+        else Printf.printf "%6.1f" fw_dist.(i).(j)
+      ) verts;
+      print_newline ()
+    ) verts);
   print_newline ();
 
   print_endline "--- Prim's Minimum Spanning Tree ---";
