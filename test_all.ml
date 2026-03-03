@@ -6104,7 +6104,538 @@ let test_calculus () = suite "Calculus" (fun () ->
   Printf.printf "  Calculus: done\n";
 )
 
-(* ===== Main ===== *)
+(* ===== Type inference functions (from type_infer.ml) ===== *)
+
+(* --- Types --- *)
+type hm_ty =
+  | HMInt
+  | HMBool
+  | HMVar of string
+  | HMFun of hm_ty * hm_ty
+  | HMPair of hm_ty * hm_ty
+
+type hm_scheme = HMForall of string list * hm_ty
+
+type hm_expr =
+  | HMIntLit of int
+  | HMBoolLit of bool
+  | HMVarE of string
+  | HMLam of string * hm_expr
+  | HMApp of hm_expr * hm_expr
+  | HMLet of string * hm_expr * hm_expr
+  | HMLetRec of string * hm_expr * hm_expr
+  | HMIf of hm_expr * hm_expr * hm_expr
+  | HMBinOp of hm_binop * hm_expr * hm_expr
+  | HMPairE of hm_expr * hm_expr
+  | HMFst of hm_expr
+  | HMSnd of hm_expr
+and hm_binop = HMAdd | HMSub | HMMul | HMEq | HMLt
+
+type hm_env = (string * hm_scheme) list
+type hm_subst = (string * hm_ty) list
+
+exception HMTypeError of string
+
+(* --- Pretty printing --- *)
+let rec hm_string_of_ty = function
+  | HMInt -> "int"
+  | HMBool -> "bool"
+  | HMVar a -> a
+  | HMFun (t1, t2) ->
+    let s1 = match t1 with HMFun _ -> "(" ^ hm_string_of_ty t1 ^ ")" | _ -> hm_string_of_ty t1 in
+    s1 ^ " -> " ^ hm_string_of_ty t2
+  | HMPair (t1, t2) ->
+    let s1 = match t1 with HMFun _ -> "(" ^ hm_string_of_ty t1 ^ ")" | _ -> hm_string_of_ty t1 in
+    let s2 = match t2 with HMFun _ -> "(" ^ hm_string_of_ty t2 ^ ")" | _ -> hm_string_of_ty t2 in
+    s1 ^ " * " ^ s2
+
+(* --- Fresh type variables --- *)
+let hm_counter = ref 0
+let hm_fresh () =
+  let n = !hm_counter in
+  incr hm_counter;
+  let name = if n < 26 then Printf.sprintf "'%c" (Char.chr (97 + n))
+             else Printf.sprintf "'t%d" n in
+  HMVar name
+let hm_reset () = hm_counter := 0
+
+(* --- Substitution --- *)
+let hm_empty : hm_subst = []
+
+let rec hm_apply_ty (s : hm_subst) = function
+  | HMInt -> HMInt | HMBool -> HMBool
+  | HMVar a -> (match List.assoc_opt a s with Some t -> t | None -> HMVar a)
+  | HMFun (t1, t2) -> HMFun (hm_apply_ty s t1, hm_apply_ty s t2)
+  | HMPair (t1, t2) -> HMPair (hm_apply_ty s t1, hm_apply_ty s t2)
+
+let hm_apply_scheme s (HMForall (vars, ty)) =
+  let s' = List.filter (fun (v, _) -> not (List.mem v vars)) s in
+  HMForall (vars, hm_apply_ty s' ty)
+
+let hm_apply_env s env = List.map (fun (n, sc) -> (n, hm_apply_scheme s sc)) env
+
+let hm_compose s1 s2 =
+  let s2' = List.map (fun (v, t) -> (v, hm_apply_ty s1 t)) s2 in
+  let s1_only = List.filter (fun (v, _) -> not (List.exists (fun (v', _) -> v = v') s2')) s1 in
+  s2' @ s1_only
+
+(* --- Free type variables --- *)
+let rec hm_ftv_ty = function
+  | HMInt | HMBool -> []
+  | HMVar a -> [a]
+  | HMFun (t1, t2) -> hm_ftv_ty t1 @ hm_ftv_ty t2
+  | HMPair (t1, t2) -> hm_ftv_ty t1 @ hm_ftv_ty t2
+
+let hm_ftv_scheme (HMForall (vars, ty)) =
+  List.filter (fun v -> not (List.mem v vars)) (hm_ftv_ty ty)
+
+let hm_ftv_env env = List.concat_map (fun (_, sc) -> hm_ftv_scheme sc) env
+
+let hm_unique lst =
+  List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) [] lst |> List.rev
+
+(* --- Unification --- *)
+let rec hm_occurs a = function
+  | HMInt | HMBool -> false
+  | HMVar b -> a = b
+  | HMFun (t1, t2) -> hm_occurs a t1 || hm_occurs a t2
+  | HMPair (t1, t2) -> hm_occurs a t1 || hm_occurs a t2
+
+let rec hm_unify t1 t2 =
+  match t1, t2 with
+  | HMInt, HMInt -> hm_empty
+  | HMBool, HMBool -> hm_empty
+  | HMVar a, t | t, HMVar a ->
+    if t = HMVar a then hm_empty
+    else if hm_occurs a t then
+      raise (HMTypeError (Printf.sprintf "Infinite type: %s in %s" a (hm_string_of_ty t)))
+    else [(a, t)]
+  | HMFun (a1, r1), HMFun (a2, r2) ->
+    let s1 = hm_unify a1 a2 in
+    let s2 = hm_unify (hm_apply_ty s1 r1) (hm_apply_ty s1 r2) in
+    hm_compose s2 s1
+  | HMPair (a1, b1), HMPair (a2, b2) ->
+    let s1 = hm_unify a1 a2 in
+    let s2 = hm_unify (hm_apply_ty s1 b1) (hm_apply_ty s1 b2) in
+    hm_compose s2 s1
+  | _ -> raise (HMTypeError (Printf.sprintf "Cannot unify %s with %s"
+      (hm_string_of_ty t1) (hm_string_of_ty t2)))
+
+(* --- Generalization / instantiation --- *)
+let hm_generalize env ty =
+  let env_ftvs = hm_unique (hm_ftv_env env) in
+  let ty_ftvs = hm_unique (hm_ftv_ty ty) in
+  let gen_vars = List.filter (fun v -> not (List.mem v env_ftvs)) ty_ftvs in
+  HMForall (gen_vars, ty)
+
+let hm_instantiate (HMForall (vars, ty)) =
+  let subst = List.map (fun v -> (v, hm_fresh ())) vars in
+  hm_apply_ty subst ty
+
+(* --- Algorithm W --- *)
+let hm_lookup env x =
+  match List.assoc_opt x env with
+  | Some sc -> sc
+  | None -> raise (HMTypeError (Printf.sprintf "Unbound variable: %s" x))
+
+let hm_infer_binop = function
+  | HMAdd | HMSub | HMMul -> (HMInt, HMInt, HMInt)
+  | HMEq -> let tv = hm_fresh () in (tv, tv, HMBool)
+  | HMLt -> (HMInt, HMInt, HMBool)
+
+let rec hm_w env expr =
+  match expr with
+  | HMIntLit _ -> (hm_empty, HMInt)
+  | HMBoolLit _ -> (hm_empty, HMBool)
+  | HMVarE x ->
+    let sc = hm_lookup env x in
+    (hm_empty, hm_instantiate sc)
+  | HMLam (x, body) ->
+    let arg_ty = hm_fresh () in
+    let env' = (x, HMForall ([], arg_ty)) :: env in
+    let (s1, body_ty) = hm_w env' body in
+    (s1, HMFun (hm_apply_ty s1 arg_ty, body_ty))
+  | HMApp (e1, e2) ->
+    let result_ty = hm_fresh () in
+    let (s1, fun_ty) = hm_w env e1 in
+    let (s2, arg_ty) = hm_w (hm_apply_env s1 env) e2 in
+    let s3 = hm_unify (hm_apply_ty s2 fun_ty) (HMFun (arg_ty, result_ty)) in
+    (hm_compose s3 (hm_compose s2 s1), hm_apply_ty s3 result_ty)
+  | HMLet (x, e1, e2) ->
+    let (s1, t1) = hm_w env e1 in
+    let env' = hm_apply_env s1 env in
+    let sc = hm_generalize env' t1 in
+    let (s2, t2) = hm_w ((x, sc) :: env') e2 in
+    (hm_compose s2 s1, t2)
+  | HMLetRec (f, e1, e2) ->
+    let rec_ty = hm_fresh () in
+    let env' = (f, HMForall ([], rec_ty)) :: env in
+    let (s1, t1) = hm_w env' e1 in
+    let s2 = hm_unify (hm_apply_ty s1 rec_ty) t1 in
+    let s12 = hm_compose s2 s1 in
+    let env'' = hm_apply_env s12 env in
+    let sc = hm_generalize env'' (hm_apply_ty s12 rec_ty) in
+    let (s3, t2) = hm_w ((f, sc) :: env'') e2 in
+    (hm_compose s3 s12, t2)
+  | HMIf (cond, then_e, else_e) ->
+    let (s1, cond_ty) = hm_w env cond in
+    let s2 = hm_unify cond_ty HMBool in
+    let s12 = hm_compose s2 s1 in
+    let (s3, then_ty) = hm_w (hm_apply_env s12 env) then_e in
+    let s123 = hm_compose s3 s12 in
+    let (s4, else_ty) = hm_w (hm_apply_env s123 env) else_e in
+    let s1234 = hm_compose s4 s123 in
+    let s5 = hm_unify (hm_apply_ty s4 then_ty) else_ty in
+    (hm_compose s5 s1234, hm_apply_ty s5 else_ty)
+  | HMBinOp (op, e1, e2) ->
+    let (t_left, t_right, t_result) = hm_infer_binop op in
+    let (s1, t1) = hm_w env e1 in
+    let s2 = hm_unify t1 t_left in
+    let s12 = hm_compose s2 s1 in
+    let (s3, t2) = hm_w (hm_apply_env s12 env) e2 in
+    let s4 = hm_unify t2 (hm_apply_ty s3 (hm_apply_ty s2 t_right)) in
+    (hm_compose s4 (hm_compose s3 s12),
+     hm_apply_ty s4 (hm_apply_ty s3 (hm_apply_ty s2 t_result)))
+  | HMPairE (e1, e2) ->
+    let (s1, t1) = hm_w env e1 in
+    let (s2, t2) = hm_w (hm_apply_env s1 env) e2 in
+    (hm_compose s2 s1, HMPair (hm_apply_ty s2 t1, t2))
+  | HMFst e ->
+    let a = hm_fresh () in let b = hm_fresh () in
+    let (s1, t1) = hm_w env e in
+    let s2 = hm_unify t1 (HMPair (a, b)) in
+    (hm_compose s2 s1, hm_apply_ty s2 a)
+  | HMSnd e ->
+    let a = hm_fresh () in let b = hm_fresh () in
+    let (s1, t1) = hm_w env e in
+    let s2 = hm_unify t1 (HMPair (a, b)) in
+    (hm_compose s2 s1, hm_apply_ty s2 b)
+
+(* --- Public API --- *)
+let hm_infer ?(env=[]) expr =
+  hm_reset ();
+  let (s, ty) = hm_w env expr in
+  hm_apply_ty s ty
+
+let hm_infer_string ?(env=[]) expr =
+  hm_string_of_ty (hm_infer ~env expr)
+
+let hm_type_check ?(env=[]) expr =
+  try Ok (hm_infer_string ~env expr)
+  with HMTypeError msg -> Error msg
+
+(* ===== Type inference tests ===== *)
+
+let test_type_infer () =
+  Printf.printf "Testing type inference...\n";
+
+  let check_type name expr expected =
+    hm_reset ();
+    let result = hm_infer_string expr in
+    assert_equal name expected result
+  in
+
+  let check_error name expr =
+    hm_reset ();
+    match hm_type_check expr with
+    | Error _ -> assert_true name true
+    | Ok ty -> assert_true (name ^ " (expected error, got " ^ ty ^ ")") false
+  in
+
+  let check_well_typed name expr =
+    hm_reset ();
+    match hm_type_check expr with
+    | Ok _ -> assert_true name true
+    | Error msg -> assert_true (name ^ " (" ^ msg ^ ")") false
+  in
+
+  (* --- Literals --- *)
+  check_type "hm: int literal" (HMIntLit 42) "int";
+  check_type "hm: bool true" (HMBoolLit true) "bool";
+  check_type "hm: bool false" (HMBoolLit false) "bool";
+  check_type "hm: int zero" (HMIntLit 0) "int";
+  check_type "hm: int negative" (HMIntLit (-1)) "int";
+
+  (* --- Lambda and variables --- *)
+  check_type "hm: identity" (HMLam ("x", HMVarE "x")) "'a -> 'a";
+  check_type "hm: const fn"
+    (HMLam ("x", HMLam ("y", HMVarE "x"))) "'a -> 'b -> 'a";
+  check_type "hm: lambda returns int"
+    (HMLam ("x", HMIntLit 42)) "'a -> int";
+  check_type "hm: lambda returns bool"
+    (HMLam ("x", HMBoolLit true)) "'a -> bool";
+
+  (* --- Application --- *)
+  check_type "hm: apply id to int"
+    (HMApp (HMLam ("x", HMVarE "x"), HMIntLit 42)) "int";
+  check_type "hm: apply id to bool"
+    (HMApp (HMLam ("x", HMVarE "x"), HMBoolLit true)) "bool";
+  check_type "hm: apply const"
+    (HMApp (HMApp (HMLam ("x", HMLam ("y", HMVarE "x")), HMIntLit 1), HMBoolLit true)) "int";
+
+  (* --- Arithmetic --- *)
+  check_type "hm: add"
+    (HMBinOp (HMAdd, HMIntLit 1, HMIntLit 2)) "int";
+  check_type "hm: sub"
+    (HMBinOp (HMSub, HMIntLit 5, HMIntLit 3)) "int";
+  check_type "hm: mul"
+    (HMBinOp (HMMul, HMIntLit 2, HMIntLit 3)) "int";
+  check_type "hm: arith fn"
+    (HMLam ("x", HMBinOp (HMAdd, HMVarE "x", HMIntLit 1))) "int -> int";
+  check_type "hm: double"
+    (HMLam ("x", HMBinOp (HMMul, HMVarE "x", HMIntLit 2))) "int -> int";
+
+  (* --- Comparison --- *)
+  check_type "hm: eq ints"
+    (HMBinOp (HMEq, HMIntLit 1, HMIntLit 2)) "bool";
+  check_type "hm: eq bools"
+    (HMBinOp (HMEq, HMBoolLit true, HMBoolLit false)) "bool";
+  check_type "hm: lt"
+    (HMBinOp (HMLt, HMIntLit 1, HMIntLit 2)) "bool";
+  check_type "hm: eq polymorphic fn"
+    (HMLam ("x", HMLam ("y", HMBinOp (HMEq, HMVarE "x", HMVarE "y"))))
+    "'a -> 'a -> bool";
+
+  (* --- If-then-else --- *)
+  check_type "hm: if returns int"
+    (HMIf (HMBoolLit true, HMIntLit 1, HMIntLit 0)) "int";
+  check_type "hm: if returns bool"
+    (HMIf (HMBoolLit false, HMBoolLit true, HMBoolLit false)) "bool";
+  check_type "hm: if fn"
+    (HMLam ("x", HMIf (HMVarE "x", HMIntLit 1, HMIntLit 0))) "bool -> int";
+  check_type "hm: nested if"
+    (HMIf (HMBoolLit true, HMIf (HMBoolLit false, HMIntLit 1, HMIntLit 2), HMIntLit 3)) "int";
+
+  (* --- Let bindings --- *)
+  check_type "hm: simple let"
+    (HMLet ("x", HMIntLit 42, HMVarE "x")) "int";
+  check_type "hm: let with fn"
+    (HMLet ("f", HMLam ("x", HMBinOp (HMAdd, HMVarE "x", HMIntLit 1)),
+     HMApp (HMVarE "f", HMIntLit 5))) "int";
+
+  (* --- Let polymorphism --- *)
+  check_type "hm: let poly id"
+    (HMLet ("id", HMLam ("x", HMVarE "x"),
+     HMPairE (HMApp (HMVarE "id", HMIntLit 1),
+              HMApp (HMVarE "id", HMBoolLit true)))) "int * bool";
+  check_type "hm: let poly const"
+    (HMLet ("k", HMLam ("x", HMLam ("y", HMVarE "x")),
+     HMPairE (HMApp (HMApp (HMVarE "k", HMIntLit 1), HMBoolLit true),
+              HMApp (HMApp (HMVarE "k", HMBoolLit false), HMIntLit 2)))) "int * bool";
+  check_type "hm: nested let poly"
+    (HMLet ("id", HMLam ("x", HMVarE "x"),
+     HMLet ("a", HMApp (HMVarE "id", HMIntLit 42),
+     HMLet ("b", HMApp (HMVarE "id", HMBoolLit true),
+     HMPairE (HMVarE "a", HMVarE "b"))))) "int * bool";
+
+  (* --- Let rec --- *)
+  check_type "hm: factorial"
+    (HMLetRec ("fact",
+      HMLam ("n", HMIf (HMBinOp (HMEq, HMVarE "n", HMIntLit 0),
+                         HMIntLit 1,
+                         HMBinOp (HMMul, HMVarE "n",
+                           HMApp (HMVarE "fact",
+                             HMBinOp (HMSub, HMVarE "n", HMIntLit 1))))),
+     HMVarE "fact")) "int -> int";
+  check_type "hm: recursive sum"
+    (HMLetRec ("sum",
+      HMLam ("n", HMIf (HMBinOp (HMEq, HMVarE "n", HMIntLit 0),
+                         HMIntLit 0,
+                         HMBinOp (HMAdd, HMVarE "n",
+                           HMApp (HMVarE "sum",
+                             HMBinOp (HMSub, HMVarE "n", HMIntLit 1))))),
+     HMApp (HMVarE "sum", HMIntLit 10))) "int";
+  check_type "hm: rec returns fn"
+    (HMLetRec ("f",
+      HMLam ("x", HMIf (HMBinOp (HMLt, HMVarE "x", HMIntLit 0),
+                         HMIntLit 0,
+                         HMApp (HMVarE "f", HMBinOp (HMSub, HMVarE "x", HMIntLit 1)))),
+     HMVarE "f")) "int -> int";
+
+  (* --- Pairs --- *)
+  check_type "hm: pair int bool"
+    (HMPairE (HMIntLit 1, HMBoolLit true)) "int * bool";
+  check_type "hm: pair int int"
+    (HMPairE (HMIntLit 1, HMIntLit 2)) "int * int";
+  check_type "hm: nested pair"
+    (HMPairE (HMIntLit 1, HMPairE (HMIntLit 2, HMBoolLit true))) "int * int * bool";
+  check_type "hm: fst"
+    (HMFst (HMPairE (HMIntLit 1, HMBoolLit true))) "int";
+  check_type "hm: snd"
+    (HMSnd (HMPairE (HMIntLit 1, HMBoolLit true))) "bool";
+  check_type "hm: fst nested"
+    (HMFst (HMPairE (HMPairE (HMIntLit 1, HMIntLit 2), HMBoolLit true))) "int * int";
+  check_type "hm: snd nested"
+    (HMSnd (HMPairE (HMIntLit 1, HMPairE (HMIntLit 2, HMBoolLit true)))) "int * bool";
+  check_type "hm: polymorphic fst"
+    (HMLam ("p", HMFst (HMVarE "p"))) "'a * 'b -> 'a";
+  check_type "hm: polymorphic snd"
+    (HMLam ("p", HMSnd (HMVarE "p"))) "'a * 'b -> 'b";
+  check_type "hm: swap"
+    (HMLam ("p", HMPairE (HMSnd (HMVarE "p"), HMFst (HMVarE "p"))))
+    "'a * 'b -> 'b * 'a";
+
+  (* --- Higher-order functions --- *)
+  check_type "hm: apply"
+    (HMLam ("f", HMLam ("x", HMApp (HMVarE "f", HMVarE "x"))))
+    "('a -> 'b) -> 'a -> 'b";
+  check_type "hm: compose"
+    (HMLam ("f", HMLam ("g", HMLam ("x",
+      HMApp (HMVarE "f", HMApp (HMVarE "g", HMVarE "x"))))))
+    "('a -> 'b) -> ('c -> 'a) -> 'c -> 'b";
+  check_type "hm: flip"
+    (HMLam ("f", HMLam ("x", HMLam ("y",
+      HMApp (HMApp (HMVarE "f", HMVarE "y"), HMVarE "x")))))
+    "('a -> 'b -> 'c) -> 'b -> 'a -> 'c";
+  check_type "hm: twice"
+    (HMLam ("f", HMLam ("x",
+      HMApp (HMVarE "f", HMApp (HMVarE "f", HMVarE "x")))))
+    "('a -> 'a) -> 'a -> 'a";
+
+  (* --- Complex expressions --- *)
+  check_type "hm: church zero"
+    (HMLam ("f", HMLam ("x", HMVarE "x"))) "'a -> 'b -> 'b";
+  check_type "hm: let in arith"
+    (HMLet ("x", HMIntLit 1,
+     HMLet ("y", HMIntLit 2,
+     HMBinOp (HMAdd, HMVarE "x", HMVarE "y")))) "int";
+  check_type "hm: conditional arith"
+    (HMLam ("x", HMLam ("y",
+      HMIf (HMBinOp (HMLt, HMVarE "x", HMVarE "y"),
+             HMVarE "x", HMVarE "y")))) "int -> int -> int";
+  check_well_typed "hm: complex well-typed"
+    (HMLet ("compose",
+      HMLam ("f", HMLam ("g", HMLam ("x",
+        HMApp (HMVarE "f", HMApp (HMVarE "g", HMVarE "x"))))),
+     HMLet ("inc", HMLam ("n", HMBinOp (HMAdd, HMVarE "n", HMIntLit 1)),
+     HMLet ("double", HMLam ("n", HMBinOp (HMMul, HMVarE "n", HMIntLit 2)),
+     HMApp (HMApp (HMApp (HMVarE "compose", HMVarE "inc"), HMVarE "double"), HMIntLit 5)))));
+
+  (* --- With environment --- *)
+  let base_env = [
+    ("succ", HMForall ([], HMFun (HMInt, HMInt)));
+    ("zero", HMForall ([], HMInt));
+    ("not", HMForall ([], HMFun (HMBool, HMBool)));
+  ] in
+
+  hm_reset ();
+  (match hm_type_check ~env:base_env (HMApp (HMVarE "succ", HMVarE "zero")) with
+   | Ok ty -> assert_equal "hm: env succ app" "int" ty
+   | Error msg -> assert_true ("hm: env succ app (" ^ msg ^ ")") false);
+
+  hm_reset ();
+  (match hm_type_check ~env:base_env (HMApp (HMVarE "not", HMBoolLit true)) with
+   | Ok ty -> assert_equal "hm: env not app" "bool" ty
+   | Error msg -> assert_true ("hm: env not app (" ^ msg ^ ")") false);
+
+  (* --- Substitution tests --- *)
+  let s1 = [("'a", HMInt)] in
+  assert_equal "hm: apply subst to var"
+    "int" (hm_string_of_ty (hm_apply_ty s1 (HMVar "'a")));
+  assert_equal "hm: apply subst to other var"
+    "'b" (hm_string_of_ty (hm_apply_ty s1 (HMVar "'b")));
+  assert_equal "hm: apply subst to fun"
+    "int -> 'b" (hm_string_of_ty (hm_apply_ty s1 (HMFun (HMVar "'a", HMVar "'b"))));
+  assert_equal "hm: apply subst to pair"
+    "int * 'b" (hm_string_of_ty (hm_apply_ty s1 (HMPair (HMVar "'a", HMVar "'b"))));
+
+  let s2 = [("'b", HMBool)] in
+  let composed = hm_compose s1 s2 in
+  assert_equal "hm: compose subst"
+    "int" (hm_string_of_ty (hm_apply_ty composed (HMVar "'a")));
+  assert_equal "hm: compose subst 2"
+    "bool" (hm_string_of_ty (hm_apply_ty composed (HMVar "'b")));
+
+  (* --- Unification tests --- *)
+  let u1 = hm_unify HMInt HMInt in
+  assert_true "hm: unify int int" (u1 = []);
+  let u2 = hm_unify HMBool HMBool in
+  assert_true "hm: unify bool bool" (u2 = []);
+
+  hm_reset ();
+  let tv = hm_fresh () in
+  let u3 = hm_unify tv HMInt in
+  assert_equal "hm: unify var int"
+    "int" (hm_string_of_ty (hm_apply_ty u3 tv));
+
+  hm_reset ();
+  let tv1 = hm_fresh () in
+  let tv2 = hm_fresh () in
+  let u4 = hm_unify (HMFun (tv1, HMInt)) (HMFun (HMBool, tv2)) in
+  assert_equal "hm: unify fn args"
+    "bool" (hm_string_of_ty (hm_apply_ty u4 tv1));
+  assert_equal "hm: unify fn result"
+    "int" (hm_string_of_ty (hm_apply_ty u4 tv2));
+
+  (* --- Occurs check --- *)
+  assert_true "hm: occurs yes" (hm_occurs "'a" (HMFun (HMVar "'a", HMInt)));
+  assert_true "hm: occurs no" (not (hm_occurs "'a" (HMFun (HMVar "'b", HMInt))));
+  assert_true "hm: occurs nested" (hm_occurs "'a" (HMPair (HMInt, HMVar "'a")));
+  assert_true "hm: occurs not in base" (not (hm_occurs "'a" HMInt));
+
+  (* --- Free type variables --- *)
+  assert_true "hm: ftv int" (hm_ftv_ty HMInt = []);
+  assert_true "hm: ftv bool" (hm_ftv_ty HMBool = []);
+  assert_true "hm: ftv var" (hm_ftv_ty (HMVar "'a") = ["'a"]);
+  assert_true "hm: ftv fun"
+    (hm_ftv_ty (HMFun (HMVar "'a", HMVar "'b")) = ["'a"; "'b"]);
+  assert_true "hm: ftv scheme bound"
+    (hm_ftv_scheme (HMForall (["'a"], HMFun (HMVar "'a", HMVar "'b"))) = ["'b"]);
+
+  (* --- Generalization / instantiation --- *)
+  let gen_ty = HMFun (HMVar "'a", HMVar "'a") in
+  let sc = hm_generalize [] gen_ty in
+  (match sc with HMForall (vars, _) ->
+    assert_true "hm: generalize captures vars" (List.mem "'a" vars));
+  let sc_in_env = hm_generalize [("x", HMForall ([], HMVar "'a"))] gen_ty in
+  (match sc_in_env with HMForall (vars, _) ->
+    assert_true "hm: generalize respects env" (not (List.mem "'a" vars)));
+
+  hm_reset ();
+  let inst = hm_instantiate (HMForall (["'a"], HMFun (HMVar "'a", HMVar "'a"))) in
+  (match inst with
+   | HMFun (HMVar v1, HMVar v2) ->
+     assert_true "hm: instantiate fresh" (v1 = v2 && v1 <> "'a")
+   | _ -> assert_true "hm: instantiate shape" false);
+
+  (* --- Type errors --- *)
+  check_error "hm: if branch mismatch"
+    (HMIf (HMBoolLit true, HMIntLit 1, HMBoolLit false));
+  check_error "hm: apply non-function"
+    (HMApp (HMIntLit 42, HMIntLit 1));
+  check_error "hm: infinite type"
+    (HMLam ("x", HMApp (HMVarE "x", HMVarE "x")));
+  check_error "hm: unbound variable"
+    (HMVarE "undefined");
+  check_error "hm: non-bool condition"
+    (HMIf (HMIntLit 1, HMIntLit 2, HMIntLit 3));
+  check_error "hm: add bool"
+    (HMBinOp (HMAdd, HMBoolLit true, HMIntLit 1));
+  check_error "hm: fst non-pair"
+    (HMFst (HMIntLit 42));
+  check_error "hm: snd non-pair"
+    (HMSnd (HMBoolLit true));
+  check_error "hm: lt bool"
+    (HMBinOp (HMLt, HMBoolLit true, HMBoolLit false));
+
+  (* --- Pretty printing --- *)
+  assert_equal "hm: pp int" "int" (hm_string_of_ty HMInt);
+  assert_equal "hm: pp bool" "bool" (hm_string_of_ty HMBool);
+  assert_equal "hm: pp var" "'x" (hm_string_of_ty (HMVar "'x"));
+  assert_equal "hm: pp fun" "int -> bool" (hm_string_of_ty (HMFun (HMInt, HMBool)));
+  assert_equal "hm: pp fun parens"
+    "(int -> bool) -> int"
+    (hm_string_of_ty (HMFun (HMFun (HMInt, HMBool), HMInt)));
+  assert_equal "hm: pp fun right assoc"
+    "int -> bool -> int"
+    (hm_string_of_ty (HMFun (HMInt, HMFun (HMBool, HMInt))));
+  assert_equal "hm: pp pair" "int * bool" (hm_string_of_ty (HMPair (HMInt, HMBool)));
+  assert_equal "hm: pp pair nested"
+    "int * bool * int"
+    (hm_string_of_ty (HMPair (HMInt, HMPair (HMBool, HMInt))));
+
+  Printf.printf "  Type inference: done\n";
+()
 
 let () =
   Printf.printf "\n=== OCaml Sample Code Test Suite ===\n\n";
@@ -6128,6 +6659,7 @@ let () =
   test_skip_list ();
   test_huffman ();
   test_calculus ();
+  test_type_infer ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
