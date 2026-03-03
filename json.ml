@@ -217,7 +217,11 @@ let hex_value (c : char) : int =
 
 (* Convert a Unicode code point to UTF-8 bytes *)
 let utf8_of_codepoint (cp : int) : string =
-  if cp < 0x80 then
+  if cp >= 0xD800 && cp <= 0xDFFF then
+    invalid_arg (Printf.sprintf "utf8_of_codepoint: surrogate U+%04X is not a valid Unicode scalar value" cp)
+  else if cp < 0 || cp > 0x10FFFF then
+    invalid_arg (Printf.sprintf "utf8_of_codepoint: U+%X out of range (0..10FFFF)" cp)
+  else if cp < 0x80 then
     String.make 1 (Char.chr cp)
   else if cp < 0x800 then
     Printf.sprintf "%c%c"
@@ -265,6 +269,8 @@ let escape_sequence : string parser =
              return_ (utf8_of_codepoint full)
            else
              fail "invalid low surrogate"
+         else if cp >= 0xDC00 && cp <= 0xDFFF then
+           fail "lone low surrogate (U+DC00..U+DFFF) is not valid JSON"
          else
            return_ (utf8_of_codepoint cp))
   )

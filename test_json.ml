@@ -102,7 +102,9 @@ let hex_value c =
   else if c >= 'a' && c <= 'f' then 10 + Char.code c - Char.code 'a'
   else 10 + Char.code c - Char.code 'A'
 let utf8_of_codepoint cp =
-  if cp < 0x80 then String.make 1 (Char.chr cp)
+  if cp >= 0xD800 && cp <= 0xDFFF then invalid_arg (Printf.sprintf "utf8_of_codepoint: surrogate U+%04X" cp)
+  else if cp < 0 || cp > 0x10FFFF then invalid_arg (Printf.sprintf "utf8_of_codepoint: U+%X out of range" cp)
+  else if cp < 0x80 then String.make 1 (Char.chr cp)
   else if cp < 0x800 then Printf.sprintf "%c%c" (Char.chr (0xC0 lor (cp lsr 6))) (Char.chr (0x80 lor (cp land 0x3F)))
   else if cp < 0x10000 then Printf.sprintf "%c%c%c" (Char.chr (0xE0 lor (cp lsr 12))) (Char.chr (0x80 lor ((cp lsr 6) land 0x3F))) (Char.chr (0x80 lor (cp land 0x3F)))
   else Printf.sprintf "%c%c%c%c" (Char.chr (0xF0 lor (cp lsr 18))) (Char.chr (0x80 lor ((cp lsr 12) land 0x3F))) (Char.chr (0x80 lor ((cp lsr 6) land 0x3F))) (Char.chr (0x80 lor (cp land 0x3F)))
@@ -118,6 +120,7 @@ let escape_sequence =
            let low = (hex_value l1 lsl 12) lor (hex_value l2 lsl 8) lor (hex_value l3 lsl 4) lor (hex_value l4) in
            if low >= 0xDC00 && low <= 0xDFFF then return_ (utf8_of_codepoint (0x10000 + ((cp - 0xD800) lsl 10) + (low - 0xDC00)))
            else fail "invalid low surrogate"
+         else if cp >= 0xDC00 && cp <= 0xDFFF then fail "lone low surrogate"
          else return_ (utf8_of_codepoint cp)))
 let string_char = escape_sequence <|> (satisfy (fun c -> c <> '"' && c <> '\\' && Char.code c >= 0x20) "string character" |> map (String.make 1))
 let json_string_raw = char_ '"' *> many string_char >>= fun parts -> char_ '"' *> return_ (String.concat "" parts)
@@ -559,6 +562,51 @@ let () =
         else if String.sub s i 9 = "</script>" then true
         else has_raw_close (i + 1)
       in not (has_raw_close 0));
+  );
+
+
+  suite "Surrogate Security" (fun () ->
+    (* Lone low surrogates (U+DC00..U+DFFF) must be rejected per RFC 8259 *)
+    assert_true ~msg:"lone low surrogate \\uDC00 rejected"
+      (match parse "\"\\uDC00\"" with Error _ -> true | Ok _ -> false);
+    assert_true ~msg:"lone low surrogate \\uDFFF rejected"
+      (match parse "\"\\uDFFF\"" with Error _ -> true | Ok _ -> false);
+    assert_true ~msg:"lone low surrogate \\uDD00 rejected"
+      (match parse "\"\\uDD00\"" with Error _ -> true | Ok _ -> false);
+
+    (* High surrogate without matching low surrogate *)
+    assert_true ~msg:"high surrogate without pair rejected"
+      (match parse "\"\\uD800\"" with Error _ -> true | Ok _ -> false);
+    assert_true ~msg:"high surrogate with non-surrogate rejected"
+      (match parse "\"\\uD800\\u0041\"" with Error _ -> true | Ok _ -> false);
+
+    (* Valid surrogate pair should still work *)
+    assert_true ~msg:"valid surrogate pair U+1F600 (grinning face)"
+      (match parse "\"\\uD83D\\uDE00\"" with
+       | Ok (String s) -> String.length s > 0  (* emoji bytes *)
+       | _ -> false);
+
+    (* Normal BMP codepoints still work *)
+    assert_true ~msg:"BMP codepoint U+0041 (A)"
+      (parse_ok "\"\\u0041\"" = String "A");
+    assert_true ~msg:"BMP codepoint U+00E9 (e-acute)"
+      (match parse "\"\\u00E9\"" with Ok (String _) -> true | _ -> false);
+    assert_true ~msg:"BMP codepoint U+4E16 (CJK)"
+      (match parse "\"\\u4E16\"" with Ok (String _) -> true | _ -> false);
+
+    (* utf8_of_codepoint rejects surrogates directly *)
+    assert_true ~msg:"utf8_of_codepoint rejects U+D800"
+      (try ignore (utf8_of_codepoint 0xD800); false with Invalid_argument _ -> true);
+    assert_true ~msg:"utf8_of_codepoint rejects U+DFFF"
+      (try ignore (utf8_of_codepoint 0xDFFF); false with Invalid_argument _ -> true);
+    assert_true ~msg:"utf8_of_codepoint rejects negative"
+      (try ignore (utf8_of_codepoint (-1)); false with Invalid_argument _ -> true);
+    assert_true ~msg:"utf8_of_codepoint rejects U+110000"
+      (try ignore (utf8_of_codepoint 0x110000); false with Invalid_argument _ -> true);
+    assert_true ~msg:"utf8_of_codepoint accepts U+0000"
+      (utf8_of_codepoint 0 = String.make 1 (Char.chr 0));
+    assert_true ~msg:"utf8_of_codepoint accepts U+10FFFF"
+      (String.length (utf8_of_codepoint 0x10FFFF) = 4);
   );
 
   Printf.printf "\n=== JSON Parser Test Results ===\n";
