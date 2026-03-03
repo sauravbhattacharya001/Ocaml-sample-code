@@ -5648,6 +5648,462 @@ let test_huffman () = suite "Huffman" (fun () ->
   Printf.printf "  Huffman: done\n";
 )
 
+(* ===== Calculus functions (from calculus.ml) ===== *)
+
+type expr =
+  | CConst of float
+  | CVar   of string
+  | CAdd   of expr * expr
+  | CSub   of expr * expr
+  | CMul   of expr * expr
+  | CDiv   of expr * expr
+  | CPow   of expr * expr
+  | CNeg   of expr
+  | CLn    of expr
+  | CExp   of expr
+  | CSin   of expr
+  | CCos   of expr
+  | CTan   of expr
+  | CSqrt  of expr
+  | CAbs   of expr
+
+let cprec = function
+  | CConst _ | CVar _ | CLn _ | CExp _ | CSin _ | CCos _
+  | CTan _ | CSqrt _ | CAbs _ -> 100
+  | CNeg _ -> 90
+  | CPow _ -> 80
+  | CMul _ | CDiv _ -> 60
+  | CAdd _ | CSub _ -> 50
+
+let rec cto_string e =
+  let wrap parent child s =
+    if cprec child < cprec parent then "(" ^ s ^ ")" else s
+  in
+  match e with
+  | CConst c ->
+    if c = Float.round c && Float.is_finite c then
+      string_of_int (int_of_float c)
+    else string_of_float c
+  | CVar x -> x
+  | CAdd (a, b) -> wrap e a (cto_string a) ^ " + " ^ wrap e b (cto_string b)
+  | CSub (a, b) -> wrap e a (cto_string a) ^ " - " ^ wrap e b (cto_string b)
+  | CMul (a, b) -> wrap e a (cto_string a) ^ " * " ^ wrap e b (cto_string b)
+  | CDiv (a, b) -> wrap e a (cto_string a) ^ " / " ^ wrap e b (cto_string b)
+  | CPow (a, b) -> wrap e a (cto_string a) ^ "^" ^ wrap e b (cto_string b)
+  | CNeg a -> "-" ^ wrap e a (cto_string a)
+  | CLn a -> "ln(" ^ cto_string a ^ ")"
+  | CExp a -> "exp(" ^ cto_string a ^ ")"
+  | CSin a -> "sin(" ^ cto_string a ^ ")"
+  | CCos a -> "cos(" ^ cto_string a ^ ")"
+  | CTan a -> "tan(" ^ cto_string a ^ ")"
+  | CSqrt a -> "sqrt(" ^ cto_string a ^ ")"
+  | CAbs a -> "|" ^ cto_string a ^ "|"
+
+let rec csimplify = function
+  | CAdd (CConst a, CConst b) -> CConst (a +. b)
+  | CSub (CConst a, CConst b) -> CConst (a -. b)
+  | CMul (CConst a, CConst b) -> CConst (a *. b)
+  | CDiv (CConst a, CConst b) when b <> 0.0 -> CConst (a /. b)
+  | CPow (CConst a, CConst b) -> CConst (a ** b)
+  | CNeg (CConst a) -> CConst (-.a)
+  | CAdd (e, CConst 0.0) | CAdd (CConst 0.0, e) -> csimplify e
+  | CSub (e, CConst 0.0) -> csimplify e
+  | CSub (a, b) when a = b -> CConst 0.0
+  | CMul (e, CConst 1.0) | CMul (CConst 1.0, e) -> csimplify e
+  | CMul (_, CConst 0.0) | CMul (CConst 0.0, _) -> CConst 0.0
+  | CDiv (e, CConst 1.0) -> csimplify e
+  | CDiv (a, b) when a = b -> CConst 1.0
+  | CPow (_, CConst 0.0) -> CConst 1.0
+  | CPow (e, CConst 1.0) -> csimplify e
+  | CPow (CConst 1.0, _) -> CConst 1.0
+  | CNeg (CNeg e) -> csimplify e
+  | CNeg (CConst 0.0) -> CConst 0.0
+  | CLn (CExp e) -> csimplify e
+  | CExp (CLn e) -> csimplify e
+  | CLn (CConst 1.0) -> CConst 0.0
+  | CExp (CConst 0.0) -> CConst 1.0
+  | CSqrt (CPow (e, CConst 2.0)) -> CAbs (csimplify e)
+  | CAdd (a, b) ->
+    let a' = csimplify a and b' = csimplify b in
+    if a' <> a || b' <> b then csimplify (CAdd (a', b')) else CAdd (a', b')
+  | CSub (a, b) ->
+    let a' = csimplify a and b' = csimplify b in
+    if a' <> a || b' <> b then csimplify (CSub (a', b')) else CSub (a', b')
+  | CMul (a, b) ->
+    let a' = csimplify a and b' = csimplify b in
+    if a' <> a || b' <> b then csimplify (CMul (a', b')) else CMul (a', b')
+  | CDiv (a, b) ->
+    let a' = csimplify a and b' = csimplify b in
+    if a' <> a || b' <> b then csimplify (CDiv (a', b')) else CDiv (a', b')
+  | CPow (a, b) ->
+    let a' = csimplify a and b' = csimplify b in
+    if a' <> a || b' <> b then csimplify (CPow (a', b')) else CPow (a', b')
+  | CNeg a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CNeg a') else CNeg a'
+  | CLn a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CLn a') else CLn a'
+  | CExp a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CExp a') else CExp a'
+  | CSin a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CSin a') else CSin a'
+  | CCos a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CCos a') else CCos a'
+  | CTan a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CTan a') else CTan a'
+  | CSqrt a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CSqrt a') else CSqrt a'
+  | CAbs a ->
+    let a' = csimplify a in
+    if a' <> a then csimplify (CAbs a') else CAbs a'
+  | e -> e
+
+let rec cdiff var = function
+  | CConst _ -> CConst 0.0
+  | CVar x when x = var -> CConst 1.0
+  | CVar _ -> CConst 0.0
+  | CAdd (a, b) -> CAdd (cdiff var a, cdiff var b)
+  | CSub (a, b) -> CSub (cdiff var a, cdiff var b)
+  | CMul (a, b) -> CAdd (CMul (cdiff var a, b), CMul (a, cdiff var b))
+  | CDiv (a, b) ->
+    CDiv (CSub (CMul (cdiff var a, b), CMul (a, cdiff var b)),
+          CPow (b, CConst 2.0))
+  | CPow (base, CConst n) ->
+    CMul (CMul (CConst n, CPow (base, CConst (n -. 1.0))), cdiff var base)
+  | CPow (a, b) ->
+    CMul (CPow (a, b),
+          CAdd (CMul (cdiff var b, CLn a),
+                CMul (b, CDiv (cdiff var a, a))))
+  | CNeg a -> CNeg (cdiff var a)
+  | CLn a -> CDiv (cdiff var a, a)
+  | CExp a -> CMul (CExp a, cdiff var a)
+  | CSin a -> CMul (CCos a, cdiff var a)
+  | CCos a -> CNeg (CMul (CSin a, cdiff var a))
+  | CTan a -> CDiv (cdiff var a, CPow (CCos a, CConst 2.0))
+  | CSqrt a -> CDiv (cdiff var a, CMul (CConst 2.0, CSqrt a))
+  | CAbs a -> CDiv (CMul (a, cdiff var a), CAbs a)
+
+let cdifferentiate var e = csimplify (cdiff var e)
+
+let rec cnth_derivative var n e =
+  if n <= 0 then csimplify e
+  else cnth_derivative var (n - 1) (cdifferentiate var e)
+
+let rec ceval env = function
+  | CConst c -> c
+  | CVar x ->
+    (match List.assoc_opt x env with
+     | Some v -> v
+     | None -> failwith ("unbound variable: " ^ x))
+  | CAdd (a, b) -> ceval env a +. ceval env b
+  | CSub (a, b) -> ceval env a -. ceval env b
+  | CMul (a, b) -> ceval env a *. ceval env b
+  | CDiv (a, b) -> ceval env a /. ceval env b
+  | CPow (a, b) -> (ceval env a) ** (ceval env b)
+  | CNeg a -> -.(ceval env a)
+  | CLn a -> log (ceval env a)
+  | CExp a -> exp (ceval env a)
+  | CSin a -> sin (ceval env a)
+  | CCos a -> cos (ceval env a)
+  | CTan a -> tan (ceval env a)
+  | CSqrt a -> sqrt (ceval env a)
+  | CAbs a -> Float.abs (ceval env a)
+
+let cvariables expr =
+  let rec collect acc = function
+    | CConst _ -> acc
+    | CVar x -> if List.mem x acc then acc else x :: acc
+    | CAdd (a, b) | CSub (a, b) | CMul (a, b) | CDiv (a, b) | CPow (a, b) ->
+      collect (collect acc a) b
+    | CNeg a | CLn a | CExp a | CSin a | CCos a | CTan a | CSqrt a | CAbs a ->
+      collect acc a
+  in
+  List.sort String.compare (collect [] expr)
+
+let cgradient expr =
+  let vars = cvariables expr in
+  List.map (fun v -> (v, cdifferentiate v expr)) vars
+
+let rec csubstitute var replacement = function
+  | CConst c -> CConst c
+  | CVar x when x = var -> replacement
+  | CVar x -> CVar x
+  | CAdd (a, b) -> CAdd (csubstitute var replacement a, csubstitute var replacement b)
+  | CSub (a, b) -> CSub (csubstitute var replacement a, csubstitute var replacement b)
+  | CMul (a, b) -> CMul (csubstitute var replacement a, csubstitute var replacement b)
+  | CDiv (a, b) -> CDiv (csubstitute var replacement a, csubstitute var replacement b)
+  | CPow (a, b) -> CPow (csubstitute var replacement a, csubstitute var replacement b)
+  | CNeg a -> CNeg (csubstitute var replacement a)
+  | CLn a -> CLn (csubstitute var replacement a)
+  | CExp a -> CExp (csubstitute var replacement a)
+  | CSin a -> CSin (csubstitute var replacement a)
+  | CCos a -> CCos (csubstitute var replacement a)
+  | CTan a -> CTan (csubstitute var replacement a)
+  | CSqrt a -> CSqrt (csubstitute var replacement a)
+  | CAbs a -> CAbs (csubstitute var replacement a)
+
+(* ── Calculus tests ─────────────────────────────────────────────────── *)
+
+let assert_float_equal ~msg ~tol expected actual =
+  incr tests_run;
+  if Float.abs (expected -. actual) <= tol then
+    incr tests_passed
+  else begin
+    incr tests_failed;
+    Printf.printf "  FAIL [%s] %s: expected %f, got %f\n"
+      !current_suite msg expected actual
+  end
+
+let test_calculus () = suite "Calculus" (fun () ->
+  let x = CVar "x" in
+  let y = CVar "y" in
+
+  (* === Differentiation basics === *)
+
+  (* d/dx (constant) = 0 *)
+  assert_true ~msg:"d/dx(5) = 0"
+    (cdifferentiate "x" (CConst 5.0) = CConst 0.0);
+
+  (* d/dx (x) = 1 *)
+  assert_true ~msg:"d/dx(x) = 1"
+    (cdifferentiate "x" x = CConst 1.0);
+
+  (* d/dx (y) = 0 (different variable) *)
+  assert_true ~msg:"d/dx(y) = 0"
+    (cdifferentiate "x" y = CConst 0.0);
+
+  (* d/dx (x + 5) = 1 *)
+  assert_true ~msg:"d/dx(x + 5) = 1"
+    (cdifferentiate "x" (CAdd (x, CConst 5.0)) = CConst 1.0);
+
+  (* d/dx (3x) = 3 *)
+  assert_true ~msg:"d/dx(3x) = 3"
+    (cdifferentiate "x" (CMul (CConst 3.0, x)) = CConst 3.0);
+
+  (* d/dx (x^2) = 2x *)
+  let x2 = CPow (x, CConst 2.0) in
+  let dx2 = cdifferentiate "x" x2 in
+  assert_float_equal ~msg:"d/dx(x^2) at x=3 -> 6"
+    ~tol:1e-10 6.0 (ceval [("x", 3.0)] dx2);
+
+  (* d/dx (x^3) = 3x^2 *)
+  let dx3 = cdifferentiate "x" (CPow (x, CConst 3.0)) in
+  assert_float_equal ~msg:"d/dx(x^3) at x=2 -> 12"
+    ~tol:1e-10 12.0 (ceval [("x", 2.0)] dx3);
+
+  (* === Product rule === *)
+  (* d/dx (x * sin(x)) = sin(x) + x*cos(x) *)
+  let prod = CMul (x, CSin x) in
+  let dprod = cdifferentiate "x" prod in
+  let v_pi2 = Float.pi /. 2.0 in
+  assert_float_equal ~msg:"d/dx(x*sin(x)) at pi/2 -> 1"
+    ~tol:1e-10 1.0 (ceval [("x", v_pi2)] dprod);
+
+  (* === Quotient rule === *)
+  let quot = CDiv (x, CAdd (x, CConst 1.0)) in
+  let dquot = cdifferentiate "x" quot in
+  assert_float_equal ~msg:"d/dx(x/(x+1)) at x=1 -> 0.25"
+    ~tol:1e-10 0.25 (ceval [("x", 1.0)] dquot);
+
+  (* === Chain rule === *)
+  let chain = CExp (CPow (x, CConst 2.0)) in
+  let dchain = cdifferentiate "x" chain in
+  assert_float_equal ~msg:"d/dx(exp(x^2)) at x=1 -> 2e"
+    ~tol:1e-4 (2.0 *. exp 1.0) (ceval [("x", 1.0)] dchain);
+
+  (* === Trigonometric derivatives === *)
+  let dsin = cdifferentiate "x" (CSin x) in
+  assert_float_equal ~msg:"d/dx(sin(x)) at x=0 -> 1"
+    ~tol:1e-10 1.0 (ceval [("x", 0.0)] dsin);
+
+  let dcos = cdifferentiate "x" (CCos x) in
+  assert_float_equal ~msg:"d/dx(cos(x)) at pi/2 -> -1"
+    ~tol:1e-10 (-1.0) (ceval [("x", v_pi2)] dcos);
+
+  let dtan = cdifferentiate "x" (CTan x) in
+  assert_float_equal ~msg:"d/dx(tan(x)) at x=0 -> 1"
+    ~tol:1e-10 1.0 (ceval [("x", 0.0)] dtan);
+
+  (* === Logarithmic derivative === *)
+  let dln = cdifferentiate "x" (CLn x) in
+  assert_float_equal ~msg:"d/dx(ln(x)) at x=2 -> 0.5"
+    ~tol:1e-10 0.5 (ceval [("x", 2.0)] dln);
+
+  let dln2 = cdifferentiate "x" (CLn (CAdd (CPow (x, CConst 2.0), CConst 1.0))) in
+  assert_float_equal ~msg:"d/dx(ln(x^2+1)) at x=1 -> 1"
+    ~tol:1e-10 1.0 (ceval [("x", 1.0)] dln2);
+
+  (* === Exponential derivative === *)
+  let dexp = cdifferentiate "x" (CExp x) in
+  assert_float_equal ~msg:"d/dx(exp(x)) at x=0 -> 1"
+    ~tol:1e-10 1.0 (ceval [("x", 0.0)] dexp);
+  assert_float_equal ~msg:"d/dx(exp(x)) at x=1 -> e"
+    ~tol:1e-10 (exp 1.0) (ceval [("x", 1.0)] dexp);
+
+  (* === Square root === *)
+  let dsqrt = cdifferentiate "x" (CSqrt x) in
+  assert_float_equal ~msg:"d/dx(sqrt(x)) at x=4 -> 0.25"
+    ~tol:1e-10 0.25 (ceval [("x", 4.0)] dsqrt);
+
+  (* === Negation === *)
+  let dneg = cdifferentiate "x" (CNeg (CPow (x, CConst 2.0))) in
+  assert_float_equal ~msg:"d/dx(-x^2) at x=3 -> -6"
+    ~tol:1e-10 (-6.0) (ceval [("x", 3.0)] dneg);
+
+  (* === Higher-order derivatives === *)
+  let d2sin = cnth_derivative "x" 2 (CSin x) in
+  assert_float_equal ~msg:"d2/dx2(sin(x)) at pi/2 -> -1"
+    ~tol:1e-10 (-1.0) (ceval [("x", v_pi2)] d2sin);
+
+  let d2x3 = cnth_derivative "x" 2 (CPow (x, CConst 3.0)) in
+  assert_float_equal ~msg:"d2/dx2(x^3) at x=5 -> 30"
+    ~tol:1e-10 30.0 (ceval [("x", 5.0)] d2x3);
+
+  let d3x4 = cnth_derivative "x" 3 (CPow (x, CConst 4.0)) in
+  assert_float_equal ~msg:"d3/dx3(x^4) at x=2 -> 48"
+    ~tol:1e-10 48.0 (ceval [("x", 2.0)] d3x4);
+
+  assert_true ~msg:"0th derivative is identity"
+    (cnth_derivative "x" 0 (CMul (CConst 3.0, x)) = CMul (CConst 3.0, x));
+
+  (* === Simplification === *)
+  assert_true ~msg:"x + 0 = x"
+    (csimplify (CAdd (x, CConst 0.0)) = x);
+  assert_true ~msg:"0 + x = x"
+    (csimplify (CAdd (CConst 0.0, x)) = x);
+  assert_true ~msg:"x * 1 = x"
+    (csimplify (CMul (x, CConst 1.0)) = x);
+  assert_true ~msg:"x * 0 = 0"
+    (csimplify (CMul (x, CConst 0.0)) = CConst 0.0);
+  assert_true ~msg:"x - x = 0"
+    (csimplify (CSub (x, x)) = CConst 0.0);
+  assert_true ~msg:"x / x = 1"
+    (csimplify (CDiv (x, x)) = CConst 1.0);
+  assert_true ~msg:"x^0 = 1"
+    (csimplify (CPow (x, CConst 0.0)) = CConst 1.0);
+  assert_true ~msg:"x^1 = x"
+    (csimplify (CPow (x, CConst 1.0)) = x);
+  assert_true ~msg:"1^x = 1"
+    (csimplify (CPow (CConst 1.0, x)) = CConst 1.0);
+  assert_true ~msg:"--x = x"
+    (csimplify (CNeg (CNeg x)) = x);
+  assert_true ~msg:"ln(exp(x)) = x"
+    (csimplify (CLn (CExp x)) = x);
+  assert_true ~msg:"exp(ln(x)) = x"
+    (csimplify (CExp (CLn x)) = x);
+  assert_true ~msg:"ln(1) = 0"
+    (csimplify (CLn (CConst 1.0)) = CConst 0.0);
+  assert_true ~msg:"exp(0) = 1"
+    (csimplify (CExp (CConst 0.0)) = CConst 1.0);
+  assert_true ~msg:"sqrt(x^2) = |x|"
+    (csimplify (CSqrt (CPow (x, CConst 2.0))) = CAbs x);
+
+  (* Constant folding *)
+  assert_true ~msg:"2 + 3 = 5"
+    (csimplify (CAdd (CConst 2.0, CConst 3.0)) = CConst 5.0);
+  assert_true ~msg:"6 * 7 = 42"
+    (csimplify (CMul (CConst 6.0, CConst 7.0)) = CConst 42.0);
+  assert_true ~msg:"10 / 2 = 5"
+    (csimplify (CDiv (CConst 10.0, CConst 2.0)) = CConst 5.0);
+  assert_true ~msg:"2^3 = 8"
+    (csimplify (CPow (CConst 2.0, CConst 3.0)) = CConst 8.0);
+  assert_true ~msg:"-(-3) = 3"
+    (csimplify (CNeg (CConst (-.3.0))) = CConst 3.0);
+
+  (* === Partial derivatives === *)
+  let f_xy = CMul (CPow (x, CConst 2.0), y) in
+  let df_dx = cdifferentiate "x" f_xy in
+  let df_dy = cdifferentiate "y" f_xy in
+  assert_float_equal ~msg:"d(x^2*y)/dx at (2,3) -> 12"
+    ~tol:1e-10 12.0 (ceval [("x", 2.0); ("y", 3.0)] df_dx);
+  assert_float_equal ~msg:"d(x^2*y)/dy at (2,3) -> 4"
+    ~tol:1e-10 4.0 (ceval [("x", 2.0); ("y", 3.0)] df_dy);
+
+  (* === Gradient === *)
+  let grad = cgradient f_xy in
+  assert_true ~msg:"gradient has 2 entries"
+    (List.length grad = 2);
+  assert_true ~msg:"gradient vars are x,y"
+    (List.map fst grad = ["x"; "y"]);
+
+  (* === Variable collection === *)
+  assert_true ~msg:"variables of x^2*y are [x; y]"
+    (cvariables f_xy = ["x"; "y"]);
+  assert_true ~msg:"variables of constant = []"
+    (cvariables (CConst 5.0) = []);
+  assert_true ~msg:"variables of sin(x+y) = [x; y]"
+    (cvariables (CSin (CAdd (x, y))) = ["x"; "y"]);
+
+  (* === Substitution === *)
+  let subst = csubstitute "x" (CConst 3.0) x2 in
+  assert_float_equal ~msg:"x^2[x->3] = 9"
+    ~tol:1e-10 9.0 (ceval [] (csimplify subst));
+  let subst2 = csubstitute "x" (CAdd (y, CConst 1.0)) (CMul (x, y)) in
+  assert_float_equal ~msg:"(x*y)[x->y+1] at y=2 -> 6"
+    ~tol:1e-10 6.0 (ceval [("y", 2.0)] subst2);
+
+  (* === Evaluation === *)
+  assert_float_equal ~msg:"eval 5+3 = 8"
+    ~tol:1e-10 8.0 (ceval [] (CAdd (CConst 5.0, CConst 3.0)));
+  assert_float_equal ~msg:"eval sin(0) = 0"
+    ~tol:1e-10 0.0 (ceval [] (CSin (CConst 0.0)));
+  assert_float_equal ~msg:"eval cos(0) = 1"
+    ~tol:1e-10 1.0 (ceval [] (CCos (CConst 0.0)));
+  assert_float_equal ~msg:"eval exp(0) = 1"
+    ~tol:1e-10 1.0 (ceval [] (CExp (CConst 0.0)));
+  assert_float_equal ~msg:"eval ln(1) = 0"
+    ~tol:1e-10 0.0 (ceval [] (CLn (CConst 1.0)));
+  assert_float_equal ~msg:"eval sqrt(9) = 3"
+    ~tol:1e-10 3.0 (ceval [] (CSqrt (CConst 9.0)));
+  assert_float_equal ~msg:"eval |(-5)| = 5"
+    ~tol:1e-10 5.0 (ceval [] (CAbs (CConst (-.5.0))));
+  assert_float_equal ~msg:"eval -(7) = -7"
+    ~tol:1e-10 (-7.0) (ceval [] (CNeg (CConst 7.0)));
+  assert_float_equal ~msg:"eval 2^10 = 1024"
+    ~tol:1e-10 1024.0 (ceval [] (CPow (CConst 2.0, CConst 10.0)));
+  assert_float_equal ~msg:"eval 10/3 ~ 3.333"
+    ~tol:1e-3 3.333 (ceval [] (CDiv (CConst 10.0, CConst 3.0)));
+  assert_float_equal ~msg:"eval tan(0) = 0"
+    ~tol:1e-10 0.0 (ceval [] (CTan (CConst 0.0)));
+
+  (* Unbound variable -> exception *)
+  assert_raises ~msg:"unbound variable raises"
+    (fun () -> ceval [] x);
+
+  (* === Pretty printing === *)
+  assert_equal ~msg:"to_string x+1" "x + 1" (cto_string (CAdd (x, CConst 1.0)));
+  assert_equal ~msg:"to_string 3*x" "3 * x" (cto_string (CMul (CConst 3.0, x)));
+  assert_equal ~msg:"to_string sin(x)" "sin(x)" (cto_string (CSin x));
+  assert_equal ~msg:"to_string x^2" "x^2" (cto_string (CPow (x, CConst 2.0)));
+  assert_equal ~msg:"to_string -x" "-x" (cto_string (CNeg x));
+  assert_equal ~msg:"to_string ln(x)" "ln(x)" (cto_string (CLn x));
+  assert_equal ~msg:"to_string |x|" "|x|" (cto_string (CAbs x));
+  assert_equal ~msg:"to_string x*(y+1) has parens"
+    "x * (y + 1)" (cto_string (CMul (x, CAdd (y, CConst 1.0))));
+
+  (* === Numerical derivative verification === *)
+  let check_numerical msg f df_sym x0 =
+    let h = 1e-7 in
+    let numerical = (ceval [("x", x0 +. h)] f -. ceval [("x", x0 -. h)] f) /. (2.0 *. h) in
+    let symbolic = ceval [("x", x0)] df_sym in
+    assert_float_equal ~msg ~tol:1e-4 numerical symbolic
+  in
+  let e1 = CPow (x, CConst 3.0) in
+  check_numerical "x^3 numerical at x=2" e1 (cdifferentiate "x" e1) 2.0;
+  let e2 = CMul (CSin x, CExp x) in
+  check_numerical "sin(x)*exp(x) numerical at x=1" e2 (cdifferentiate "x" e2) 1.0;
+  let e3 = CDiv (x, CAdd (CPow (x, CConst 2.0), CConst 1.0)) in
+  check_numerical "x/(x^2+1) numerical at x=0.5" e3 (cdifferentiate "x" e3) 0.5;
+
+  Printf.printf "  Calculus: done\n";
+)
+
 (* ===== Main ===== *)
 
 let () =
@@ -5671,6 +6127,7 @@ let () =
   test_lru_cache ();
   test_skip_list ();
   test_huffman ();
+  test_calculus ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
