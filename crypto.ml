@@ -170,9 +170,6 @@ let frequency_analysis text =
     freqs
   end
 
-(* English letter frequencies for reference *)
-let english_freq = "etaoinshrdlcumwfgypbvkjxqz"
-
 (* Guess Caesar shift by comparing most frequent letter to 'e' *)
 let guess_caesar_shift ciphertext =
   let freqs = frequency_analysis ciphertext in

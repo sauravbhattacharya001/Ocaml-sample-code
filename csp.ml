@@ -87,10 +87,6 @@ let add_all_different csp vars =
   in
   List.fold_left (fun csp (v1, v2) -> add_neq csp v1 v2) csp (pairs vars)
 
-(** Get constraints involving a specific variable. *)
-let constraints_on csp var =
-  List.filter (fun c -> c.var1 = var || c.var2 = var) csp.constraints
-
 (** Get neighbors of a variable (connected by any constraint). *)
 let neighbors csp var =
   List.fold_left (fun acc c ->

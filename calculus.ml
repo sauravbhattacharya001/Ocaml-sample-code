@@ -316,10 +316,6 @@ let rec substitute var replacement = function
   | Sqrt a -> Sqrt (substitute var replacement a)
   | Abs a -> Abs (substitute var replacement a)
 
-(* ── Expression equality (structural) ─────────────────────────────── *)
-
-let equal = ( = )
-
 (* ── Demo ─────────────────────────────────────────────────────────── *)
 
 let () =

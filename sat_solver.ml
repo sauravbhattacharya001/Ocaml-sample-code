@@ -21,10 +21,6 @@ type assignment = bool IntMap.t
 
 let var_of = function Pos v | Neg v -> v
 
-let negate = function
-  | Pos v -> Neg v
-  | Neg v -> Pos v
-
 let is_positive = function Pos _ -> true | Neg _ -> false
 
 let eval_literal assign lit =

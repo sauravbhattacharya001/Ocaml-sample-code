@@ -479,13 +479,6 @@ let () = Printf.printf "=== Automatic Differentiation Tests ===\n\n"
 
 let tolerance = 1e-6
 
-let assert_close ?(eps=tolerance) msg expected actual =
-  if Stdlib.abs_float (expected -. actual) > eps then begin
-    Printf.printf "FAIL: %s — expected %.10f, got %.10f\n" msg expected actual;
-    exit 1
-  end else
-    Printf.printf "  PASS: %s\n" msg
-
 let passed = ref 0
 let failed = ref 0
 

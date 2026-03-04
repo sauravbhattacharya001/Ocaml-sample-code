@@ -226,10 +226,6 @@ let where_gt (rows : cell list list) (col_idx : int) (threshold : float) =
   filter_rows rows col_idx (fun c ->
     match cell_to_float c with Some v -> v > threshold | None -> false)
 
-(** Filter: numeric column < threshold. *)
-let where_lt (rows : cell list list) (col_idx : int) (threshold : float) =
-  filter_rows rows col_idx (fun c ->
-    match cell_to_float c with Some v -> v < threshold | None -> false)
 
 (** Filter: string column contains substring (case-insensitive). *)
 let where_contains (rows : cell list list) (col_idx : int) (sub : string) =

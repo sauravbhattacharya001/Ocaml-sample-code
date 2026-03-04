@@ -12,13 +12,6 @@ let is_sorted cmp lst =
   in
   aux lst
 
-(** Check whether a list is sorted in strictly ascending order. *)
-let is_strictly_sorted cmp lst =
-  let rec aux = function
-    | [] | [_] -> true
-    | x :: (y :: _ as rest) -> cmp x y < 0 && aux rest
-  in
-  aux lst
 
 (* ===== Insertion Sort ===== *)
 (* Stable, O(n²) worst/average, O(n) best (already sorted).
@@ -228,14 +221,6 @@ let random_list n lo hi =
   List.init n (fun _ -> lo + Random.int (hi - lo + 1))
 
 (** Generate a list [0; 1; ...; n-1]. *)
-let ascending_list n = List.init n Fun.id
-
-(** Generate a list [n-1; n-2; ...; 0]. *)
-let descending_list n = List.init n (fun i -> n - 1 - i)
-
-(** Generate a list of n identical values. *)
-let constant_list n v = List.init n (fun _ -> v)
-
 (* Pretty print *)
 let string_of_int_list lst =
   "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]"
