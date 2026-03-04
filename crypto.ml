@@ -55,6 +55,9 @@ let caesar_brute_force s =
 (* ── Vigenère Cipher ─────────────────────────────────────────────── *)
 
 let vigenere_encrypt key plaintext =
+  if String.length key = 0 then
+    invalid_arg "vigenere_encrypt: key must not be empty"
+  else
   let key_upper = String.uppercase_ascii key in
   let key_len = String.length key_upper in
   let ki = ref 0 in
@@ -68,6 +71,9 @@ let vigenere_encrypt key plaintext =
   ) plaintext
 
 let vigenere_decrypt key ciphertext =
+  if String.length key = 0 then
+    invalid_arg "vigenere_decrypt: key must not be empty"
+  else
   let key_upper = String.uppercase_ascii key in
   let inv_key = String.map (fun c ->
     Char.chr (Char.code 'A' + (26 - (Char.code c - Char.code 'A')) mod 26)
