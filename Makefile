@@ -12,7 +12,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	matrix.ml huffman.ml queue.ml fenwick_tree.ml hashmap.ml \
 	bloom_filter.ml interval_tree.ml lru_cache.ml segment_tree.ml \
 	skip_list.ml suffix_array.ml calculus.ml type_infer.ml optics.ml \
-	minikanren.ml
+	minikanren.ml effects.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml
