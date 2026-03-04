@@ -58,6 +58,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`probability.ml`](probability.ml) | Probability monad & Monte Carlo simulation | Monadic composition, sampling distributions, statistics, Monte Carlo integration, Markov chains, Bayesian inference |
 | [`minikanren.ml`](minikanren.ml) | miniKanren logic programming engine | Unification, substitution, logic variables, streams, relational programming, Peano arithmetic, constraint solving |
 | [`effects.ml`](effects.ml) | Algebraic effects and handlers | Free monads, delimited continuations, CPS transforms, effect composition via coproducts, State/Exception/Nondeterminism/Writer/Reader/Coroutine effects, N-Queens |
+| [`autodiff.ml`](autodiff.ml) | Automatic differentiation — forward & reverse mode | Dual numbers, computation graphs, tape-based backpropagation, gradient/Jacobian/Hessian, Adam/momentum optimizers, neural network building blocks |
 
 ## Getting Started
 
