@@ -149,9 +149,9 @@ let with_depth_check (p : json parser) : json parser =
       Error (Printf.sprintf "maximum nesting depth (%d) exceeded" !max_parse_depth, pos)
     else begin
       incr current_depth;
-      let result = p input pos in
-      decr current_depth;
-      result
+      Fun.protect
+        ~finally:(fun () -> decr current_depth)
+        (fun () -> p input pos)
     end
 
 (* Forward reference for recursive grammar *)
