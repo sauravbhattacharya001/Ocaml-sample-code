@@ -220,8 +220,13 @@ let rec nth_derivative var n e =
 
 (* ── Evaluation ───────────────────────────────────────────────────── *)
 
+(** Raised when evaluation encounters a mathematical domain error
+    (division by zero, log of non-positive, sqrt of negative, etc.). *)
+exception Domain_error of string
+
 (* Evaluate an expression given variable bindings.
-   Raises Failure if a variable is unbound. *)
+   Raises [Failure] if a variable is unbound.
+   Raises [Domain_error] on mathematical domain violations. *)
 let rec eval env = function
   | Const c -> c
   | Var x ->
@@ -231,16 +236,44 @@ let rec eval env = function
   | Add (a, b) -> eval env a +. eval env b
   | Sub (a, b) -> eval env a -. eval env b
   | Mul (a, b) -> eval env a *. eval env b
-  | Div (a, b) -> eval env a /. eval env b
-  | Pow (a, b) -> (eval env a) ** (eval env b)
+  | Div (a, b) ->
+    let bv = eval env b in
+    if bv = 0.0 then raise (Domain_error "division by zero")
+    else eval env a /. bv
+  | Pow (a, b) ->
+    let av = eval env a and bv = eval env b in
+    let result = av ** bv in
+    if Float.is_nan result && not (Float.is_nan av) && not (Float.is_nan bv)
+    then raise (Domain_error (Printf.sprintf "undefined power: %g ** %g" av bv))
+    else if Float.is_infinite result && Float.is_finite av && Float.is_finite bv
+    then raise (Domain_error (Printf.sprintf "infinite power: %g ** %g" av bv))
+    else result
   | Neg a -> -.(eval env a)
-  | Ln a -> log (eval env a)
+  | Ln a ->
+    let av = eval env a in
+    if av <= 0.0 then raise (Domain_error (Printf.sprintf "log of non-positive value: %g" av))
+    else log av
   | Exp a -> exp (eval env a)
   | Sin a -> sin (eval env a)
   | Cos a -> cos (eval env a)
-  | Tan a -> tan (eval env a)
-  | Sqrt a -> sqrt (eval env a)
+  | Tan a ->
+    let av = eval env a in
+    let cv = cos av in
+    if Float.abs cv < 1e-15
+    then raise (Domain_error (Printf.sprintf "tan at singularity: %g" av))
+    else sin av /. cv
+  | Sqrt a ->
+    let av = eval env a in
+    if av < 0.0 then raise (Domain_error (Printf.sprintf "sqrt of negative value: %g" av))
+    else sqrt av
   | Abs a -> Float.abs (eval env a)
+
+(** [try_eval env expr] evaluates [expr] safely, returning [Some value]
+    on success or [None] on domain errors. Useful in numerical methods
+    where domain errors are expected and should be handled gracefully. *)
+let try_eval env expr =
+  try Some (eval env expr)
+  with Domain_error _ -> None
 
 (* ── Variable collection ──────────────────────────────────────────── *)
 
