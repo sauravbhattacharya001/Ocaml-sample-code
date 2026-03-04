@@ -220,8 +220,13 @@ let rec nth_derivative var n e =
 
 (* ── Evaluation ───────────────────────────────────────────────────── *)
 
+(* Raised when an expression is evaluated outside its mathematical domain. *)
+exception Domain_error of string
+
 (* Evaluate an expression given variable bindings.
-   Raises Failure if a variable is unbound. *)
+   Raises Failure if a variable is unbound.
+   Raises Domain_error on division by zero, log of non-positive, sqrt of
+   negative, or other mathematical domain violations. *)
 let rec eval env = function
   | Const c -> c
   | Var x ->
@@ -231,16 +236,42 @@ let rec eval env = function
   | Add (a, b) -> eval env a +. eval env b
   | Sub (a, b) -> eval env a -. eval env b
   | Mul (a, b) -> eval env a *. eval env b
-  | Div (a, b) -> eval env a /. eval env b
-  | Pow (a, b) -> (eval env a) ** (eval env b)
+  | Div (a, b) ->
+    let bv = eval env b in
+    if bv = 0.0 then raise (Domain_error "division by zero")
+    else eval env a /. bv
+  | Pow (a, b) ->
+    let av = eval env a in
+    let bv = eval env b in
+    if av = 0.0 && bv < 0.0 then
+      raise (Domain_error "0 raised to a negative power")
+    else if av < 0.0 && Float.is_integer bv = false then
+      raise (Domain_error "negative base with non-integer exponent")
+    else av ** bv
   | Neg a -> -.(eval env a)
-  | Ln a -> log (eval env a)
+  | Ln a ->
+    let av = eval env a in
+    if av <= 0.0 then raise (Domain_error "log of non-positive value")
+    else log av
   | Exp a -> exp (eval env a)
   | Sin a -> sin (eval env a)
   | Cos a -> cos (eval env a)
-  | Tan a -> tan (eval env a)
-  | Sqrt a -> sqrt (eval env a)
+  | Tan a ->
+    let av = eval env a in
+    let c = cos av in
+    if Float.abs c < 1e-15 then
+      raise (Domain_error "tan at odd multiple of pi/2")
+    else sin av /. c
+  | Sqrt a ->
+    let av = eval env a in
+    if av < 0.0 then raise (Domain_error "sqrt of negative value")
+    else sqrt av
   | Abs a -> Float.abs (eval env a)
+
+(* Safe evaluation variant: returns None on domain errors. *)
+let try_eval env expr =
+  try Some (eval env expr)
+  with Domain_error _ -> None
 
 (* ── Variable collection ──────────────────────────────────────────── *)
 
