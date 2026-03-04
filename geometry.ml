@@ -287,14 +287,17 @@ let closest_pair points =
       let mid_point = List.nth sorted_x mid in
       let left_x = List.filteri (fun i _ -> i < mid) sorted_x in
       let right_x = List.filteri (fun i _ -> i >= mid) sorted_x in
-      let left_set = List.fold_left (fun s p ->
-        (* Use a simple membership by coordinates *)
-        s |> fun acc -> (p.x, p.y) :: acc
-      ) [] left_x in
+      (* Hash table for O(1) left-set membership instead of O(n) list scan *)
+      let left_tbl = Hashtbl.create (List.length left_x) in
+      List.iter (fun p ->
+        let kx = Float.round (p.x /. epsilon) in
+        let ky = Float.round (p.y /. epsilon) in
+        Hashtbl.replace left_tbl (kx, ky) true
+      ) left_x;
       let is_left p =
-        List.exists (fun (px, py) ->
-          abs_float (p.x -. px) < epsilon && abs_float (p.y -. py) < epsilon
-        ) left_set
+        let kx = Float.round (p.x /. epsilon) in
+        let ky = Float.round (p.y /. epsilon) in
+        Hashtbl.mem left_tbl (kx, ky)
       in
       let left_y = List.filter is_left sorted_y in
       let right_y = List.filter (fun p -> not (is_left p)) sorted_y in
