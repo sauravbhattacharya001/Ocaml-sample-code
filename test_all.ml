@@ -6637,6 +6637,599 @@ let test_type_infer () =
   Printf.printf "  Type inference: done\n";
 ()
 
+(* ── miniKanren tests ─────────────────────────────────────────────────── *)
+
+(* Inline module to keep test_all self-contained *)
+module Minikanren = struct
+  type term =
+    | Var of int
+    | Atom of string
+    | Pair of term * term
+    | Nil
+
+  let var_counter = ref 0
+  let fresh_var () = let v = !var_counter in incr var_counter; Var v
+  let reset_vars () = var_counter := 0
+
+  type subst = (int * term) list
+  let empty_subst : subst = []
+
+  let rec walk (s : subst) (t : term) : term =
+    match t with
+    | Var v -> (match List.assoc_opt v s with Some t' -> walk s t' | None -> t)
+    | _ -> t
+
+  let rec walk_deep (s : subst) (t : term) : term =
+    let t = walk s t in
+    match t with Pair (a, b) -> Pair (walk_deep s a, walk_deep s b) | _ -> t
+
+  let extend (s : subst) (v : int) (t : term) : subst = (v, t) :: s
+
+  let rec occurs (s : subst) (v : int) (t : term) : bool =
+    let t = walk s t in
+    match t with
+    | Var v' -> v = v'
+    | Pair (a, b) -> occurs s v a || occurs s v b
+    | _ -> false
+
+  let rec unify (s : subst) (u : term) (v : term) : subst option =
+    let u = walk s u and v = walk s v in
+    match u, v with
+    | u, v when u = v -> Some s
+    | Var uid, _ -> if occurs s uid v then None else Some (extend s uid v)
+    | _, Var vid -> if occurs s vid u then None else Some (extend s vid u)
+    | Pair (ua, ud), Pair (va, vd) ->
+      (match unify s ua va with Some s' -> unify s' ud vd | None -> None)
+    | _ -> None
+
+  type stream = Empty | Mature of subst * stream | Immature of (unit -> stream)
+
+  let rec mplus s1 s2 = match s1 with
+    | Empty -> s2
+    | Mature (a, rest) -> Mature (a, mplus s2 rest)
+    | Immature f -> Immature (fun () -> mplus s2 (f ()))
+
+  let rec bind s g = match s with
+    | Empty -> Empty
+    | Mature (a, rest) -> mplus (g a) (bind rest g)
+    | Immature f -> Immature (fun () -> bind (f ()) g)
+
+  type goal = subst -> stream
+  let succeed : goal = fun s -> Mature (s, Empty)
+  let fail : goal = fun _ -> Empty
+
+  let ( === ) u v : goal = fun s ->
+    match unify s u v with Some s' -> Mature (s', Empty) | None -> Empty
+
+  let disj g1 g2 : goal = fun s -> mplus (g1 s) (g2 s)
+  let conj g1 g2 : goal = fun s -> bind (g1 s) g2
+  let ( ||| ) = disj
+  let ( &&& ) = conj
+
+  let fresh f : goal = fun s -> let v = fresh_var () in f v s
+  let fresh2 f : goal = fun s -> let v1 = fresh_var () in let v2 = fresh_var () in f v1 v2 s
+  let fresh3 f : goal = fun s ->
+    let v1 = fresh_var () in let v2 = fresh_var () in let v3 = fresh_var () in f v1 v2 v3 s
+
+  let conde clauses =
+    List.fold_left (fun acc clause ->
+      let g = List.fold_left conj succeed clause in disj acc g
+    ) fail clauses
+
+  let rec take n s =
+    if n = 0 then [] else match s with
+    | Empty -> []
+    | Mature (a, rest) -> a :: take (n-1) rest
+    | Immature f -> take n (f ())
+
+  let rec take_all s = match s with
+    | Empty -> []
+    | Mature (a, rest) -> a :: take_all rest
+    | Immature f -> take_all (f ())
+
+  let take_all_bounded ?(limit=1000) s = take limit s
+
+  let reify_name n =
+    if n < 26 then Printf.sprintf "_.%c" (Char.chr (n + Char.code 'a'))
+    else Printf.sprintf "_.%d" n
+
+  let rec reify_term t = match t with
+    | Var v -> reify_name v
+    | Atom s -> s
+    | Nil -> "()"
+    | Pair (a, b) ->
+      let rec collect acc = function
+        | Nil -> List.rev acc, None
+        | Pair (x, rest) -> collect (x :: acc) rest
+        | other -> List.rev acc, Some other
+      in
+      let elems, tail = collect [a] b in
+      let strs = List.map reify_term elems in
+      match tail with
+      | None -> "(" ^ String.concat " " strs ^ ")"
+      | Some t -> "(" ^ String.concat " " strs ^ " . " ^ reify_term t ^ ")"
+
+  let reify s v = reify_term (walk_deep s v)
+
+  let run n f =
+    reset_vars ();
+    let q = fresh_var () in
+    let results = take n (f q empty_subst) in
+    List.map (fun s -> reify s q) results
+
+  let run_all f =
+    reset_vars ();
+    let q = fresh_var () in
+    let results = take_all_bounded ~limit:100 (f q empty_subst) in
+    List.map (fun s -> reify s q) results
+
+  let rec list_of_terms = function
+    | [] -> Nil | t :: rest -> Pair (t, list_of_terms rest)
+
+  let rec appendo l r out =
+    (l === Nil &&& (r === out))
+    ||| fresh2 (fun h t -> fresh (fun res ->
+      l === Pair (h, t) &&& out === Pair (h, res) &&&
+      (fun s -> Immature (fun () -> appendo t r res s))))
+
+  let rec membero x l =
+    fresh2 (fun h t ->
+      l === Pair (h, t) &&&
+      ((x === h) ||| (fun s -> Immature (fun () -> membero x t s))))
+
+  let rec reverseo l out =
+    let rec rev_acc l acc out =
+      (l === Nil &&& (acc === out))
+      ||| fresh2 (fun h t ->
+        l === Pair (h, t) &&&
+        (fun s -> Immature (fun () -> rev_acc t (Pair (h, acc)) out s)))
+    in rev_acc l Nil out
+
+  let rec lengtho l n =
+    if n = 0 then l === Nil
+    else if n < 0 then fail
+    else fresh2 (fun _h t -> l === Pair (_h, t) &&& lengtho t (n-1))
+
+  let zero = Atom "z"
+  let succ n = Pair (Atom "s", n)
+
+  let rec pluso a b c =
+    (a === zero &&& (b === c))
+    ||| fresh2 (fun a' c' ->
+      a === succ a' &&& c === succ c' &&&
+      (fun s -> Immature (fun () -> pluso a' b c' s)))
+
+  let rec multo a b c =
+    (a === zero &&& (c === zero))
+    ||| fresh2 (fun a' partial ->
+      a === succ a' &&& pluso b partial c &&&
+      (fun s -> Immature (fun () -> multo a' b partial s)))
+
+  let rec leo a b =
+    (a === zero)
+    ||| fresh2 (fun a' b' ->
+      a === succ a' &&& b === succ b' &&&
+      (fun s -> Immature (fun () -> leo a' b' s)))
+
+  let int_to_peano n =
+    let rec go n = if n = 0 then zero else succ (go (n-1)) in go n
+
+  let rec peano_to_int s t =
+    let t = walk_deep s t in
+    match t with
+    | Atom "z" -> Some 0
+    | Pair (Atom "s", rest) ->
+      (match peano_to_int s rest with Some n -> Some (n+1) | None -> None)
+    | _ -> None
+
+  let coloro x = x === Atom "red" ||| x === Atom "green" ||| x === Atom "blue"
+
+  let neq_color x y : goal = fun s ->
+    let x' = walk s x and y' = walk s y in
+    if x' = y' then Empty else Mature (s, Empty)
+
+  let map_color_triangle () =
+    reset_vars ();
+    let a = fresh_var () and b = fresh_var () and c = fresh_var () and q = fresh_var () in
+    let goal =
+      coloro a &&& coloro b &&& coloro c &&&
+      neq_color a b &&& neq_color b c &&& neq_color a c &&&
+      (q === list_of_terms [a; b; c])
+    in
+    let results = take 10 (goal empty_subst) in
+    List.map (fun s -> reify s q) results
+
+  let rec inserto x l out =
+    (out === Pair (x, l))
+    ||| fresh3 (fun h t res ->
+      l === Pair (h, t) &&& out === Pair (h, res) &&&
+      (fun s -> Immature (fun () -> inserto x t res s)))
+
+  let rec perm l out =
+    (l === Nil &&& (out === Nil))
+    ||| fresh3 (fun h t perm_t ->
+      l === Pair (h, t) &&& perm t perm_t &&&
+      (fun s -> Immature (fun () -> inserto h perm_t out s)))
+end
+
+let test_minikanren () =
+  suite "miniKanren" (fun () ->
+
+    (* -- Substitution & walk -- *)
+    Minikanren.reset_vars ();
+    let x = Minikanren.fresh_var () in  (* Var 0 *)
+    let s = Minikanren.extend Minikanren.empty_subst 0 (Minikanren.Atom "hi") in
+    let walked = Minikanren.walk s x in
+    assert_true ~msg:"walk resolves var" (walked = Minikanren.Atom "hi");
+
+    (* transitive walk *)
+    let y = Minikanren.fresh_var () in  (* Var 1 *)
+    let s2 = Minikanren.extend (Minikanren.extend Minikanren.empty_subst 0 y) 1 (Minikanren.Atom "end") in
+    let walked2 = Minikanren.walk s2 x in
+    assert_true ~msg:"transitive walk" (walked2 = Minikanren.Atom "end");
+
+    (* walk_deep *)
+    Minikanren.reset_vars ();
+    let a = Minikanren.fresh_var () in
+    let b = Minikanren.fresh_var () in
+    let s3 = [(0, Minikanren.Atom "x"); (1, Minikanren.Atom "y")] in
+    let deep = Minikanren.walk_deep s3 (Minikanren.Pair (a, b)) in
+    assert_true ~msg:"walk_deep resolves pair"
+      (deep = Minikanren.Pair (Minikanren.Atom "x", Minikanren.Atom "y"));
+
+    (* -- Unification -- *)
+    Minikanren.reset_vars ();
+    let v = Minikanren.fresh_var () in
+    let r = Minikanren.unify Minikanren.empty_subst v (Minikanren.Atom "hello") in
+    assert_true ~msg:"unify var with atom succeeds" (r <> None);
+    (match r with
+     | Some s -> assert_true ~msg:"unified value correct"
+         (Minikanren.walk s v = Minikanren.Atom "hello")
+     | None -> ());
+
+    (* unify two equal atoms *)
+    let r2 = Minikanren.unify Minikanren.empty_subst (Minikanren.Atom "a") (Minikanren.Atom "a") in
+    assert_true ~msg:"unify equal atoms" (r2 = Some Minikanren.empty_subst);
+
+    (* unify different atoms fails *)
+    let r3 = Minikanren.unify Minikanren.empty_subst (Minikanren.Atom "a") (Minikanren.Atom "b") in
+    assert_true ~msg:"unify different atoms fails" (r3 = None);
+
+    (* unify pairs *)
+    Minikanren.reset_vars ();
+    let p = Minikanren.fresh_var () in
+    let q = Minikanren.fresh_var () in
+    let r4 = Minikanren.unify Minikanren.empty_subst
+      (Minikanren.Pair (p, q))
+      (Minikanren.Pair (Minikanren.Atom "x", Minikanren.Atom "y")) in
+    assert_true ~msg:"unify pairs succeeds" (r4 <> None);
+    (match r4 with
+     | Some s ->
+       assert_true ~msg:"pair first elem" (Minikanren.walk s p = Minikanren.Atom "x");
+       assert_true ~msg:"pair second elem" (Minikanren.walk s q = Minikanren.Atom "y")
+     | None -> ());
+
+    (* occurs check *)
+    Minikanren.reset_vars ();
+    let v2 = Minikanren.fresh_var () in
+    let r5 = Minikanren.unify Minikanren.empty_subst v2 (Minikanren.Pair (v2, Minikanren.Nil)) in
+    assert_true ~msg:"occurs check prevents circular" (r5 = None);
+
+    (* -- Goals -- *)
+    (* succeed *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.take_all (Minikanren.succeed Minikanren.empty_subst) in
+    assert_true ~msg:"succeed gives one result" (List.length results = 1);
+
+    (* fail *)
+    let results = Minikanren.take_all (Minikanren.fail Minikanren.empty_subst) in
+    assert_true ~msg:"fail gives no results" (List.length results = 0);
+
+    (* === goal *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q -> Minikanren.(q === Atom "hi")) in
+    assert_true ~msg:"=== produces result" (List.length results = 1);
+    assert_equal ~msg:"=== value" "hi" (List.hd results);
+
+    (* disjunction *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.(q === Atom "a" ||| q === Atom "b")
+    ) in
+    assert_true ~msg:"disj count" (List.length results = 2);
+    assert_true ~msg:"disj has a" (List.mem "a" results);
+    assert_true ~msg:"disj has b" (List.mem "b" results);
+
+    (* conjunction *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.(q === Atom "x" &&& q === Atom "x")
+    ) in
+    assert_true ~msg:"conj same value" (List.length results = 1);
+
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.(q === Atom "x" &&& q === Atom "y")
+    ) in
+    assert_true ~msg:"conj conflict fails" (List.length results = 0);
+
+    (* fresh *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.fresh (fun x ->
+        Minikanren.(x === Atom "val" &&& q === x)
+      )
+    ) in
+    assert_true ~msg:"fresh variable" (List.length results = 1);
+    assert_equal ~msg:"fresh value" "val" (List.hd results);
+
+    (* fresh2 *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.fresh2 (fun x y ->
+        Minikanren.(x === Atom "a" &&& y === Atom "b" &&&
+          (q === Minikanren.Pair (x, y)))
+      )
+    ) in
+    assert_true ~msg:"fresh2" (List.length results = 1);
+
+    (* conde *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 10 (fun q ->
+      Minikanren.conde [
+        [Minikanren.(q === Atom "x")];
+        [Minikanren.(q === Atom "y")];
+        [Minikanren.(q === Atom "z")];
+      ]
+    ) in
+    assert_true ~msg:"conde count" (List.length results = 3);
+    assert_true ~msg:"conde has x" (List.mem "x" results);
+    assert_true ~msg:"conde has y" (List.mem "y" results);
+    assert_true ~msg:"conde has z" (List.mem "z" results);
+
+    (* -- List operations -- *)
+    (* list_of_terms *)
+    let l = Minikanren.list_of_terms [Minikanren.Atom "a"; Minikanren.Atom "b"] in
+    assert_true ~msg:"list_of_terms"
+      (l = Minikanren.Pair (Minikanren.Atom "a",
+        Minikanren.Pair (Minikanren.Atom "b", Minikanren.Nil)));
+
+    (* appendo forward *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.appendo
+        (Minikanren.list_of_terms [Minikanren.Atom "1"; Minikanren.Atom "2"])
+        (Minikanren.list_of_terms [Minikanren.Atom "3"])
+        q
+    ) in
+    assert_true ~msg:"appendo forward" (List.length results = 1);
+    assert_equal ~msg:"appendo value" "(1 2 3)" (List.hd results);
+
+    (* appendo backward *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.appendo q
+        (Minikanren.list_of_terms [Minikanren.Atom "3"])
+        (Minikanren.list_of_terms [Minikanren.Atom "1"; Minikanren.Atom "2"; Minikanren.Atom "3"])
+    ) in
+    assert_true ~msg:"appendo backward" (List.length results = 1);
+    assert_equal ~msg:"appendo backward value" "(1 2)" (List.hd results);
+
+    (* membero *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 10 (fun q ->
+      Minikanren.membero q
+        (Minikanren.list_of_terms [Minikanren.Atom "a"; Minikanren.Atom "b"; Minikanren.Atom "c"])
+    ) in
+    assert_true ~msg:"membero count" (List.length results = 3);
+    assert_true ~msg:"membero has a" (List.mem "a" results);
+    assert_true ~msg:"membero has b" (List.mem "b" results);
+    assert_true ~msg:"membero has c" (List.mem "c" results);
+
+    (* reverseo *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.reverseo
+        (Minikanren.list_of_terms [Minikanren.Atom "a"; Minikanren.Atom "b"; Minikanren.Atom "c"])
+        q
+    ) in
+    assert_true ~msg:"reverseo" (List.length results = 1);
+    assert_equal ~msg:"reverseo value" "(c b a)" (List.hd results);
+
+    (* lengtho *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.lengtho q 2
+    ) in
+    assert_true ~msg:"lengtho generates list of length 2" (List.length results = 1);
+
+    (* -- Peano arithmetic -- *)
+    (* int_to_peano *)
+    let p0 = Minikanren.int_to_peano 0 in
+    assert_true ~msg:"peano 0" (p0 = Minikanren.Atom "z");
+    let p3 = Minikanren.int_to_peano 3 in
+    assert_true ~msg:"peano 3" (p3 = Minikanren.Pair (Minikanren.Atom "s",
+      Minikanren.Pair (Minikanren.Atom "s",
+        Minikanren.Pair (Minikanren.Atom "s", Minikanren.Atom "z"))));
+
+    (* peano_to_int *)
+    let n = Minikanren.peano_to_int Minikanren.empty_subst (Minikanren.int_to_peano 5) in
+    assert_true ~msg:"peano_to_int 5" (n = Some 5);
+    let n0 = Minikanren.peano_to_int Minikanren.empty_subst Minikanren.zero in
+    assert_true ~msg:"peano_to_int 0" (n0 = Some 0);
+
+    (* pluso forward: 2 + 3 = 5 *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.pluso (Minikanren.int_to_peano 2) (Minikanren.int_to_peano 3) q
+    ) in
+    assert_true ~msg:"pluso 2+3" (List.length results = 1);
+
+    (* pluso backward: ? + 2 = 5 => 3 *)
+    Minikanren.reset_vars ();
+    let stream = Minikanren.(
+      let q = fresh_var () in
+      take 1 (pluso q (int_to_peano 2) (int_to_peano 5) empty_subst)
+    ) in
+    assert_true ~msg:"pluso backward finds result" (List.length stream = 1);
+    (match stream with
+     | [s] ->
+       let n = Minikanren.peano_to_int s (Minikanren.Var 0) in
+       assert_true ~msg:"pluso backward = 3" (n = Some 3)
+     | _ -> ());
+
+    (* multo: 3 * 2 = 6 *)
+    Minikanren.reset_vars ();
+    let stream = Minikanren.(
+      let q = fresh_var () in
+      take 1 (multo (int_to_peano 3) (int_to_peano 2) q empty_subst)
+    ) in
+    assert_true ~msg:"multo 3*2" (List.length stream = 1);
+    (match stream with
+     | [s] ->
+       let n = Minikanren.peano_to_int s (Minikanren.Var 0) in
+       assert_true ~msg:"multo 3*2 = 6" (n = Some 6)
+     | _ -> ());
+
+    (* leo: 2 <= 5 *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.take 1
+      (Minikanren.leo (Minikanren.int_to_peano 2) (Minikanren.int_to_peano 5) Minikanren.empty_subst) in
+    assert_true ~msg:"leo 2 <= 5" (List.length results = 1);
+
+    (* leo: 5 <= 2 fails *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.take 1
+      (Minikanren.leo (Minikanren.int_to_peano 5) (Minikanren.int_to_peano 2) Minikanren.empty_subst) in
+    assert_true ~msg:"leo 5 <= 2 fails" (List.length results = 0);
+
+    (* -- Map coloring -- *)
+    let colorings = Minikanren.map_color_triangle () in
+    assert_true ~msg:"triangle coloring count = 6" (List.length colorings = 6);
+
+    (* -- Permutations -- *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 10 (fun q ->
+      Minikanren.perm (Minikanren.list_of_terms [Minikanren.Atom "a"; Minikanren.Atom "b"; Minikanren.Atom "c"]) q
+    ) in
+    assert_true ~msg:"perm [a,b,c] has 6 results" (List.length results = 6);
+
+    (* inserto *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 10 (fun q ->
+      Minikanren.inserto (Minikanren.Atom "x")
+        (Minikanren.list_of_terms [Minikanren.Atom "a"; Minikanren.Atom "b"]) q
+    ) in
+    assert_true ~msg:"inserto has 3 positions" (List.length results = 3);
+
+    (* -- Reification -- *)
+    assert_equal ~msg:"reify_name 0" "_.a" (Minikanren.reify_name 0);
+    assert_equal ~msg:"reify_name 25" "_.z" (Minikanren.reify_name 25);
+    assert_equal ~msg:"reify_name 26" "_.26" (Minikanren.reify_name 26);
+
+    assert_equal ~msg:"reify_term atom" "hello" (Minikanren.reify_term (Minikanren.Atom "hello"));
+    assert_equal ~msg:"reify_term nil" "()" (Minikanren.reify_term Minikanren.Nil);
+    assert_equal ~msg:"reify_term pair list" "(a b)"
+      (Minikanren.reify_term (Minikanren.Pair (Minikanren.Atom "a",
+        Minikanren.Pair (Minikanren.Atom "b", Minikanren.Nil))));
+    assert_equal ~msg:"reify_term dotted pair" "(a . b)"
+      (Minikanren.reify_term (Minikanren.Pair (Minikanren.Atom "a", Minikanren.Atom "b")));
+
+    (* -- run_all -- *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run_all (fun q ->
+      Minikanren.(q === Atom "only")
+    ) in
+    assert_true ~msg:"run_all single" (List.length results = 1);
+
+    (* -- Stream operations -- *)
+    let s = Minikanren.Mature (Minikanren.empty_subst,
+      Minikanren.Mature ([(0, Minikanren.Atom "x")], Minikanren.Empty)) in
+    let taken = Minikanren.take 1 s in
+    assert_true ~msg:"take 1 from 2" (List.length taken = 1);
+    let taken_all = Minikanren.take_all s in
+    assert_true ~msg:"take_all from 2" (List.length taken_all = 2);
+
+    (* take from empty *)
+    let taken_empty = Minikanren.take 5 Minikanren.Empty in
+    assert_true ~msg:"take from empty" (List.length taken_empty = 0);
+
+    (* immature stream *)
+    let imm = Minikanren.Immature (fun () ->
+      Minikanren.Mature (Minikanren.empty_subst, Minikanren.Empty)) in
+    let taken_imm = Minikanren.take 5 imm in
+    assert_true ~msg:"take from immature" (List.length taken_imm = 1);
+
+    (* -- Unify Nil -- *)
+    let r = Minikanren.unify Minikanren.empty_subst Minikanren.Nil Minikanren.Nil in
+    assert_true ~msg:"unify Nil Nil" (r = Some Minikanren.empty_subst);
+
+    let r = Minikanren.unify Minikanren.empty_subst Minikanren.Nil (Minikanren.Atom "x") in
+    assert_true ~msg:"unify Nil Atom fails" (r = None);
+
+    (* -- Empty list operations -- *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.appendo Minikanren.Nil Minikanren.Nil q
+    ) in
+    assert_true ~msg:"appendo [] [] = []" (List.length results = 1);
+    assert_equal ~msg:"appendo empty" "()" (List.hd results);
+
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.reverseo Minikanren.Nil q
+    ) in
+    assert_true ~msg:"reverseo []" (List.length results = 1);
+    assert_equal ~msg:"reverseo empty" "()" (List.hd results);
+
+    (* membero from empty list *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 5 (fun q ->
+      Minikanren.membero q Minikanren.Nil
+    ) in
+    assert_true ~msg:"membero empty" (List.length results = 0);
+
+    (* lengtho 0 *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.lengtho q 0
+    ) in
+    assert_true ~msg:"lengtho 0" (List.length results = 1);
+    assert_equal ~msg:"lengtho 0 is Nil" "()" (List.hd results);
+
+    (* pluso identity: 0 + n = n *)
+    Minikanren.reset_vars ();
+    let results = Minikanren.run 1 (fun q ->
+      Minikanren.pluso Minikanren.zero (Minikanren.int_to_peano 4) q
+    ) in
+    assert_true ~msg:"pluso 0+4" (List.length results = 1);
+
+    (* multo by 0 *)
+    Minikanren.reset_vars ();
+    let stream = Minikanren.(
+      let q = fresh_var () in
+      take 1 (multo zero (int_to_peano 5) q empty_subst)
+    ) in
+    assert_true ~msg:"multo 0*5 = 0" (List.length stream = 1);
+    (match stream with
+     | [s] ->
+       let n = Minikanren.peano_to_int s (Minikanren.Var 0) in
+       assert_true ~msg:"multo 0*5 value" (n = Some 0)
+     | _ -> ());
+
+    (* multo by 1 *)
+    Minikanren.reset_vars ();
+    let stream = Minikanren.(
+      let q = fresh_var () in
+      take 1 (multo (int_to_peano 1) (int_to_peano 4) q empty_subst)
+    ) in
+    assert_true ~msg:"multo 1*4 = 4" (List.length stream = 1);
+    (match stream with
+     | [s] ->
+       let n = Minikanren.peano_to_int s (Minikanren.Var 0) in
+       assert_true ~msg:"multo 1*4 value" (n = Some 4)
+     | _ -> ());
+  )
+
 let () =
   Printf.printf "\n=== OCaml Sample Code Test Suite ===\n\n";
   test_bst ();
@@ -6660,6 +7253,7 @@ let () =
   test_huffman ();
   test_calculus ();
   test_type_infer ();
+  test_minikanren ();
   Printf.printf "\n=== Results ===\n";
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;

@@ -56,6 +56,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`crypto.ml`](crypto.ml) | Classical ciphers — ROT13, Caesar, Vigenère, XOR, Rail Fence, Atbash | String manipulation, modular arithmetic, frequency analysis, symmetric encryption |
 | [`calculus.ml`](calculus.ml) | Symbolic differentiation — derivatives, simplification, evaluation | Algebraic data types, pattern matching, recursive transforms, chain rule, gradient |
 | [`probability.ml`](probability.ml) | Probability monad & Monte Carlo simulation | Monadic composition, sampling distributions, statistics, Monte Carlo integration, Markov chains, Bayesian inference |
+| [`minikanren.ml`](minikanren.ml) | miniKanren logic programming engine | Unification, substitution, logic variables, streams, relational programming, Peano arithmetic, constraint solving |
 
 ## Getting Started
 
