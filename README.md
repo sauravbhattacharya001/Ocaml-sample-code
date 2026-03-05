@@ -63,6 +63,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`frp.ml`](frp.ml) | Functional Reactive Programming — signals, behaviors, events, streams | Time-varying behaviors, event combinators, push-based signals, reactive cells, state machines, animation easing, keyframes, spring physics |
 | [`network_flow.ml`](network_flow.ml) | Network flow algorithms — Edmonds-Karp max flow, min-cut, bipartite matching, MCMF | Residual graphs, BFS augmenting paths, flow decomposition, Bellman-Ford SPFA, bipartite reduction, multi-source/sink |
 | [`bytecode_vm.ml`](bytecode_vm.ml) | Stack-based bytecode virtual machine with compiler and disassembler | Opcodes, stack machines, call frames, closures, upvalues, expression compilation, native functions, execution tracing |
+| [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
 
 ## Getting Started
 
