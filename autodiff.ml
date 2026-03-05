@@ -100,14 +100,29 @@ module Forward = struct
     let result = f (var x) in
     deriv result
 
-  (* Compute n-th derivative *)
-  let rec nth_diff n f x =
+  (* Compute n-th derivative using iterated finite differences on diff.
+     Single-level forward-mode AD cannot nest (const strips tangents),
+     so we analytically compute the first derivative and then use
+     central finite differences for higher orders.  This gives
+     accuracy of O(eps^2) per level, which is sufficient for
+     practical use up to ~n=4. *)
+  let nth_diff n f x =
     if n <= 0 then f x
-    else if n = 1 then diff (fun d -> const (f d)) x
+    else if n = 1 then diff f x
     else
-      (* For higher-order, nest forward mode *)
-      let f' x' = diff (fun d -> const (f d)) x' in
-      nth_diff (n - 1) f' x
+      (* Build the first-derivative function via AD *)
+      let f' x' = diff f x' in
+      (* Apply (n-1) levels of central finite differences *)
+      let eps = 1e-5 in
+      let rec finite_nth k g x =
+        if k <= 0 then g x
+        else
+          let g' x' =
+            (g (x' +. eps) -. g (x' -. eps)) /. (2.0 *. eps)
+          in
+          finite_nth (k - 1) g' x
+      in
+      finite_nth (n - 1) f' x
 
   (* Directional derivative: df/dv at point x in direction v *)
   let directional_deriv f x v =
@@ -671,6 +686,30 @@ let () =
   Printf.printf "\n"
 
 let () =
+  Printf.printf "--- Forward Mode: Higher-Order Derivatives (nth_diff) ---\n";
+
+  (* d/dx x^3 = 3x^2, at x=2 => 12 *)
+  check "nth_diff 1 of x^3 at 2 = 12" 12.0
+    (Forward.nth_diff 1 (fun x -> x *. x *. x) 2.0);
+
+  (* d2/dx2 x^3 = 6x, at x=2 => 12 *)
+  check_approx "nth_diff 2 of x^3 at 2 = 12" 12.0
+    (Forward.nth_diff 2 (fun x -> x *. x *. x) 2.0);
+
+  (* d3/dx3 x^3 = 6 *)
+  check_approx "nth_diff 3 of x^3 at 2 = 6" 6.0
+    (Forward.nth_diff 3 (fun x -> x *. x *. x) 2.0);
+
+  (* d2/dx2 sin(x) at x=0 = -sin(0) = 0 *)
+  check_approx "nth_diff 2 of sin at 0 = 0" 0.0
+    (Forward.nth_diff 2 Stdlib.sin 0.0);
+
+  (* d2/dx2 exp(x) at x=1 = exp(1) *)
+  check_approx "nth_diff 2 of exp at 1 = e" (Stdlib.exp 1.0)
+    (Forward.nth_diff 2 Stdlib.exp 1.0);
+
+  Printf.printf "\n";
+
   Printf.printf "--- Forward Mode: Directional Derivative ---\n";
 
   (* f(x,y) = x^2 + y^2, direction (1,0) at (3,4) => 6 *)
