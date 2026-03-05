@@ -97,6 +97,24 @@ let make_table cols rows =
   ) rows in
   { schema; rows = validated_rows }
 
+(* Canonical key for a row or subset of row values.
+   Uses a length-prefixed encoding to avoid collisions when values
+   contain the separator character (e.g. VString "a|b"). *)
+let row_key_of_values (values : value list) : string =
+  values
+  |> List.map (fun v ->
+       let s = value_to_string v in
+       Printf.sprintf "%d:%s" (String.length s) s)
+  |> String.concat ","
+
+(* Build a key from specific column indices of a row *)
+let row_key_of_indices (indices : int list) (row : row) : string =
+  row_key_of_values (List.map (fun i -> row.(i)) indices)
+
+(* Build a key from all columns of a row *)
+let row_key (row : row) : string =
+  row_key_of_values (Array.to_list row)
+
 let empty_table cols =
   make_table cols []
 
@@ -164,7 +182,7 @@ let project col_names t =
   (* Remove duplicate rows *)
   let seen = Hashtbl.create 16 in
   let unique = List.filter (fun row ->
-    let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
+    let key = row_key row in
     if Hashtbl.mem seen key then false
     else (Hashtbl.add seen key (); true)
   ) rows in
@@ -185,7 +203,7 @@ let union t1 t2 =
   let seen = Hashtbl.create 32 in
   let add_unique rows =
     List.filter (fun row ->
-      let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
+      let key = row_key row in
       if Hashtbl.mem seen key then false
       else (Hashtbl.add seen key (); true)
     ) rows
@@ -197,12 +215,10 @@ let union t1 t2 =
 let intersect t1 t2 =
   let keys2 = Hashtbl.create 16 in
   List.iter (fun row ->
-    let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
-    Hashtbl.replace keys2 key ()
+    Hashtbl.replace keys2 (row_key row) ()
   ) t2.rows;
   let rows = List.filter (fun row ->
-    let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
-    Hashtbl.mem keys2 key
+    Hashtbl.mem keys2 (row_key row)
   ) t1.rows in
   { schema = t1.schema; rows }
 
@@ -210,12 +226,10 @@ let intersect t1 t2 =
 let difference t1 t2 =
   let keys2 = Hashtbl.create 16 in
   List.iter (fun row ->
-    let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
-    Hashtbl.replace keys2 key ()
+    Hashtbl.replace keys2 (row_key row) ()
   ) t2.rows;
   let rows = List.filter (fun row ->
-    let key = Array.to_list row |> List.map value_to_string |> String.concat "|" in
-    not (Hashtbl.mem keys2 key)
+    not (Hashtbl.mem keys2 (row_key row))
   ) t1.rows in
   { schema = t1.schema; rows }
 
@@ -248,14 +262,12 @@ let natural_join t1 t2 =
     (* Build hash index on t2 common columns *)
     let t2_index = Hashtbl.create 32 in
     List.iter (fun r2 ->
-      let key = List.map (fun (_, i2, _) -> value_to_string r2.(i2)) common
-                |> String.concat "|" in
+      let key = row_key_of_values (List.map (fun (_, i2, _) -> r2.(i2)) common) in
       let existing = try Hashtbl.find t2_index key with Not_found -> [] in
       Hashtbl.replace t2_index key (r2 :: existing)
     ) t2.rows;
     let rows = List.concat_map (fun r1 ->
-      let key = List.map (fun (i1, _, _) -> value_to_string r1.(i1)) common
-                |> String.concat "|" in
+      let key = row_key_of_values (List.map (fun (i1, _, _) -> r1.(i1)) common) in
       let matches = try Hashtbl.find t2_index key with Not_found -> [] in
       List.map (fun r2 ->
         let extra = Array.of_list (List.map (fun i -> r2.(i)) t2_extra_indices) in
@@ -343,8 +355,7 @@ let group_by group_cols aggs t =
   (* Group rows by key *)
   let groups = Hashtbl.create 16 in
   List.iter (fun row ->
-    let key = List.map (fun i -> value_to_string row.(i)) group_indices
-              |> String.concat "|" in
+    let key = row_key_of_indices group_indices row in
     let existing = try Hashtbl.find groups key with Not_found -> [] in
     Hashtbl.replace groups key (row :: existing)
   ) t.rows;
@@ -776,6 +787,24 @@ let () =
   let dept_idx = create_index "dept" employees in
   let eng_rows = index_lookup dept_idx (VString "Engineering") in
   assert_eq "dept index" "3" (string_of_int (List.length eng_rows));
+
+  (* Test 36: Values containing separator characters don't cause key collisions *)
+  let tricky = make_table [("a", TString); ("b", TString)]
+    [
+      [VString "x"; VString "y,z"];   (* should be distinct from... *)
+      [VString "x,y"; VString "z"];   (* ...this row *)
+      [VString "x"; VString "y,z"];   (* duplicate of first row *)
+    ] in
+  let deduped_tricky = pipeline [Distinct] tricky in
+  assert_eq "separator-safe distinct" "2"
+    (string_of_int (List.length deduped_tricky.rows));
+
+  (* Verify union also handles it correctly *)
+  let t_a = make_table [("v", TString)] [[VString "a|b"]] in
+  let t_b = make_table [("v", TString)] [[VString "a"]] in
+  let t_c = make_table [("v", TString)] [[VString "b"]] in
+  let u = union t_a (union t_b t_c) in
+  assert_eq "union separator-safe" "3" (string_of_int (List.length u.rows));
 
   (* Summary *)
   Printf.printf "\n=== Results: %d passed, %d failed out of %d tests ===\n"
