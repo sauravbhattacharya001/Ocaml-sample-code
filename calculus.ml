@@ -86,11 +86,12 @@ let rec simplify = function
 
   (* Division identity: x / 1 = x *)
   | Div (e, Const 1.0) -> simplify e
-  (* x / x = 1 *)
-  | Div (a, b) when a = b -> Const 1.0
+  (* x / x = 1, but not 0/0 which is undefined *)
+  | Div (a, b) when a = b && a <> Const 0.0 -> Const 1.0
 
   (* Power rules *)
-  | Pow (_, Const 0.0) -> Const 1.0      (* x^0 = 1 *)
+  (* x^0 = 1, but 0^0 is indeterminate — leave unsimplified *)
+  | Pow (base, Const 0.0) when base <> Const 0.0 -> Const 1.0
   | Pow (e, Const 1.0) -> simplify e     (* x^1 = x *)
   | Pow (Const 1.0, _) -> Const 1.0      (* 1^x = 1 *)
 
