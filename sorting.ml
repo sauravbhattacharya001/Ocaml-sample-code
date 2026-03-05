@@ -72,16 +72,25 @@ let partition3 cmp pivot lst =
   in
   aux [] [] [] lst
 
-(** Choose median-of-three pivot from first, middle, last elements. *)
+(** Choose median-of-three pivot from first, middle, last elements.
+    Uses tortoise-and-hare to find middle element in one pass,
+    avoiding O(n) List.length + O(n) List.nth per call. *)
 let median_of_three cmp lst =
   match lst with
   | [] | [_] -> List.hd lst
   | [a; b] -> if cmp a b <= 0 then a else b
   | _ ->
-    let len = List.length lst in
     let a = List.hd lst in
-    let b = List.nth lst (len / 2) in
-    let c = List.nth lst (len - 1) in
+    (* Tortoise-and-hare: slow moves 1 step, fast moves 2 steps.
+       When fast reaches end, slow is at the middle. *)
+    let rec find_mid_last slow fast last =
+      match fast with
+      | [] -> (List.hd slow, last)
+      | [x] -> (List.hd slow, x)
+      | _ :: x :: rest ->
+        find_mid_last (List.tl slow) rest x
+    in
+    let (b, c) = find_mid_last lst (List.tl lst) (List.hd lst) in
     if cmp a b <= 0 then
       (if cmp b c <= 0 then b
        else if cmp a c <= 0 then c else a)
