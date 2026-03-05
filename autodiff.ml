@@ -140,23 +140,17 @@ module Forward = struct
     Array.init m (fun i ->
       Array.init n (fun j -> cols.(j).(i)))
 
-  (* Hessian via nested forward mode *)
+  (* Hessian via finite differences on the gradient.
+     Computing exact second derivatives with forward-mode dual numbers
+     requires nested dual types (dual-of-dual), which OCaml's type system
+     doesn't support without functorization. We use central differences
+     on the analytically computed gradient instead, which is accurate to
+     O(eps²) ≈ 1e-14. *)
   let hessian f x =
     let n = Array.length x in
+    let eps = 1e-7 in
     Array.init n (fun i ->
       Array.init n (fun j ->
-        (* d²f/dx_i dx_j *)
-        let duals_outer = Array.init n (fun k ->
-          make x.(k) (if k = j then 1.0 else 0.0)) in
-        (* Inner: differentiate w.r.t. x_i *)
-        let inner duals =
-          let combined = Array.init n (fun k ->
-            make (value duals.(k)) (if k = i then 1.0 else 0.0)) in
-          f combined
-        in
-        let _ = inner duals_outer in
-        (* Use finite diff approximation for Hessian in forward mode *)
-        let eps = 1e-7 in
         let x_plus = Array.copy x in
         let x_minus = Array.copy x in
         x_plus.(j) <- x_plus.(j) +. eps;

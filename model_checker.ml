@@ -131,30 +131,23 @@ and sat_ex ts f =
   ) ts.states
 
 (* EG f: greatest fixpoint — start with sat(f), remove states
-   that have no successor in the current set *)
+   that have no successor in the current set.
+   Deadlock states (no successors) satisfy EG f trivially if they
+   satisfy f, since there is no future path to violate it. *)
 and sat_eg ts f =
   let f_states = sat ts f in
-  let rec fixpoint current =
-    let next = StateSet.filter (fun s ->
-      not (StateSet.is_empty (StateSet.inter (successors ts s) current))
-    ) current in
-    if StateSet.equal next current then current
-    else fixpoint next
-  in
-  (* Handle deadlock states: states with no successors satisfy EG trivially
-     if they satisfy f (they see themselves globally) *)
   let deadlock_f = StateSet.filter (fun s ->
     StateSet.is_empty (successors ts s)
   ) f_states in
-  let rec fixpoint2 current =
+  let rec fixpoint current =
     let next = StateSet.filter (fun s ->
       StateSet.mem s deadlock_f ||
       not (StateSet.is_empty (StateSet.inter (successors ts s) current))
     ) current in
     if StateSet.equal next current then current
-    else fixpoint2 next
+    else fixpoint next
   in
-  fixpoint2 f_states
+  fixpoint f_states
 
 (* EU(f1, f2): least fixpoint — start with sat(f2), add states
    satisfying f1 with some successor already in the set *)
