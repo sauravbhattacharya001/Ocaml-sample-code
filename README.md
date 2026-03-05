@@ -61,6 +61,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`autodiff.ml`](autodiff.ml) | Automatic differentiation — forward & reverse mode | Dual numbers, computation graphs, tape-based backpropagation, gradient/Jacobian/Hessian, Adam/momentum optimizers, neural network building blocks |
 | [`frp.ml`](frp.ml) | Functional Reactive Programming — signals, behaviors, events, streams | Time-varying behaviors, event combinators, push-based signals, reactive cells, state machines, animation easing, keyframes, spring physics |
 | [`network_flow.ml`](network_flow.ml) | Network flow algorithms — Edmonds-Karp max flow, min-cut, bipartite matching, MCMF | Residual graphs, BFS augmenting paths, flow decomposition, Bellman-Ford SPFA, bipartite reduction, multi-source/sink |
+| [`bytecode_vm.ml`](bytecode_vm.ml) | Stack-based bytecode virtual machine with compiler and disassembler | Opcodes, stack machines, call frames, closures, upvalues, expression compilation, native functions, execution tracing |
 
 ## Getting Started
 
