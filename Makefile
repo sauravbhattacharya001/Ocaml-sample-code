@@ -13,7 +13,11 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	bloom_filter.ml interval_tree.ml lru_cache.ml segment_tree.ml \
 	skip_list.ml suffix_array.ml calculus.ml type_infer.ml optics.ml \
 	minikanren.ml effects.ml network_flow.ml peg.ml integration.ml \
-	term_rewriting.ml
+	term_rewriting.ml abstract_interp.ml autodiff.ml automata.ml \
+	bytecode_vm.ml crypto.ml csp.ml datalog.ml earley.ml frp.ml \
+	fsm.ml gadts.ml game_ai.ml gc_simulator.ml geometry.ml lambda.ml \
+	model_checker.ml probability.ml relational.ml sat_solver.ml \
+	string_match.ml theorem_prover.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml
