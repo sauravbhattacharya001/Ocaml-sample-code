@@ -116,26 +116,78 @@ let exponential (lambda : float) : float dist =
     let u = if u < 1e-15 then 1e-15 else u in
     -. (log u) /. lambda
 
-(* Poisson distribution using Knuth's algorithm *)
+(* Log-factorial using Stirling's approximation for large n,
+   exact table for small n. Used by the large-lambda Poisson sampler. *)
+let log_factorial (n : int) : float =
+  if n <= 1 then 0.0
+  else if n <= 20 then
+    (* Exact for small values *)
+    let acc = ref 0.0 in
+    for i = 2 to n do
+      acc := !acc +. log (float_of_int i)
+    done;
+    !acc
+  else
+    (* Stirling's approximation *)
+    let nf = float_of_int n in
+    0.5 *. log (2.0 *. Float.pi *. nf)
+    +. nf *. (log nf -. 1.0)
+    +. 1.0 /. (12.0 *. nf)
+
+(* Poisson distribution.
+   For lambda <= 30: Knuth's algorithm (O(lambda) per sample, fine for small values).
+   For lambda > 30: Transformed rejection method (Hoermann, 1993) — O(1) per sample.
+   Fixes: https://github.com/sauravbhattacharya001/Ocaml-sample-code/issues/19 *)
 let poisson (lambda : float) : int dist =
   if lambda <= 0.0 then failwith "poisson: lambda must be positive";
-  fun () ->
-    let l = exp (-.lambda) in
-    let rec loop k p =
-      if p < l then k - 1
-      else loop (k + 1) (p *. Random.float 1.0)
-    in
-    loop 0 1.0
+  if lambda <= 30.0 then
+    (* Knuth's algorithm — fine for small lambda *)
+    fun () ->
+      let l = exp (-.lambda) in
+      let rec loop k p =
+        if p < l then k - 1
+        else loop (k + 1) (p *. Random.float 1.0)
+      in
+      loop 0 1.0
+  else
+    (* Transformed rejection method for large lambda.
+       Based on Hoermann's PTRD algorithm. O(1) expected time per sample. *)
+    let s_lambda = sqrt lambda in
+    let b = 0.931 +. 2.53 *. s_lambda in
+    let a = -0.059 +. 0.02483 *. b in
+    let inv_alpha = 1.1239 +. 1.1328 /. (b -. 3.4) in
+    let v_r = 0.9277 -. 3.6224 /. (b -. 2.0) in
+    fun () ->
+      let rec try_sample () =
+        let u = Random.float 1.0 -. 0.5 in
+        let v = Random.float 1.0 in
+        let us = 0.5 -. abs_float u in
+        let k = int_of_float (floor ((2.0 *. a /. us +. b) *. u +. lambda +. 0.43)) in
+        if k < 0 then try_sample ()
+        else if us >= 0.07 && v <= v_r then k
+        else begin
+          let kf = float_of_int k in
+          let lhs = log (v *. inv_alpha /. (a /. (us *. us) +. b)) in
+          let rhs = -. lambda +. kf *. log lambda -. log_factorial k in
+          if lhs <= rhs then k
+          else try_sample ()
+        end
+      in
+      try_sample ()
 
-(* Geometric distribution: number of trials until first success *)
+(* Geometric distribution: number of trials until first success.
+   Uses inverse CDF method — O(1) per sample regardless of p.
+   Fixes: https://github.com/sauravbhattacharya001/Ocaml-sample-code/issues/19 *)
 let geometric (p : float) : int dist =
   if p <= 0.0 || p > 1.0 then failwith "geometric: p must be in (0, 1]";
-  fun () ->
-    let rec loop count =
-      if Random.float 1.0 < p then count
-      else loop (count + 1)
-    in
-    loop 1
+  if p >= 1.0 then
+    fun () -> 1
+  else
+    let log_1_minus_p = log (1.0 -. p) in
+    fun () ->
+      let u = Random.float 1.0 in
+      let u = if u < 1e-15 then 1e-15 else u in
+      int_of_float (ceil (log u /. log_1_minus_p))
 
 (* Binomial distribution: number of successes in n trials *)
 let binomial (n : int) (p : float) : int dist =
@@ -577,12 +629,40 @@ let () =
   let pois_mean = mean (Array.map float_of_int pois_samples) in
   check "poisson(5) mean ≈ 5.0" (abs_float (pois_mean -. 5.0) < 0.2);
 
+  (* Large lambda: tests the O(1) rejection method *)
+  seed 42;
+  let pois_large = sample_array 10000 (poisson 100.0) in
+  let pois_large_mean = mean (Array.map float_of_int pois_large) in
+  let pois_large_var = variance (Array.map float_of_int pois_large) in
+  check "poisson(100) mean ≈ 100" (abs_float (pois_large_mean -. 100.0) < 2.0);
+  check "poisson(100) variance ≈ 100" (abs_float (pois_large_var -. 100.0) < 10.0);
+
+  seed 42;
+  let pois_500 = sample_array 5000 (poisson 500.0) in
+  let pois_500_mean = mean (Array.map float_of_int pois_500) in
+  check "poisson(500) mean ≈ 500" (abs_float (pois_500_mean -. 500.0) < 10.0);
+
   section "Geometric Distribution";
 
   seed 42;
   let geo_samples = sample_array 10000 (geometric 0.25) in
   let geo_mean = mean (Array.map float_of_int geo_samples) in
   check "geometric(0.25) mean ≈ 4.0" (abs_float (geo_mean -. 4.0) < 0.3);
+
+  (* Small p: tests the O(1) inverse CDF method *)
+  seed 42;
+  let geo_small_p = sample_array 10000 (geometric 0.001) in
+  let geo_small_mean = mean (Array.map float_of_int geo_small_p) in
+  check "geometric(0.001) mean ≈ 1000" (abs_float (geo_small_mean -. 1000.0) < 50.0);
+
+  check "geometric(1.0) always returns 1" (
+    let g = geometric 1.0 in
+    let all_ones = ref true in
+    for _ = 1 to 100 do
+      if g () <> 1 then all_ones := false
+    done;
+    !all_ones
+  );
 
   section "Binomial Distribution";
 
