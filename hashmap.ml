@@ -3,24 +3,44 @@
 (* Supports: create, insert, find, remove, mem, size, fold, map, filter, *)
 (* merge, keys, values, bindings, of_list, equal, iter, for_all, exists *)
 (* All operations return new maps (purely functional, old versions remain valid) *)
+(*                                                                            *)
+(* Security: each map instance carries a random hash seed, so the bucket      *)
+(* assignment of keys is unpredictable.  This prevents HashDoS attacks where  *)
+(* an adversary crafts keys that all land in the same bucket, degrading every *)
+(* lookup from O(1) to O(n).  See: https://ocert.org/advisories/ocert-2011-003.html *)
 
 module FunMap = struct
   type ('k, 'v) t = {
     buckets : ('k * 'v) list array;
     size    : int;
     capacity: int;
+    seed    : int;  (* per-map random seed to prevent HashDoS *)
   }
 
   let default_capacity = 16
 
+  (** Generate a random seed.  Uses [Random.self_init] on first call
+      so the seed is unpredictable across program runs. *)
+  let () = Random.self_init ()
+  let fresh_seed () = Random.bits ()
+
   let create ?(capacity = default_capacity) () =
     let cap = max 1 capacity in
-    { buckets = Array.make cap []; size = 0; capacity = cap }
+    { buckets = Array.make cap []; size = 0; capacity = cap;
+      seed = fresh_seed () }
 
   let empty = create ()
 
-  let hash_key cap k =
-    (Hashtbl.hash k) mod cap |> abs
+  (** Randomised hash: mixes [Hashtbl.hash] output with the per-map
+      seed before taking the modulus.  The XOR + multiply is a fast
+      integer finalizer that spreads the seed's influence across all
+      bits of the hash, making it infeasible for an attacker to predict
+      bucket assignments without knowing the seed. *)
+  let hash_key cap seed k =
+    let h = Hashtbl.hash k in
+    let mixed = h lxor (seed * 0x9e3779b9) in
+    (* Ensure non-negative: OCaml's [mod] can return negative values *)
+    ((mixed lsr 1) mod cap)
 
   (* Resize when load factor exceeds 0.75 *)
   let should_resize m =
@@ -31,15 +51,16 @@ module FunMap = struct
     let new_buckets = Array.make new_cap [] in
     Array.iter (fun bucket ->
       List.iter (fun ((k, _v) as pair) ->
-        let idx = hash_key new_cap k in
+        let idx = hash_key new_cap m.seed k in
         new_buckets.(idx) <- pair :: new_buckets.(idx)
       ) bucket
     ) m.buckets;
-    { buckets = new_buckets; size = m.size; capacity = new_cap }
+    { buckets = new_buckets; size = m.size; capacity = new_cap;
+      seed = m.seed }
 
   let insert k v m =
     let m = if should_resize m then resize m else m in
-    let idx = hash_key m.capacity k in
+    let idx = hash_key m.capacity m.seed k in
     let bucket = m.buckets.(idx) in
     let existed = List.exists (fun (k', _) -> k' = k) bucket in
     let new_bucket =
@@ -52,10 +73,11 @@ module FunMap = struct
     new_buckets.(idx) <- new_bucket;
     { buckets = new_buckets;
       size = if existed then m.size else m.size + 1;
-      capacity = m.capacity }
+      capacity = m.capacity;
+      seed = m.seed }
 
   let find k m =
-    let idx = hash_key m.capacity k in
+    let idx = hash_key m.capacity m.seed k in
     let rec search = function
       | [] -> None
       | (k', v) :: _ when k' = k -> Some v
@@ -72,7 +94,7 @@ module FunMap = struct
     find k m <> None
 
   let remove k m =
-    let idx = hash_key m.capacity k in
+    let idx = hash_key m.capacity m.seed k in
     let bucket = m.buckets.(idx) in
     let existed = List.exists (fun (k', _) -> k' = k) bucket in
     if not existed then m
@@ -82,7 +104,8 @@ module FunMap = struct
       new_buckets.(idx) <- new_bucket;
       { buckets = new_buckets;
         size = m.size - 1;
-        capacity = m.capacity }
+        capacity = m.capacity;
+        seed = m.seed }
     end
 
   let size m = m.size
@@ -119,7 +142,8 @@ module FunMap = struct
       new_buckets.(i) <- filtered;
       new_size := !new_size + List.length filtered
     ) m.buckets;
-    { buckets = new_buckets; size = !new_size; capacity = m.capacity }
+    { buckets = new_buckets; size = !new_size; capacity = m.capacity;
+      seed = m.seed }
 
   let keys m =
     fold (fun acc k _v -> k :: acc) [] m

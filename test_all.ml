@@ -3920,18 +3920,25 @@ type ('k, 'v) hm_t = {
   hm_buckets : ('k * 'v) list array;
   hm_size    : int;
   hm_cap     : int;
+  hm_seed    : int;
 }
 
 let hm_default_cap = 16
 
+let () = Random.self_init ()
+let hm_fresh_seed () = Random.bits ()
+
 let hm_create ?(capacity = hm_default_cap) () =
   let cap = max 1 capacity in
-  { hm_buckets = Array.make cap []; hm_size = 0; hm_cap = cap }
+  { hm_buckets = Array.make cap []; hm_size = 0; hm_cap = cap;
+    hm_seed = hm_fresh_seed () }
 
 let hm_empty = hm_create ()
 
-let hm_hash_key cap k =
-  (Hashtbl.hash k) mod cap |> abs
+let hm_hash_key cap seed k =
+  let h = Hashtbl.hash k in
+  let mixed = h lxor (seed * 0x9e3779b9) in
+  ((mixed lsr 1) mod cap)
 
 let hm_should_resize m =
   m.hm_size > (m.hm_cap * 3 / 4)
@@ -3941,15 +3948,16 @@ let hm_resize m =
   let new_b = Array.make new_cap [] in
   Array.iter (fun bucket ->
     List.iter (fun ((k, _) as pair) ->
-      let idx = hm_hash_key new_cap k in
+      let idx = hm_hash_key new_cap m.hm_seed k in
       new_b.(idx) <- pair :: new_b.(idx)
     ) bucket
   ) m.hm_buckets;
-  { hm_buckets = new_b; hm_size = m.hm_size; hm_cap = new_cap }
+  { hm_buckets = new_b; hm_size = m.hm_size; hm_cap = new_cap;
+    hm_seed = m.hm_seed }
 
 let hm_insert k v m =
   let m = if hm_should_resize m then hm_resize m else m in
-  let idx = hm_hash_key m.hm_cap k in
+  let idx = hm_hash_key m.hm_cap m.hm_seed k in
   let bucket = m.hm_buckets.(idx) in
   let existed = List.exists (fun (k', _) -> k' = k) bucket in
   let new_bucket =
@@ -3962,10 +3970,11 @@ let hm_insert k v m =
   new_b.(idx) <- new_bucket;
   { hm_buckets = new_b;
     hm_size = if existed then m.hm_size else m.hm_size + 1;
-    hm_cap = m.hm_cap }
+    hm_cap = m.hm_cap;
+    hm_seed = m.hm_seed }
 
 let hm_find k m =
-  let idx = hm_hash_key m.hm_cap k in
+  let idx = hm_hash_key m.hm_cap m.hm_seed k in
   let rec search = function
     | [] -> None
     | (k', v) :: _ when k' = k -> Some v
@@ -3982,7 +3991,7 @@ let hm_mem k m =
   hm_find k m <> None
 
 let hm_remove k m =
-  let idx = hm_hash_key m.hm_cap k in
+  let idx = hm_hash_key m.hm_cap m.hm_seed k in
   let bucket = m.hm_buckets.(idx) in
   let existed = List.exists (fun (k', _) -> k' = k) bucket in
   if not existed then m
@@ -3992,7 +4001,8 @@ let hm_remove k m =
     new_b.(idx) <- new_bucket;
     { hm_buckets = new_b;
       hm_size = m.hm_size - 1;
-      hm_cap = m.hm_cap }
+      hm_cap = m.hm_cap;
+      hm_seed = m.hm_seed }
   end
 
 let hm_size m = m.hm_size
@@ -4029,7 +4039,8 @@ let hm_filter f m =
     new_b.(i) <- filtered;
     new_size := !new_size + List.length filtered
   ) m.hm_buckets;
-  { hm_buckets = new_b; hm_size = !new_size; hm_cap = m.hm_cap }
+  { hm_buckets = new_b; hm_size = !new_size; hm_cap = m.hm_cap;
+    hm_seed = m.hm_seed }
 
 let hm_keys m =
   hm_fold (fun acc k _v -> k :: acc) [] m
