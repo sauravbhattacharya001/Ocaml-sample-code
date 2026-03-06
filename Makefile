@@ -17,7 +17,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	bytecode_vm.ml crypto.ml csp.ml datalog.ml earley.ml frp.ml \
 	fsm.ml gadts.ml game_ai.ml gc_simulator.ml geometry.ml lambda.ml \
 	model_checker.ml probability.ml relational.ml sat_solver.ml \
-	string_match.ml theorem_prover.ml
+	string_match.ml theorem_prover.ml diff.ml graph_db.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml
@@ -47,6 +47,9 @@ test: test_all
 test_skip_list: skip_list.ml test_skip_list.ml
 	$(OCAML) -o test_skip_list skip_list.ml test_skip_list.ml
 
+test_graph_db: graph_db.ml test_graph_db.ml
+	$(OCAML) -o test_graph_db graph_db.ml test_graph_db.ml
+
 run: all
 	@for prog in $(TARGETS_PLAIN); do \
 		echo "=== $$prog ===" ; \
@@ -73,5 +76,5 @@ coverage-html: coverage
 	@echo "Coverage report: _coverage/index.html"
 
 clean:
-	rm -f $(TARGETS) test_all test_all_cov test_skip_list *.cmi *.cmx *.cmo *.o bisect*.coverage
+	rm -f $(TARGETS) test_all test_all_cov test_skip_list test_graph_db *.cmi *.cmx *.cmo *.o bisect*.coverage
 	rm -rf _coverage
