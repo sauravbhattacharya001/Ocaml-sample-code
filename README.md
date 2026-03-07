@@ -20,54 +20,80 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**Concepts covered:** recursion, pattern matching, algebraic data types, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives.
+**68 programs** covering: recursion, pattern matching, algebraic data types, GADTs, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives, symbolic integration, u-substitution, numerical methods, probability monads, Monte Carlo simulation, Bayesian inference, logic programming, unification, algebraic effects, free monads, automatic differentiation, backpropagation, functional reactive programming, network flow algorithms, bytecode virtual machines, term rewriting systems, zippers, property-based testing, finger trees, persistent vectors, abstract interpretation, finite automata, constraint satisfaction, Datalog engines, double-ended queues, diff algorithms, Earley parsing, GADTs, game AI, garbage collection simulation, computational geometry, property graph databases, Huffman coding, interval trees, lambda calculus, model checking, optics (lenses/prisms), PEG parsers, relational algebra, SAT solvers, string matching, suffix arrays, theorem proving, type inference.
 
 ## Programs
 
 | File | Description | Concepts |
 |------|-------------|----------|
-| [`hello.ml`](hello.ml) | Variables, types, pipes, and pattern matching | Let bindings, type inference, `Printf`, pipe operator |
-| [`fibonacci.ml`](fibonacci.ml) | Fibonacci: naive vs memoized vs iterative | Hash tables, closures, imperative features, benchmarking |
-| [`factor.ml`](factor.ml) | Prime factorization via optimized trial division | Recursion, mutual recursion, input validation |
-| [`list_last_elem.ml`](list_last_elem.ml) | Find the last element of a list safely | Option types, pattern matching |
-| [`bst.ml`](bst.ml) | Binary search tree (insert, delete, traversal, min/max, size, depth) | Algebraic data types, polymorphism, accumulators |
-| [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
-| [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
-| [`dijkstra.ml`](dijkstra.ml) | Weighted graphs — Dijkstra's, Floyd-Warshall, Prim's MST | Weighted adjacency lists, priority queues, shortest paths, minimum spanning trees |
-| [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
-| [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
-| [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
-| [`regex.ml`](regex.ml) | Regular expression engine — NFA-based pattern matching | Algebraic data types, recursive descent parsing, Thompson's NFA, epsilon closure |
-| [`stream.ml`](stream.ml) | Lazy streams — infinite/lazy sequences with on-demand evaluation | Lazy evaluation, closures, unfold/iterate/cycle, infinite sequences, memoization |
-| [`rbtree.ml`](rbtree.ml) | Red-Black tree — Okasaki-style self-balancing BST | Persistent data structures, balance invariants, set operations, higher-order functions |
-| [`sorting.ml`](sorting.ml) | Sorting algorithms — 6 sorts with benchmarking utilities | Insertion, selection, quicksort (median-of-three), heapsort, natural mergesort, counting sort |
-| [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
-| [`hashmap.ml`](hashmap.ml) | Functional hash map — persistent immutable hash table | Separate chaining, auto-resize, fold/map/filter, merge/union, partition |
+| [`abstract_interp.ml`](abstract_interp.ml) | Abstract interpreter for interval domain analysis | Lattice theory, widening/narrowing, abstract transfer functions, fixed-point computation |
+| [`autodiff.ml`](autodiff.ml) | Automatic differentiation — forward & reverse mode | Dual numbers, computation graphs, tape-based backpropagation, gradient/Jacobian/Hessian, Adam/momentum optimizers, neural network building blocks |
+| [`automata.ml`](automata.ml) | Finite automata toolkit — DFA/NFA construction and minimization | Subset construction, Hopcroft's minimization, product construction, NFA→DFA conversion |
 | [`bloom_filter.ml`](bloom_filter.ml) | Bloom filter — probabilistic set membership | Double hashing, tunable FP rate, union, optimal sizing, saturation stats |
+| [`bst.ml`](bst.ml) | Binary search tree (insert, delete, traversal, min/max, size, depth) | Algebraic data types, polymorphism, accumulators |
+| [`btree.ml`](btree.ml) | B-Tree — self-balancing search tree with configurable degree | Multi-way branching, node splitting, in-order traversal, search, bulk insertion |
+| [`bytecode_vm.ml`](bytecode_vm.ml) | Stack-based bytecode virtual machine with compiler and disassembler | Opcodes, stack machines, call frames, closures, upvalues, expression compilation, native functions, execution tracing |
+| [`calculus.ml`](calculus.ml) | Symbolic differentiation — derivatives, simplification, evaluation | Algebraic data types, pattern matching, recursive transforms, chain rule, gradient |
+| [`crypto.ml`](crypto.ml) | Classical ciphers — ROT13, Caesar, Vigenère, XOR, Rail Fence, Atbash | String manipulation, modular arithmetic, frequency analysis, symmetric encryption |
+| [`csp.ml`](csp.ml) | Constraint satisfaction problem solver — Sudoku, N-Queens, graph coloring | Backtracking, arc consistency (AC-3), constraint propagation, MRV/LCV heuristics, forward checking |
+| [`csv.ml`](csv.ml) | CSV parser & data analyzer — RFC 4180 parsing with type inference | String parsing, type inference, fold-based aggregation, group-by, filtering, sorting, pretty-printing |
+| [`datalog.ml`](datalog.ml) | Datalog query engine — bottom-up evaluation with stratified negation | Semi-naive evaluation, unification, fixed-point computation, stratified negation, aggregation |
+| [`deque.ml`](deque.ml) | Purely functional deque (Okasaki's Banker's Deque) | Amortised O(1) both ends, persistent data structures, sliding window algorithms |
+| [`diff.ml`](diff.ml) | Myers diff algorithm — the same algorithm used by git diff | Edit graph, shortest edit script, LCS extraction, unified diff formatting |
+| [`dijkstra.ml`](dijkstra.ml) | Weighted graphs — Dijkstra's, Floyd-Warshall, Prim's MST | Weighted adjacency lists, priority queues, shortest paths, minimum spanning trees |
+| [`earley.ml`](earley.ml) | Earley parser for context-free grammars | Earley items, predict/scan/complete operations, parse forests, ambiguity handling |
+| [`effects.ml`](effects.ml) | Algebraic effects and handlers | Free monads, delimited continuations, CPS transforms, effect composition via coproducts, State/Exception/Nondeterminism/Writer/Reader/Coroutine effects, N-Queens |
+| [`factor.ml`](factor.ml) | Prime factorization via optimized trial division | Recursion, mutual recursion, input validation |
+| [`fenwick_tree.ml`](fenwick_tree.ml) | Fenwick Tree (Binary Indexed Tree) — prefix sums and point updates | Imperative arrays, bit manipulation, functors, O(log n) queries, order statistics |
+| [`fibonacci.ml`](fibonacci.ml) | Fibonacci: naive vs memoized vs iterative | Hash tables, closures, imperative features, benchmarking |
+| [`finger_tree.ml`](finger_tree.ml) | Finger Trees — versatile functional data structure (Hinze & Paterson, 2006) | Monoid-parameterised measure, 2-3 nodes, O(1) amortised deque ops, O(log n) concat/split, sequences, priority queues, sorted sequences |
+| [`frp.ml`](frp.ml) | Functional Reactive Programming — signals, behaviors, events, streams | Time-varying behaviors, event combinators, push-based signals, reactive cells, state machines, animation easing, keyframes, spring physics |
+| [`fsm.ml`](fsm.ml) | Finite state machines — DFA/NFA construction and string acceptance | Variant types, pattern matching, sets/maps, fixpoints, formal language theory |
+| [`gadts.ml`](gadts.ml) | Generalized Algebraic Data Types (GADTs) | Type-safe expression evaluators, length-indexed vectors, typed heterogeneous lists, type-level programming |
+| [`game_ai.ml`](game_ai.ml) | Minimax game AI with alpha-beta pruning — Tic-Tac-Toe and Connect Four | Module signatures, functors, iterative deepening, transposition tables, minimax |
+| [`gc_simulator.ml`](gc_simulator.ml) | Garbage collector simulator — 4 classic GC algorithms | Mark-and-sweep, Cheney's copying, reference counting (cycle detection), generational GC |
+| [`geometry.ml`](geometry.ml) | Computational geometry — convex hull, closest pair, intersections | Cross/dot product, Graham scan, ray casting, divide & conquer, polygon operations |
+| [`graph.ml`](graph.ml) | Graph algorithms (BFS, DFS, topological sort, cycle detection) | Modules (Map, Set, Queue), records, imperative queues, variants |
+| [`graph_db.ml`](graph_db.ml) | Property graph query engine with Cypher-inspired pattern matching | Property graphs, labeled nodes, typed relationships, backtracking search, projections |
+| [`hashmap.ml`](hashmap.ml) | Functional hash map — persistent immutable hash table | Separate chaining, auto-resize, fold/map/filter, merge/union, partition |
+| [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
+| [`hello.ml`](hello.ml) | Variables, types, pipes, and pattern matching | Let bindings, type inference, `Printf`, pipe operator |
+| [`huffman.ml`](huffman.ml) | Huffman coding — lossless data compression | Priority queues, recursive tree traversal, frequency analysis, variable-length prefix codes |
+| [`integration.ml`](integration.ml) | Symbolic integration engine — antiderivatives, definite integrals, numerical methods | Pattern-based rules, linearity, u-substitution, integration by parts (LIATE), Simpson's rule, verification via differentiation |
+| [`interval_tree.ml`](interval_tree.ml) | Interval tree — augmented AVL for efficient overlap queries | AVL balancing, subtree augmentation, O(log n) overlap/stabbing queries |
+| [`json.ml`](json.ml) | JSON parser — complete RFC 8259 parser with queries and transforms | Recursive descent, mutual recursion, Unicode escapes, pretty printing, dot-notation queries |
+| [`lambda.ml`](lambda.ml) | Untyped lambda calculus interpreter | Alpha-equivalence, capture-avoiding substitution, De Bruijn indices, beta reduction strategies |
+| [`list_last_elem.ml`](list_last_elem.ml) | Find the last element of a list safely | Option types, pattern matching |
 | [`lru_cache.ml`](lru_cache.ml) | LRU Cache — bounded least-recently-used cache | Put/get with auto-eviction, hit/miss stats, peek, resize, filter, fold |
+| [`matrix.ml`](matrix.ml) | Matrix — linear algebra with functors and modules | Functors, module signatures, Gaussian elimination, determinant, inverse, matrix power, norms |
+| [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
+| [`minikanren.ml`](minikanren.ml) | miniKanren logic programming engine | Unification, substitution, logic variables, streams, relational programming, Peano arithmetic, constraint solving |
+| [`model_checker.ml`](model_checker.ml) | CTL model checker for finite-state transition systems | Temporal logic (CTL), labeling algorithm, fixpoint computation, state exploration |
+| [`network_flow.ml`](network_flow.ml) | Network flow algorithms — Edmonds-Karp max flow, min-cut, bipartite matching, MCMF | Residual graphs, BFS augmenting paths, flow decomposition, Bellman-Ford SPFA, bipartite reduction, multi-source/sink |
+| [`optics.ml`](optics.ml) | Optics — lenses, prisms, and traversals for composable data access | Lenses (get/set), prisms (preview/build), traversals (fold/over), composition |
+| [`parser.ml`](parser.ml) | Parser combinators — build parsers from small pieces (arithmetic, lists, key-value) | Higher-order functions, closures, monadic bind/map, recursive descent, operator precedence |
+| [`peg.ml`](peg.ml) | Parsing Expression Grammar engine with packrat memoization | PEGs (Ford, 2004), packrat parsing, linear-time guarantee, ordered choice |
+| [`persistent_vector.ml`](persistent_vector.ml) | Persistent Vector — Clojure-style immutable array with structural sharing | 32-way branching trie, O(log32 n) get/set, amortized O(1) push_back, tail buffer optimization, transient batch builder, map/fold/filter/sub/append/rev |
+| [`probability.ml`](probability.ml) | Probability monad & Monte Carlo simulation | Monadic composition, sampling distributions, statistics, Monte Carlo integration, Markov chains, Bayesian inference |
+| [`queue.ml`](queue.ml) | Purely functional queue (Okasaki's Banker's Queue) | Amortised O(1) enqueue/dequeue, two-list technique, persistence |
+| [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
+| [`rbtree.ml`](rbtree.ml) | Red-Black tree — Okasaki-style self-balancing BST | Persistent data structures, balance invariants, set operations, higher-order functions |
+| [`regex.ml`](regex.ml) | Regular expression engine — NFA-based pattern matching | Algebraic data types, recursive descent parsing, Thompson's NFA, epsilon closure |
+| [`relational.ml`](relational.ml) | Mini relational algebra engine — SQL-like operations on typed tables | Schema validation, select/project/join/union, aggregates, group-by, query composition |
+| [`rope.ml`](rope.ml) | Rope — balanced binary tree for efficient string operations | O(log n) concat/split/insert/delete, text editing, balancing, line operations |
+| [`sat_solver.ml`](sat_solver.ml) | SAT solver using DPLL algorithm | Backtracking, unit propagation, pure literal elimination, CNF satisfiability |
 | [`segment_tree.ml`](segment_tree.ml) | Segment Tree — efficient range queries and point updates | Functors, monoid abstraction, sum/min/max queries, O(log n) update |
 | [`skip_list.ml`](skip_list.ml) | Skip List — probabilistic sorted data structure | Randomized levels, O(log n) search/insert/delete, range queries, floor/ceil |
-| [`rope.ml`](rope.ml) | Rope — balanced binary tree for efficient string operations | O(log n) concat/split/insert/delete, text editing, balancing, line operations |
-| [`btree.ml`](btree.ml) | B-Tree — self-balancing search tree with configurable degree | Multi-way branching, node splitting, in-order traversal, search, bulk insertion |
-| [`json.ml`](json.ml) | JSON parser — complete RFC 8259 parser with queries and transforms | Recursive descent, mutual recursion, Unicode escapes, pretty printing, dot-notation queries |
-| [`matrix.ml`](matrix.ml) | Matrix — linear algebra with functors and modules | Functors, module signatures, Gaussian elimination, determinant, inverse, matrix power, norms |
-| [`csv.ml`](csv.ml) | CSV parser & data analyzer — RFC 4180 parsing with type inference | String parsing, type inference, fold-based aggregation, group-by, filtering, sorting, pretty-printing |
-| [`fenwick_tree.ml`](fenwick_tree.ml) | Fenwick Tree (Binary Indexed Tree) — prefix sums and point updates | Imperative arrays, bit manipulation, functors, O(log n) queries, order statistics |
-| [`crypto.ml`](crypto.ml) | Classical ciphers — ROT13, Caesar, Vigenère, XOR, Rail Fence, Atbash | String manipulation, modular arithmetic, frequency analysis, symmetric encryption |
-| [`calculus.ml`](calculus.ml) | Symbolic differentiation — derivatives, simplification, evaluation | Algebraic data types, pattern matching, recursive transforms, chain rule, gradient |
-| [`integration.ml`](integration.ml) | Symbolic integration engine — antiderivatives, definite integrals, numerical methods | Pattern-based rules, linearity, u-substitution, integration by parts (LIATE), Simpson's rule, verification via differentiation |
-| [`probability.ml`](probability.ml) | Probability monad & Monte Carlo simulation | Monadic composition, sampling distributions, statistics, Monte Carlo integration, Markov chains, Bayesian inference |
-| [`minikanren.ml`](minikanren.ml) | miniKanren logic programming engine | Unification, substitution, logic variables, streams, relational programming, Peano arithmetic, constraint solving |
-| [`effects.ml`](effects.ml) | Algebraic effects and handlers | Free monads, delimited continuations, CPS transforms, effect composition via coproducts, State/Exception/Nondeterminism/Writer/Reader/Coroutine effects, N-Queens |
-| [`autodiff.ml`](autodiff.ml) | Automatic differentiation — forward & reverse mode | Dual numbers, computation graphs, tape-based backpropagation, gradient/Jacobian/Hessian, Adam/momentum optimizers, neural network building blocks |
-| [`frp.ml`](frp.ml) | Functional Reactive Programming — signals, behaviors, events, streams | Time-varying behaviors, event combinators, push-based signals, reactive cells, state machines, animation easing, keyframes, spring physics |
-| [`network_flow.ml`](network_flow.ml) | Network flow algorithms — Edmonds-Karp max flow, min-cut, bipartite matching, MCMF | Residual graphs, BFS augmenting paths, flow decomposition, Bellman-Ford SPFA, bipartite reduction, multi-source/sink |
-| [`bytecode_vm.ml`](bytecode_vm.ml) | Stack-based bytecode virtual machine with compiler and disassembler | Opcodes, stack machines, call frames, closures, upvalues, expression compilation, native functions, execution tracing |
+| [`sorting.ml`](sorting.ml) | Sorting algorithms — 6 sorts with benchmarking utilities | Insertion, selection, quicksort (median-of-three), heapsort, natural mergesort, counting sort |
+| [`stream.ml`](stream.ml) | Lazy streams — infinite/lazy sequences with on-demand evaluation | Lazy evaluation, closures, unfold/iterate/cycle, infinite sequences, memoization |
+| [`string_match.ml`](string_match.ml) | String matching algorithms — KMP, Boyer-Moore, Rabin-Karp, Aho-Corasick, Z-algorithm | Failure functions, rolling hash, multi-pattern matching, O(n+m) matching |
+| [`suffix_array.ml`](suffix_array.ml) | Suffix array with LCP array — full-text search and substring queries | Suffix sorting, Kasai's LCP, O(m log n) search, longest repeated substrings |
 | [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
+| [`theorem_prover.ml`](theorem_prover.ml) | Propositional theorem prover via natural deduction | Sequent-style proof search, backtracking, inference rules, immutable contexts |
+| [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
+| [`type_infer.ml`](type_infer.ml) | Hindley-Milner type inference engine (Algorithm W) | Unification, type variables, let-polymorphism, constraint generation, substitution |
+| [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
 | [`zipper.ml`](zipper.ml) | Zipper — functional cursor for navigating and editing immutable structures | One-hole contexts, list/tree/filesystem zippers, Huet's zipper, rose trees, purely functional editing |
-| [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
-| [`finger_tree.ml`](finger_tree.ml) | Finger Trees — versatile functional data structure (Hinze & Paterson, 2006) | Monoid-parameterised measure, 2-3 nodes, O(1) amortised deque ops, O(log n) concat/split, sequences, priority queues, sorted sequences |
-| [`persistent_vector.ml`](persistent_vector.ml) | Persistent Vector — Clojure-style immutable array with structural sharing | 32-way branching trie, O(log32 n) get/set, amortized O(1) push_back, tail buffer optimization, transient batch builder, map/fold/filter/sub/append/rev |
 
 ## Getting Started
 
@@ -408,11 +434,69 @@ Ocaml-sample-code/
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
 ├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
+├── dijkstra.ml           # Weighted graphs (Dijkstra, Floyd-Warshall, Prim)
 ├── heap.ml               # Priority queue (leftist min-heap)
 ├── parser.ml             # Parser combinators (arithmetic, lists, key-value)
 ├── trie.ml               # Trie (prefix tree) — string storage, prefix search
 ├── regex.ml              # Regular expression engine (Thompson's NFA)
-├── LEARNING_PATH.md          # Progressive learning guide
+├── stream.ml             # Lazy streams (infinite sequences)
+├── rbtree.ml             # Red-Black tree (Okasaki-style BST)
+├── sorting.ml            # 6 sorting algorithms with benchmarks
+├── union_find.ml         # Union-Find (disjoint sets, Kruskal's MST)
+├── hashmap.ml            # Functional hash map (persistent)
+├── bloom_filter.ml       # Bloom filter (probabilistic set)
+├── lru_cache.ml          # LRU cache (bounded, persistent)
+├── segment_tree.ml       # Segment tree (range queries)
+├── skip_list.ml          # Skip list (probabilistic sorted structure)
+├── rope.ml               # Rope (text editing data structure)
+├── btree.ml              # B-Tree (multi-way search tree)
+├── json.ml               # JSON parser (RFC 8259)
+├── matrix.ml             # Matrix / linear algebra (functors)
+├── csv.ml                # CSV parser & data analyzer
+├── fenwick_tree.ml       # Fenwick tree (binary indexed tree)
+├── crypto.ml             # Classical ciphers (Caesar, Vigenère, etc.)
+├── calculus.ml           # Symbolic differentiation
+├── integration.ml        # Symbolic integration engine
+├── probability.ml        # Probability monad & Monte Carlo
+├── minikanren.ml         # miniKanren logic programming
+├── effects.ml            # Algebraic effects and handlers
+├── autodiff.ml           # Automatic differentiation (forward & reverse)
+├── frp.ml                # Functional reactive programming
+├── network_flow.ml       # Network flow (max flow, min-cut, MCMF)
+├── bytecode_vm.ml        # Bytecode VM with compiler
+├── term_rewriting.ml     # Term rewriting (Knuth-Bendix completion)
+├── zipper.ml             # Zippers for immutable structures
+├── quickcheck.ml         # Property-based testing framework
+├── finger_tree.ml        # Finger trees (Hinze & Paterson)
+├── persistent_vector.ml  # Persistent vector (Clojure-style)
+├── abstract_interp.ml    # Abstract interpretation (interval domain)
+├── automata.ml           # Finite automata toolkit (DFA/NFA)
+├── csp.ml                # Constraint satisfaction (Sudoku, N-Queens)
+├── datalog.ml            # Datalog query engine
+├── deque.ml              # Purely functional deque (Banker's Deque)
+├── diff.ml               # Myers diff algorithm (git diff)
+├── earley.ml             # Earley parser (any CFG)
+├── fsm.ml                # Finite state machines
+├── gadts.ml              # GADTs (type-safe evaluators)
+├── game_ai.ml            # Minimax game AI (Tic-Tac-Toe, Connect Four)
+├── gc_simulator.ml       # Garbage collector simulator (4 algorithms)
+├── geometry.ml           # Computational geometry (convex hull, etc.)
+├── graph_db.ml           # Property graph query engine
+├── huffman.ml            # Huffman coding (lossless compression)
+├── interval_tree.ml      # Interval tree (augmented AVL)
+├── lambda.ml             # Untyped lambda calculus interpreter
+├── model_checker.ml      # CTL model checker
+├── optics.ml             # Optics (lenses, prisms, traversals)
+├── peg.ml                # PEG parser (packrat memoization)
+├── queue.ml              # Purely functional queue (Banker's Queue)
+├── relational.ml         # Relational algebra engine
+├── sat_solver.ml         # SAT solver (DPLL algorithm)
+├── string_match.ml       # String matching (KMP, Boyer-Moore, etc.)
+├── suffix_array.ml       # Suffix array with LCP
+├── theorem_prover.ml     # Propositional theorem prover
+├── type_infer.ml         # Hindley-Milner type inference
+├── test_*.ml             # Test suites
+├── LEARNING_PATH.md      # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
 ├── .dockerignore         # Docker build context exclusions
 ├── Makefile              # Build automation
