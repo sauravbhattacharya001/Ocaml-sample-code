@@ -87,6 +87,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`skip_list.ml`](skip_list.ml) | Skip List — probabilistic sorted data structure | Randomized levels, O(log n) search/insert/delete, range queries, floor/ceil |
 | [`sorting.ml`](sorting.ml) | Sorting algorithms — 6 sorts with benchmarking utilities | Insertion, selection, quicksort (median-of-three), heapsort, natural mergesort, counting sort |
 | [`stream.ml`](stream.ml) | Lazy streams — infinite/lazy sequences with on-demand evaluation | Lazy evaluation, closures, unfold/iterate/cycle, infinite sequences, memoization |
+| [`stm.ml`](stm.ml) | Software Transactional Memory — composable concurrent state management | TVars, optimistic concurrency, conflict detection, retry/orElse, monadic composition, bounded channels, atomic transfers |
 | [`string_match.ml`](string_match.ml) | String matching algorithms — KMP, Boyer-Moore, Rabin-Karp, Aho-Corasick, Z-algorithm | Failure functions, rolling hash, multi-pattern matching, O(n+m) matching |
 | [`suffix_array.ml`](suffix_array.ml) | Suffix array with LCP array — full-text search and substring queries | Suffix sorting, Kasai's LCP, O(m log n) search, longest repeated substrings |
 | [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
@@ -441,6 +442,7 @@ Ocaml-sample-code/
 ├── trie.ml               # Trie (prefix tree) — string storage, prefix search
 ├── regex.ml              # Regular expression engine (Thompson's NFA)
 ├── stream.ml             # Lazy streams (infinite sequences)
+├── stm.ml                # Software Transactional Memory (STM)
 ├── rbtree.ml             # Red-Black tree (Okasaki-style BST)
 ├── sorting.ml            # 6 sorting algorithms with benchmarks
 ├── union_find.ml         # Union-Find (disjoint sets, Kruskal's MST)
