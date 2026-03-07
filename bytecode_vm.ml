@@ -112,6 +112,14 @@ let arith_op op a b = match a, b with
 
 (* --- VM creation --- *)
 
+(** Maximum number of execution steps before the VM aborts.
+    Prevents infinite loops from hanging the process. *)
+let max_execution_steps = ref 1_000_000
+
+(** Maximum call-frame depth.  Prevents stack overflow from
+    deeply recursive or mutually recursive function calls. *)
+let max_call_depth = ref 512
+
 let create_vm ?(trace=false) () = {
   stack = Array.make 256 VNil; sp = 0; frames = [];
   globals = Hashtbl.create 16; trace; output = [];
@@ -193,10 +201,15 @@ let run_code vm code =
   let frame = { cf_ip = 0; cf_code = code; cf_base = vm.sp; cf_closure = None } in
   vm.frames <- [frame];
   let get_frame () = List.hd vm.frames in
+  let steps = ref 0 in
   let rec step () =
     let frame = get_frame () in
     if frame.cf_ip >= Array.length frame.cf_code then ()
     else begin
+      incr steps;
+      if !steps > !max_execution_steps then
+        raise (VM_error (Printf.sprintf
+          "Execution limit exceeded (%d steps)" !max_execution_steps));
       let op = frame.cf_code.(frame.cf_ip) in
       if vm.trace then
         vm.output <- Printf.sprintf "  [sp=%d] %s" vm.sp (disassemble_op frame.cf_ip op) :: vm.output;
@@ -237,13 +250,26 @@ let run_code vm code =
     | OP_JUMP off -> let f = get_frame () in f.cf_ip <- f.cf_ip + off - 1
     | OP_JUMP_IF_FALSE off -> if not (value_is_truthy (pop vm)) then let f = get_frame () in f.cf_ip <- f.cf_ip + off - 1
     | OP_JUMP_IF_TRUE off -> if value_is_truthy (pop vm) then let f = get_frame () in f.cf_ip <- f.cf_ip + off - 1
-    | OP_LOAD slot -> let f = get_frame () in push vm vm.stack.(f.cf_base + slot)
-    | OP_STORE slot -> let v = pop vm in let f = get_frame () in vm.stack.(f.cf_base + slot) <- v
+    | OP_LOAD slot ->
+      let f = get_frame () in
+      let idx = f.cf_base + slot in
+      if slot < 0 || idx >= Array.length vm.stack then
+        raise (VM_error (Printf.sprintf "LOAD: slot %d out of bounds (frame base=%d, stack size=%d)" slot f.cf_base (Array.length vm.stack)));
+      push vm vm.stack.(idx)
+    | OP_STORE slot ->
+      let v = pop vm in
+      let f = get_frame () in
+      let idx = f.cf_base + slot in
+      if slot < 0 || idx >= Array.length vm.stack then
+        raise (VM_error (Printf.sprintf "STORE: slot %d out of bounds (frame base=%d, stack size=%d)" slot f.cf_base (Array.length vm.stack)));
+      vm.stack.(idx) <- v
     | OP_GLOAD name -> (match Hashtbl.find_opt vm.globals name with
        | Some v -> push vm v | None -> raise (VM_error (Printf.sprintf "Undefined global '%s'" name)))
     | OP_GSTORE name -> Hashtbl.replace vm.globals name (pop vm)
     | OP_CALL nargs ->
       let callee = peek_at vm nargs in
+      if List.length vm.frames >= !max_call_depth then
+        raise (VM_error (Printf.sprintf "Call depth limit exceeded (%d frames)" !max_call_depth));
       (match callee with
        | VFunction f ->
          if nargs <> f.fn_arity then raise (VM_error (Printf.sprintf "Expected %d args, got %d" f.fn_arity nargs));
