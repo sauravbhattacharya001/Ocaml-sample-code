@@ -35,6 +35,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`bytecode_vm.ml`](bytecode_vm.ml) | Stack-based bytecode virtual machine with compiler and disassembler | Opcodes, stack machines, call frames, closures, upvalues, expression compilation, native functions, execution tracing |
 | [`calculus.ml`](calculus.ml) | Symbolic differentiation — derivatives, simplification, evaluation | Algebraic data types, pattern matching, recursive transforms, chain rule, gradient |
 | [`crypto.ml`](crypto.ml) | Classical ciphers — ROT13, Caesar, Vigenère, XOR, Rail Fence, Atbash | String manipulation, modular arithmetic, frequency analysis, symmetric encryption |
+| [`crdt.ml`](crdt.ml) | CRDTs — Conflict-free Replicated Data Types for eventual consistency | G-Counter, PN-Counter, G-Set, OR-Set, LWW-Register, MV-Register, vector clocks, merge semilattices |
 | [`csp.ml`](csp.ml) | Constraint satisfaction problem solver — Sudoku, N-Queens, graph coloring | Backtracking, arc consistency (AC-3), constraint propagation, MRV/LCV heuristics, forward checking |
 | [`csv.ml`](csv.ml) | CSV parser & data analyzer — RFC 4180 parsing with type inference | String parsing, type inference, fold-based aggregation, group-by, filtering, sorting, pretty-printing |
 | [`datalog.ml`](datalog.ml) | Datalog query engine — bottom-up evaluation with stratified negation | Semi-naive evaluation, unification, fixed-point computation, stratified negation, aggregation |
@@ -458,6 +459,7 @@ Ocaml-sample-code/
 ├── csv.ml                # CSV parser & data analyzer
 ├── fenwick_tree.ml       # Fenwick tree (binary indexed tree)
 ├── crypto.ml             # Classical ciphers (Caesar, Vigenère, etc.)
+├── crdt.ml               # CRDTs (Conflict-free Replicated Data Types)
 ├── calculus.ml           # Symbolic differentiation
 ├── integration.ml        # Symbolic integration engine
 ├── probability.ml        # Probability monad & Monte Carlo
