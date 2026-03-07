@@ -66,6 +66,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
 | [`zipper.ml`](zipper.ml) | Zipper — functional cursor for navigating and editing immutable structures | One-hole contexts, list/tree/filesystem zippers, Huet's zipper, rose trees, purely functional editing |
 | [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
+| [`finger_tree.ml`](finger_tree.ml) | Finger Trees — versatile functional data structure (Hinze & Paterson, 2006) | Monoid-parameterised measure, 2-3 nodes, O(1) amortised deque ops, O(log n) concat/split, sequences, priority queues, sorted sequences |
 
 ## Getting Started
 
