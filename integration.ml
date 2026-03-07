@@ -284,6 +284,39 @@ type integrate_result =
   | Success of expr
   | Cannot_integrate of string
 
+(* ── Refactored helpers for common integration patterns ────────── *)
+
+(** [try_linear_sub var inner antideriv] handles the linear substitution
+    pattern ∫ f(ax+b) dx = F(ax+b)/a.  Given the inner expression and
+    a function that produces the antiderivative for the simple case,
+    extracts the linear coefficient and divides by it.
+
+    This eliminates the duplicated pattern:
+      let d = simplify (diff var inner) in
+      match d with Const a when a <> 0.0 -> Success (Div (..., Const a))
+    which was repeated for every linear-substitution rule. *)
+let try_linear_sub var inner antideriv =
+  let d = simplify (diff var inner) in
+  match d with
+  | Const a when a <> 0.0 -> Success (Div (antideriv, Const a))
+  | _ -> Cannot_integrate "non-constant linear coefficient"
+
+(** [lift_binary var combine a b integrate_fn] lifts integration over
+    binary linearity rules: ∫(a ± b) = ∫a ± ∫b.
+    [combine] is either [Add] or [Sub]. *)
+let lift_binary var combine a b integrate_fn =
+  match integrate_fn var a, integrate_fn var b with
+  | Success ia, Success ib -> Success (combine (ia, ib))
+  | Cannot_integrate r, _ -> Cannot_integrate r
+  | _, Cannot_integrate r -> Cannot_integrate r
+
+(** [lift_const_factor var factor body integrate_fn] lifts a constant
+    factor out: ∫ k*f(x) dx = k * ∫f(x) dx. *)
+let lift_const_factor var factor body integrate_fn =
+  match integrate_fn var body with
+  | Success ib -> Success (Mul (factor, ib))
+  | err -> err
+
 (* Try to integrate f with respect to var.
    Returns the antiderivative F such that dF/d(var) = f.
    The constant of integration is omitted (implied "+ C"). *)
@@ -356,29 +389,13 @@ let rec try_integrate var f =
   | Sqrt (Var x) when x = var ->
     Success (Mul (Div (Const 2.0, Const 3.0), Pow (Var var, Const 1.5)))
 
-  (* ── Linearity: ∫ (f + g) = ∫f + ∫g ──────────────────────── *)
-  | Add (a, b) ->
-    (match try_integrate var a, try_integrate var b with
-     | Success ia, Success ib -> Success (Add (ia, ib))
-     | Cannot_integrate r, _ -> Cannot_integrate r
-     | _, Cannot_integrate r -> Cannot_integrate r)
-
-  | Sub (a, b) ->
-    (match try_integrate var a, try_integrate var b with
-     | Success ia, Success ib -> Success (Sub (ia, ib))
-     | Cannot_integrate r, _ -> Cannot_integrate r
-     | _, Cannot_integrate r -> Cannot_integrate r)
+  (* ── Linearity: ∫ (f ± g) = ∫f ± ∫g ──────────────────────── *)
+  | Add (a, b) -> lift_binary var (fun (x, y) -> Add (x, y)) a b try_integrate
+  | Sub (a, b) -> lift_binary var (fun (x, y) -> Sub (x, y)) a b try_integrate
 
   (* ── Constant factor: ∫ c*f = c * ∫f ──────────────────────── *)
-  | Mul (Const c, g) ->
-    (match try_integrate var g with
-     | Success ig -> Success (Mul (Const c, ig))
-     | err -> err)
-
-  | Mul (g, Const c) ->
-    (match try_integrate var g with
-     | Success ig -> Success (Mul (Const c, ig))
-     | err -> err)
+  | Mul (Const c, g) -> lift_const_factor var (Const c) g try_integrate
+  | Mul (g, Const c) -> lift_const_factor var (Const c) g try_integrate
 
   | Neg a ->
     (match try_integrate var a with
@@ -387,14 +404,10 @@ let rec try_integrate var f =
 
   (* Factor out non-var multiplier: ∫ k*f(x) dx = k * ∫f(x) dx *)
   | Mul (a, b) when not (contains_var var a) ->
-    (match try_integrate var b with
-     | Success ib -> Success (Mul (a, ib))
-     | err -> err)
+    lift_const_factor var a b try_integrate
 
   | Mul (a, b) when not (contains_var var b) ->
-    (match try_integrate var a with
-     | Success ia -> Success (Mul (b, ia))
-     | err -> err)
+    lift_const_factor var b a try_integrate
 
   | Div (a, b) when not (contains_var var b) ->
     (match try_integrate var a with
@@ -402,58 +415,38 @@ let rec try_integrate var f =
      | err -> err)
 
   (* ── Linear substitution: ∫ f(ax+b) dx = F(ax+b)/a ────────── *)
-  (* ∫ (ax+b)^n dx *)
+  (* All linear substitution rules share the same pattern:
+     check is_linear, extract the coefficient, divide by it.
+     The try_linear_sub helper eliminates this duplication. *)
+
+  (* ∫ (ax+b)^n dx = (ax+b)^(n+1) / (a*(n+1)) for n ≠ -1 *)
   | Pow (inner, Const n) when n <> -1.0 && is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 ->
-       Success (Div (Pow (inner, Const (n +. 1.0)),
-                     Mul (Const (n +. 1.0), Const a)))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner
+      (Div (Pow (inner, Const (n +. 1.0)), Const (n +. 1.0)))
 
-  (* ∫ 1/(ax+b) dx = ln|ax+b|/a *)
+  (* ∫ (ax+b)^(-1) dx = ln|ax+b| / a *)
   | Pow (inner, Const n) when n = -1.0 && is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 ->
-       Success (Div (Ln (Abs inner), Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Ln (Abs inner))
 
+  (* ∫ 1/(ax+b) dx = ln|ax+b| / a *)
   | Div (Const 1.0, inner) when is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 ->
-       Success (Div (Ln (Abs inner), Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Ln (Abs inner))
 
-  (* ∫ exp(ax+b) dx = exp(ax+b)/a *)
+  (* ∫ exp(ax+b) dx = exp(ax+b) / a *)
   | Exp inner when is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 -> Success (Div (Exp inner, Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Exp inner)
 
-  (* ∫ sin(ax+b) dx = -cos(ax+b)/a *)
+  (* ∫ sin(ax+b) dx = -cos(ax+b) / a *)
   | Sin inner when is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 -> Success (Div (Neg (Cos inner), Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Neg (Cos inner))
 
-  (* ∫ cos(ax+b) dx = sin(ax+b)/a *)
+  (* ∫ cos(ax+b) dx = sin(ax+b) / a *)
   | Cos inner when is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 -> Success (Div (Sin inner, Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Sin inner)
 
-  (* ∫ sqrt(ax+b) dx = (2/3a)(ax+b)^(3/2) *)
+  (* ∫ sqrt(ax+b) dx = (2/3)(ax+b)^(3/2) / a *)
   | Sqrt inner when is_linear var inner ->
-    let d = simplify (diff var inner) in
-    (match d with
-     | Const a when a <> 0.0 ->
-       Success (Div (Mul (Const (2.0 /. 3.0), Pow (inner, Const 1.5)), Const a))
-     | _ -> Cannot_integrate "non-constant linear coefficient")
+    try_linear_sub var inner (Mul (Const (2.0 /. 3.0), Pow (inner, Const 1.5)))
 
   (* ── Simple u-substitution: ∫ f'(g(x)) * g'(x) dx = f(g(x)) ─── *)
   (* ∫ f(g(x)) * g'(x) dx — detect inner function and its derivative *)
