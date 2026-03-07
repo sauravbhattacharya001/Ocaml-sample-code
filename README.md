@@ -67,6 +67,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`zipper.ml`](zipper.ml) | Zipper — functional cursor for navigating and editing immutable structures | One-hole contexts, list/tree/filesystem zippers, Huet's zipper, rose trees, purely functional editing |
 | [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
 | [`finger_tree.ml`](finger_tree.ml) | Finger Trees — versatile functional data structure (Hinze & Paterson, 2006) | Monoid-parameterised measure, 2-3 nodes, O(1) amortised deque ops, O(log n) concat/split, sequences, priority queues, sorted sequences |
+| [`persistent_vector.ml`](persistent_vector.ml) | Persistent Vector — Clojure-style immutable array with structural sharing | 32-way branching trie, O(log32 n) get/set, amortized O(1) push_back, tail buffer optimization, transient batch builder, map/fold/filter/sub/append/rev |
 
 ## Getting Started
 
