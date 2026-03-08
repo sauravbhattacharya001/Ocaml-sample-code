@@ -18,7 +18,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	fsm.ml gadts.ml game_ai.ml gc_simulator.ml geometry.ml lambda.ml \
 	model_checker.ml probability.ml relational.ml sat_solver.ml \
 	string_match.ml theorem_prover.ml diff.ml graph_db.ml zipper.ml \
-	quickcheck.ml raft.ml
+	quickcheck.ml raft.ml incremental.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml

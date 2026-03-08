@@ -97,6 +97,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`type_infer.ml`](type_infer.ml) | Hindley-Milner type inference engine (Algorithm W) | Unification, type variables, let-polymorphism, constraint generation, substitution |
 | [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
 | [`zipper.ml`](zipper.ml) | Zipper — functional cursor for navigating and editing immutable structures | One-hole contexts, list/tree/filesystem zippers, Huet's zipper, rose trees, purely functional editing |
+| [`incremental.ml`](incremental.ml) | Incremental Computation — self-adjusting computation framework | Dependency graph, change propagation, Var/map/map2/bind/array_fold, observers, cutoff functions, freeze, spreadsheet example |
 
 ## Getting Started
 
@@ -500,6 +501,7 @@ Ocaml-sample-code/
 ├── suffix_array.ml       # Suffix array with LCP
 ├── theorem_prover.ml     # Propositional theorem prover
 ├── type_infer.ml         # Hindley-Milner type inference
+├── incremental.ml        # Incremental computation (self-adjusting)
 ├── test_*.ml             # Test suites
 ├── LEARNING_PATH.md      # Progressive learning guide
 ├── Dockerfile            # Multi-stage Docker build
