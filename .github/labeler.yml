@@ -1,5 +1,5 @@
 # Labels applied based on changed file paths
-# Used with actions/labeler@v5 in label.yml workflow
+# Used with actions/labeler@v6 in label.yml workflow
 
 ocaml:
   - changed-files:
@@ -21,30 +21,128 @@ documentation:
       - any-glob-to-any-file:
           - '*.md'
           - 'docs/**'
-          - 'LEARNING_PATH.md'
 
 tests:
   - changed-files:
-      - any-glob-to-any-file: 'test_all.ml'
+      - any-glob-to-any-file:
+          - 'test_*.ml'
+          - '__tests__/**'
 
 data-structures:
   - changed-files:
       - any-glob-to-any-file:
           - 'bst.ml'
+          - 'btree.ml'
           - 'heap.ml'
           - 'trie.ml'
           - 'rbtree.ml'
           - 'stream.ml'
+          - 'queue.ml'
+          - 'deque.ml'
+          - 'rope.ml'
+          - 'skip_list.ml'
+          - 'bloom_filter.ml'
+          - 'hashmap.ml'
+          - 'fenwick_tree.ml'
+          - 'interval_tree.ml'
+          - 'segment_tree.ml'
+          - 'suffix_array.ml'
+          - 'lru_cache.ml'
+          - 'finger_tree.ml'
+          - 'persistent_vector.ml'
+          - 'union_find.ml'
+          - 'zipper.ml'
 
 algorithms:
   - changed-files:
       - any-glob-to-any-file:
           - 'graph.ml'
           - 'mergesort.ml'
+          - 'sorting.ml'
           - 'fibonacci.ml'
           - 'factor.ml'
-          - 'regex.ml'
+          - 'dijkstra.ml'
+          - 'network_flow.ml'
+          - 'string_match.ml'
+          - 'diff.ml'
+          - 'huffman.ml'
+          - 'game_ai.ml'
+
+parsing:
+  - changed-files:
+      - any-glob-to-any-file:
           - 'parser.ml'
+          - 'peg.ml'
+          - 'earley.ml'
+          - 'regex.ml'
+          - 'json.ml'
+          - 'csv.ml'
+
+concurrency:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'actor.ml'
+          - 'stm.ml'
+          - 'csp.ml'
+          - 'frp.ml'
+
+distributed-systems:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'raft.ml'
+          - 'crdt.ml'
+
+formal-methods:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'sat_solver.ml'
+          - 'theorem_prover.ml'
+          - 'model_checker.ml'
+          - 'abstract_interp.ml'
+          - 'quickcheck.ml'
+
+type-theory:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'type_infer.ml'
+          - 'gadts.ml'
+          - 'lambda.ml'
+          - 'free_monad.ml'
+          - 'effects.ml'
+          - 'optics.ml'
+
+interpreters:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'bytecode_vm.ml'
+          - 'lambda.ml'
+          - 'datalog.ml'
+          - 'minikanren.ml'
+          - 'term_rewriting.ml'
+
+numerical:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'matrix.ml'
+          - 'calculus.ml'
+          - 'integration.ml'
+          - 'autodiff.ml'
+          - 'probability.ml'
+          - 'geometry.ml'
+
+systems:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'gc_simulator.ml'
+          - 'fsm.ml'
+          - 'automata.ml'
+          - 'crypto.ml'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'crypto.ml'
+          - 'hashmap.ml'
 
 build:
   - changed-files:
