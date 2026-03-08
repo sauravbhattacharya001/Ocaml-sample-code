@@ -92,12 +92,34 @@ module BloomFilter = struct
   (** Number of hash functions. *)
   let num_hashes bf = bf.k
 
-  (** Count of set bits. *)
+  (** Count of set bits.
+      Uses byte-level population count via lookup table — O(m/8)
+      instead of the per-bit approach which was O(m). *)
   let popcount bf =
+    let byte_count = (bf.m + 7) / 8 in
     let c = ref 0 in
-    for i = 0 to bf.m - 1 do
-      if get_bit bf.bits i then incr c
+    for i = 0 to byte_count - 1 do
+      let b = Char.code (Bytes.get bf.bits i) in
+      (* Kernighan's bit-counting: clears one set bit per iteration *)
+      let b = ref b in
+      while !b <> 0 do
+        b := !b land (!b - 1);
+        incr c
+      done
     done;
+    (* Clamp to actual bit count in case last byte has padding bits *)
+    let padding = byte_count * 8 - bf.m in
+    if padding > 0 then begin
+      (* Subtract any set padding bits in the last byte *)
+      let last_byte = Char.code (Bytes.get bf.bits (byte_count - 1)) in
+      let mask = (1 lsl (8 - padding)) - 1 in  (* valid bits mask *)
+      let padding_bits = last_byte land (lnot mask) in
+      let pb = ref padding_bits in
+      while !pb <> 0 do
+        pb := !pb land (!pb - 1);
+        decr c
+      done
+    end;
     !c
 
   (** Saturation: fraction of bits that are set (0.0 to 1.0). *)
