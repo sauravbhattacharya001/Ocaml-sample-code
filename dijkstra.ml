@@ -1,5 +1,5 @@
 (* Weighted Graph with Dijkstra's Shortest Path Algorithm *)
-(* Demonstrates: weighted adjacency lists, priority queues via sorted lists,
+(* Demonstrates: weighted adjacency lists, binary min-heap priority queue,
    Dijkstra's algorithm, shortest path reconstruction, weighted MST (Prim's) *)
 
 module IntMap = Map.Make(Int)
@@ -47,25 +47,95 @@ let num_edges g =
   let total = IntMap.fold (fun _ ns acc -> acc + List.length ns) g.adj 0 in
   if g.directed then total else total / 2
 
-(* --- Priority Queue (min-heap via sorted list) --- *)
-(* Simple sorted-list implementation for educational clarity.
+(* --- Priority Queue (binary min-heap) --- *)
+(* Array-backed binary min-heap: O(log n) insert and extract-min.
+   Replaces the previous sorted-list implementation which was O(n)
+   per insertion due to linear scan for the correct position.
    Polymorphic in the value type: works with plain ints (Dijkstra)
    and edge tuples (Prim's) alike. *)
 
-let pq_empty = []
+module MinHeap : sig
+  type 'a t
+  val empty : 'a t
+  val insert : 'a t -> (float * 'a) -> 'a t
+  val pop : 'a t -> ((float * 'a) * 'a t) option
+  val is_empty : 'a t -> bool
+end = struct
+  type 'a t = {
+    data : (float * 'a) array;
+    len  : int;
+  }
 
-let pq_insert pq (priority, value) =
-  let rec insert = function
-    | [] -> [(priority, value)]
-    | ((p, _) as h) :: t ->
-      if priority <= p then (priority, value) :: h :: t
-      else h :: insert t
-  in
-  insert pq
+  let empty = { data = Array.make 0 (0.0, Obj.magic 0); len = 0 }
 
-let pq_pop = function
-  | [] -> None
-  | (p, v) :: rest -> Some ((p, v), rest)
+  let swap a i j =
+    let tmp = a.(i) in
+    a.(i) <- a.(j);
+    a.(j) <- tmp
+
+  let sift_up a idx =
+    let i = ref idx in
+    while !i > 0 do
+      let parent = (!i - 1) / 2 in
+      if fst a.(!i) < fst a.(parent) then begin
+        swap a !i parent;
+        i := parent
+      end else
+        i := 0  (* break *)
+    done
+
+  let sift_down a len idx =
+    let i = ref idx in
+    let continue_ = ref true in
+    while !continue_ do
+      let left = 2 * !i + 1 in
+      let right = 2 * !i + 2 in
+      let smallest = ref !i in
+      if left < len && fst a.(left) < fst a.(!smallest) then
+        smallest := left;
+      if right < len && fst a.(right) < fst a.(!smallest) then
+        smallest := right;
+      if !smallest <> !i then begin
+        swap a !i !smallest;
+        i := !smallest
+      end else
+        continue_ := false
+    done
+
+  let insert h (priority, value) =
+    let cap = Array.length h.data in
+    let data =
+      if h.len >= cap then begin
+        let new_cap = max 8 (cap * 2) in
+        let new_data = Array.make new_cap (0.0, Obj.magic 0) in
+        Array.blit h.data 0 new_data 0 h.len;
+        new_data
+      end else
+        (* Copy array so the heap remains purely functional *)
+        Array.copy h.data
+    in
+    data.(h.len) <- (priority, value);
+    sift_up data h.len;
+    { data; len = h.len + 1 }
+
+  let pop h =
+    if h.len = 0 then None
+    else begin
+      let min_elem = h.data.(0) in
+      let data = Array.copy h.data in
+      data.(0) <- data.(h.len - 1);
+      let new_len = h.len - 1 in
+      if new_len > 0 then sift_down data new_len 0;
+      Some (min_elem, { data; len = new_len })
+    end
+
+  let is_empty h = h.len = 0
+end
+
+(* Compatibility shims so Dijkstra/Prim callers stay unchanged *)
+let pq_empty = MinHeap.empty
+let pq_insert pq (priority, value) = MinHeap.insert pq (priority, value)
+let pq_pop pq = MinHeap.pop pq
 
 (* --- Dijkstra's Algorithm --- *)
 (* Returns a map from each reachable vertex to (distance, predecessor option) *)
