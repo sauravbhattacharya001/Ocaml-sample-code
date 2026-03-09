@@ -211,23 +211,28 @@ let apply_rule_at_root rules term =
 
 (* ── Reduction strategies ── *)
 
+(* Scan arguments left-to-right, reducing the first redex found.
+   [reduce_fn] is the strategy-specific recursive step. *)
+let try_reduce_arg reduce_fn f args =
+  let rec go i = function
+    | [] -> None
+    | a :: rest ->
+      (match reduce_fn a with
+       | Some res ->
+         let new_args = List.mapi (fun j x -> if j = i then res.rewritten else x) args in
+         Some { res with rewritten = Fun (f, new_args);
+                         position = i :: res.position }
+       | None -> go (i + 1) rest)
+  in
+  go 0 args
+
 (* Leftmost-innermost (call by value): reduce deepest leftmost redex first *)
 let rec reduce_innermost rules term =
   match term with
   | Var _ -> None
   | Fun (f, args) ->
-    (* First try to reduce arguments left to right *)
-    let rec try_args i = function
-      | [] -> None
-      | a :: rest ->
-        (match reduce_innermost rules a with
-         | Some res ->
-           let new_args = List.mapi (fun j x -> if j = i then res.rewritten else x) args in
-           Some { res with rewritten = Fun (f, new_args);
-                           position = i :: res.position }
-         | None -> try_args (i + 1) rest)
-    in
-    (match try_args 0 args with
+    (* First try to reduce arguments, then root *)
+    (match try_reduce_arg (reduce_innermost rules) f args with
      | Some _ as result -> result
      | None -> apply_rule_at_root rules term)
 
@@ -239,17 +244,8 @@ let rec reduce_outermost rules term =
     match term with
     | Var _ -> None
     | Fun (f, args) ->
-      let rec try_args i = function
-        | [] -> None
-        | a :: rest ->
-          (match reduce_outermost rules a with
-           | Some res ->
-             let new_args = List.mapi (fun j x -> if j = i then res.rewritten else x) args in
-             Some { res with rewritten = Fun (f, new_args);
-                             position = i :: res.position }
-           | None -> try_args (i + 1) rest)
-      in
-      try_args 0 args
+      (* Root didn't reduce; try arguments *)
+      try_reduce_arg (reduce_outermost rules) f args
 
 (* Parallel reduction: reduce all redexes simultaneously *)
 let rec reduce_parallel rules term =
