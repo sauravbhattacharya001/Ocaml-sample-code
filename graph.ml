@@ -121,27 +121,9 @@ let bfs_path g start goal =
 (* --- DFS: Depth-First Search --- *)
 (* Recursive DFS returning vertices in discovery order *)
 
-let dfs g start =
-  if not (IntMap.mem start g.adj) then []
-  else begin
-    let visited = Hashtbl.create (num_vertices g) in
-    let result = ref [] in
-    let rec explore v =
-      if not (Hashtbl.mem visited v) then begin
-        Hashtbl.replace visited v true;
-        result := v :: !result;
-        List.iter explore (neighbors g v)
-      end
-    in
-    explore start;
-    List.rev !result
-  end
-
-(* --- Connected Components (undirected graphs) --- *)
-(* Returns a list of components, each a sorted list of vertices *)
-
 (* Internal DFS that uses a shared visited Hashtbl — avoids
-   creating a new table for every connected component. *)
+   creating a new table for every connected component.
+   Also serves as the core implementation for the public `dfs`. *)
 let dfs_collect g start visited =
   let result = ref [] in
   let rec explore v =
@@ -153,6 +135,10 @@ let dfs_collect g start visited =
   in
   explore start;
   List.rev !result
+
+let dfs g start =
+  if not (IntMap.mem start g.adj) then []
+  else dfs_collect g start (Hashtbl.create (num_vertices g))
 
 (* Returns a list of components, each a sorted list of vertices.
    Uses a single shared visited table instead of creating one per component. *)
@@ -175,52 +161,55 @@ let connected_components g =
 
 type color = White | Gray | Black
 
+(* Directed cycle detection via three-color DFS *)
+let has_cycle_directed g =
+  let color = Hashtbl.create (num_vertices g) in
+  List.iter (fun v -> Hashtbl.replace color v White) (vertices g);
+  let found_cycle = ref false in
+  let rec visit v =
+    if !found_cycle then ()
+    else begin
+      Hashtbl.replace color v Gray;
+      List.iter (fun w ->
+        if not !found_cycle then
+          match Hashtbl.find color w with
+          | Gray -> found_cycle := true
+          | White -> visit w
+          | Black -> ()
+      ) (neighbors g v);
+      Hashtbl.replace color v Black
+    end
+  in
+  List.iter (fun v ->
+    if Hashtbl.find color v = White then visit v
+  ) (vertices g);
+  !found_cycle
+
+(* Undirected cycle detection via DFS with parent tracking *)
+let has_cycle_undirected g =
+  let visited = Hashtbl.create (num_vertices g) in
+  let found_cycle = ref false in
+  let rec visit v parent =
+    if !found_cycle then ()
+    else begin
+      Hashtbl.replace visited v true;
+      List.iter (fun w ->
+        if not !found_cycle then
+          if Hashtbl.mem visited w then begin
+            if w <> parent then found_cycle := true
+          end else
+            visit w v
+      ) (neighbors g v)
+    end
+  in
+  List.iter (fun v ->
+    if not (Hashtbl.mem visited v) then visit v (-1)
+  ) (vertices g);
+  !found_cycle
+
 let has_cycle g =
-  if g.directed then begin
-    (* Directed: standard three-color DFS *)
-    let color = Hashtbl.create (num_vertices g) in
-    List.iter (fun v -> Hashtbl.replace color v White) (vertices g);
-    let found_cycle = ref false in
-    let rec visit v =
-      if !found_cycle then ()
-      else begin
-        Hashtbl.replace color v Gray;
-        List.iter (fun w ->
-          if not !found_cycle then
-            match Hashtbl.find color w with
-            | Gray -> found_cycle := true
-            | White -> visit w
-            | Black -> ()
-        ) (neighbors g v);
-        Hashtbl.replace color v Black
-      end
-    in
-    List.iter (fun v ->
-      if Hashtbl.find color v = White then visit v
-    ) (vertices g);
-    !found_cycle
-  end else begin
-    (* Undirected: DFS with parent tracking to skip the trivial back-edge *)
-    let visited = Hashtbl.create (num_vertices g) in
-    let found_cycle = ref false in
-    let rec visit v parent =
-      if !found_cycle then ()
-      else begin
-        Hashtbl.replace visited v true;
-        List.iter (fun w ->
-          if not !found_cycle then
-            if Hashtbl.mem visited w then begin
-              if w <> parent then found_cycle := true
-            end else
-              visit w v
-        ) (neighbors g v)
-      end
-    in
-    List.iter (fun v ->
-      if not (Hashtbl.mem visited v) then visit v (-1)
-    ) (vertices g);
-    !found_cycle
-  end
+  if g.directed then has_cycle_directed g
+  else has_cycle_undirected g
 
 (* --- Topological Sort (directed acyclic graphs) --- *)
 (* Returns Some sorted_list if no cycle, None if cycle detected *)
