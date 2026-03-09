@@ -58,21 +58,24 @@ module FunMap = struct
     { buckets = new_buckets; size = m.size; capacity = new_cap;
       seed = m.seed }
 
+  (** Single-pass bucket update: replaces existing key or prepends new entry.
+      Returns [(new_bucket, replaced)] where [replaced] is true if the key
+      already existed (so the caller can decide whether to bump [size]). *)
+  let rec bucket_upsert k v = function
+    | [] -> ([(k, v)], false)
+    | (k', _) :: rest when k' = k -> ((k, v) :: rest, true)
+    | pair :: rest ->
+      let (updated, replaced) = bucket_upsert k v rest in
+      (pair :: updated, replaced)
+
   let insert k v m =
     let m = if should_resize m then resize m else m in
     let idx = hash_key m.capacity m.seed k in
-    let bucket = m.buckets.(idx) in
-    let existed = List.exists (fun (k', _) -> k' = k) bucket in
-    let new_bucket =
-      if existed then
-        List.map (fun (k', v') -> if k' = k then (k, v) else (k', v')) bucket
-      else
-        (k, v) :: bucket
-    in
+    let (new_bucket, replaced) = bucket_upsert k v m.buckets.(idx) in
     let new_buckets = Array.copy m.buckets in
     new_buckets.(idx) <- new_bucket;
     { buckets = new_buckets;
-      size = if existed then m.size else m.size + 1;
+      size = if replaced then m.size else m.size + 1;
       capacity = m.capacity;
       seed = m.seed }
 
@@ -93,13 +96,20 @@ module FunMap = struct
   let mem k m =
     find k m <> None
 
+  (** Single-pass bucket removal: drops key if found.
+      Returns [(new_bucket, removed)] so the caller can adjust [size]. *)
+  let rec bucket_remove k = function
+    | [] -> ([], false)
+    | (k', _) :: rest when k' = k -> (rest, true)
+    | pair :: rest ->
+      let (updated, removed) = bucket_remove k rest in
+      (pair :: updated, removed)
+
   let remove k m =
     let idx = hash_key m.capacity m.seed k in
-    let bucket = m.buckets.(idx) in
-    let existed = List.exists (fun (k', _) -> k' = k) bucket in
-    if not existed then m
+    let (new_bucket, removed) = bucket_remove k m.buckets.(idx) in
+    if not removed then m
     else begin
-      let new_bucket = List.filter (fun (k', _) -> k' <> k) bucket in
       let new_buckets = Array.copy m.buckets in
       new_buckets.(idx) <- new_bucket;
       { buckets = new_buckets;
@@ -229,24 +239,27 @@ module FunMap = struct
 
   let cardinal m = m.size
 
-  let choose m =
-    if is_empty m then raise Not_found
-    else begin
-      let result = ref None in
-      (try
-        iter (fun k v -> result := Some (k, v); raise Exit) m
-      with Exit -> ());
-      match !result with
-      | Some pair -> pair
-      | None -> raise Not_found
-    end
-
-  let find_first f m =
+  (** Helper: find the first binding in any bucket matching predicate [f].
+      Short-circuits via the [Exit] exception since [Array.iter] / [List.iter]
+      don't support early return. *)
+  let find_binding_opt f m =
     let result = ref None in
     (try
-      iter (fun k v -> if f k then (result := Some (k, v); raise Exit)) m
+      Array.iter (fun bucket ->
+        List.iter (fun (k, v) ->
+          if f k v then (result := Some (k, v); raise Exit)
+        ) bucket
+      ) m.buckets
     with Exit -> ());
-    match !result with
+    !result
+
+  let choose m =
+    match find_binding_opt (fun _ _ -> true) m with
+    | Some pair -> pair
+    | None -> raise Not_found
+
+  let find_first f m =
+    match find_binding_opt (fun k _ -> f k) m with
     | Some pair -> pair
     | None -> raise Not_found
 end
