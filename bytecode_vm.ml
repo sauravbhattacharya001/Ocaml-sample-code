@@ -387,7 +387,9 @@ let register_natives vm =
   let strlen_fn = function [VString s] -> VInt (String.length s)
     | _ -> raise (VM_error "strlen expects 1 string argument") in
   let substr_fn = function [VString s; VInt start; VInt len] ->
-      VString (String.sub s start (min len (String.length s - start)))
+      let slen = String.length s in
+      if start < 0 || start > slen then VString ""
+      else VString (String.sub s start (min (max len 0) (slen - start)))
     | _ -> raise (VM_error "substr expects (string, start, len)") in
   let int_fn = function [VFloat f] -> VInt (int_of_float f) | [VInt i] -> VInt i
     | [VString s] -> (try VInt (int_of_string s) with _ -> VNil)
