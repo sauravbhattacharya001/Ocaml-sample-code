@@ -331,6 +331,7 @@ let format_unified ?(old_name = "a") ?(new_name = "b") (result : string diff_res
 (* ── Side-by-side format ────────────────────────────────────────────── *)
 
 let format_side_by_side ?(width = 80) (result : string diff_result) =
+  let width = max width 7 in  (* minimum width to prevent negative half *)
   let half = (width - 3) / 2 in
   let buf = Buffer.create 256 in
   let pad s w =

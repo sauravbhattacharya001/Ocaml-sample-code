@@ -3258,7 +3258,8 @@ let sort_partition3 cmp pivot lst =
 
 let sort_median_of_three cmp lst =
   match lst with
-  | [] | [_] -> List.hd lst
+  | [] -> failwith "median_of_three: empty list"
+  | [x] -> x
   | [a; b] -> if cmp a b <= 0 then a else b
   | _ ->
     let a = List.hd lst in
