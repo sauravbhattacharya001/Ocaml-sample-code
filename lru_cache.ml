@@ -40,6 +40,21 @@ module LRUCache = struct
   let remove_from_list k entries =
     List.filter (fun (k', _) -> k' <> k) entries
 
+  (* Remove the last element from a list in a single O(n) pass.
+     Returns (init_list, Some last_element) or ([], None) if empty.
+     Avoids the previous List.rev + remove_from_list double traversal
+     used during eviction in [put]. *)
+  let split_last = function
+    | [] -> ([], None)
+    | [x] -> ([], Some x)
+    | lst ->
+      let rec go acc = function
+        | [] -> assert false
+        | [x] -> (List.rev acc, Some x)
+        | x :: rest -> go (x :: acc) rest
+      in
+      go [] lst
+
   (* Trim list to capacity, evicting LRU entries from index.
      Returns (kept_list, new_size). *)
   let trim_to_capacity cap sz entries index =
@@ -80,12 +95,11 @@ module LRUCache = struct
     let new_sz = if existed then cache.size else cache.size + 1 in
     let updated = (k, v) :: cleaned in
     if new_sz > cache.capacity then begin
-      match List.rev updated with
-      | [] -> { cache with entries = updated; size = new_sz; index }
-      | (lru_k, _) :: _ ->
-        Hashtbl.remove index lru_k;
-        let trimmed = remove_from_list lru_k updated in
-        { cache with entries = trimmed; size = cache.capacity; index }
+      let (trimmed, last_opt) = split_last updated in
+      (match last_opt with
+       | Some (lru_k, _) -> Hashtbl.remove index lru_k
+       | None -> ());
+      { cache with entries = trimmed; size = cache.capacity; index }
     end
     else
       { cache with entries = updated; size = new_sz; index }
