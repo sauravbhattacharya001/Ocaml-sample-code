@@ -18,11 +18,17 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	fsm.ml gadts.ml game_ai.ml gc_simulator.ml geometry.ml lambda.ml \
 	model_checker.ml probability.ml relational.ml sat_solver.ml \
 	string_match.ml theorem_prover.ml diff.ml graph_db.ml zipper.ml \
-	quickcheck.ml raft.ml incremental.ml hamt.ml
+	quickcheck.ml raft.ml incremental.ml hamt.ml \
+	comonad.ml constraint.ml crdt.ml deque.ml finger_tree.ml \
+	genetic.ml monad_transformers.ml persistent_vector.ml \
+	random_access_list.ml raytracer.ml stm.ml delimited_cont.ml \
+	neural_network.ml
 
 # Sources that require ocamlfind + external packages
-SOURCES_PKG = csv.ml
+SOURCES_PKG = csv.ml free_monad.ml actor.ml
 # csv.ml needs: ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv
+# free_monad.ml needs: ocamlfind ocamlopt -package str -linkpkg free_monad.ml -o free_monad
+# actor.ml needs: ocamlfind ocamlopt -package unix -linkpkg actor.ml -o actor
 
 SOURCES = $(SOURCES_PLAIN) $(SOURCES_PKG)
 TARGETS_PLAIN = $(SOURCES_PLAIN:.ml=)
@@ -40,6 +46,14 @@ $(TARGETS_PLAIN): %: %.ml
 # csv needs the str package via ocamlfind
 csv: csv.ml
 	ocamlfind $(OCAML) -package str -linkpkg $< -o $@
+
+# free_monad needs the str package via ocamlfind
+free_monad: free_monad.ml
+	ocamlfind $(OCAML) -package str -linkpkg $< -o $@
+
+# actor needs the unix package via ocamlfind
+actor: actor.ml
+	ocamlfind $(OCAML) -package unix -linkpkg $< -o $@
 
 test: test_all
 	@echo "=== Running tests ==="
