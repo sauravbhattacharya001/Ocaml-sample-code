@@ -22,7 +22,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	comonad.ml constraint.ml crdt.ml deque.ml finger_tree.ml \
 	genetic.ml monad_transformers.ml persistent_vector.ml \
 	random_access_list.ml raytracer.ml stm.ml delimited_cont.ml \
-	neural_network.ml
+	neural_network.ml lsystem.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml free_monad.ml actor.ml
