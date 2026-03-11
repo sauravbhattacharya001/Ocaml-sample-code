@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "jest --no-coverage"
+  }
+}

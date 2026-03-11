@@ -32,6 +32,10 @@ _coverage/
 bisect*.coverage
 /test_all_cov
 
+# Node
+node_modules/
+package-lock.json
+
 # IDE / Editor
 .settings/
 .project
