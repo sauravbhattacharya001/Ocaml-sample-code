@@ -292,6 +292,77 @@ Features: create/identity/diagonal, add/sub/mul/scale/hadamard, transpose, deter
 
 ---
 
+## Stage 12: Control Flow & Continuations
+
+### [`delimited_cont.ml`](delimited_cont.ml) — Shift/Reset for Composable Control Flow
+
+**Concepts:** CPS (Continuation-Passing Style), delimited continuations via shift/reset, amb operator, coroutines, cooperative threading, exception handling as continuations
+
+Delimited continuations capture only part of a computation (up to the nearest `reset`), unlike `call/cc` which captures everything. This makes them composable and practical for non-deterministic search, coroutines, and effect systems:
+
+```ocaml
+(* shift captures the current continuation up to reset *)
+let result = reset (fun () ->
+  let x = shift (fun k -> k 10 + k 20) in
+  x * 2)
+(* Result: 10*2 + 20*2 = 60 *)
+```
+
+Features: shift/reset primitives, CPS transformation, `amb` operator for backtracking search, cooperative coroutines, yield/resume threading, exception handling via continuations.
+
+**Key takeaway:** Delimited continuations unify many seemingly different control flow patterns — exceptions, generators, backtracking, coroutines — under a single abstraction. Once you understand shift/reset, algebraic effects (Stage 13's `effects.ml`) become much clearer.
+
+---
+
+## Stage 13: Generative Art & Rewriting
+
+### [`lsystem.ml`](lsystem.ml) — Lindenmayer Systems and Turtle Graphics
+
+**Concepts:** string rewriting, deterministic/stochastic/parametric L-systems, turtle graphics interpretation, SVG generation, fractal geometry
+
+L-systems generate complex structures by repeatedly rewriting strings according to rules, then interpreting the result geometrically. Each symbol becomes a turtle command (move, turn, push/pop):
+
+```ocaml
+(* Koch snowflake: start with a triangle, replace each line with a bump *)
+let koch = { axiom = "F--F--F";
+             rules = [('F', "F+F--F+F")];
+             angle = 60.0 }
+
+(* After n iterations, interpret as turtle graphics → SVG *)
+let svg = lsystem_to_svg koch 4
+```
+
+Features: D0L systems (deterministic, context-free), stochastic L-systems (random rule selection), parametric L-systems (symbols with numeric parameters), turtle graphics interpretation, SVG output. Classic fractals: Koch snowflake, Sierpinski triangle, dragon curve, Hilbert curve, plant/fern, Penrose tiling.
+
+**Key takeaway:** L-systems show how simple recursive rewriting rules produce stunning visual complexity — the same principle underlying fractal geometry, plant morphology, and procedural generation.
+
+---
+
+## Stage 14: Machine Learning from Scratch
+
+### [`neural_network.ml`](neural_network.ml) — Feedforward Neural Network with Backpropagation
+
+**Concepts:** multilayer perceptrons, activation functions, weight initialization, gradient descent, backpropagation, loss functions, learning rate scheduling, momentum
+
+A complete MLP implementation using only OCaml's standard library — no frameworks, no external dependencies. Forward pass, loss computation, backward pass with gradient flow, and weight updates:
+
+```ocaml
+(* Create a 2-layer network: 2 inputs → 4 hidden → 1 output *)
+let net = create_network [2; 4; 1]
+    ~activation:Relu ~output_activation:Sigmoid
+    ~init:He ~loss:BinaryCrossEntropy
+
+(* Train on XOR for 1000 epochs *)
+let trained = train net xor_data
+    ~epochs:1000 ~lr:0.01 ~momentum:0.9
+```
+
+Features: configurable layer sizes, activation functions (sigmoid, tanh, relu, leaky_relu, softmax), Xavier/He weight initialization, MSE and cross-entropy loss, batch and stochastic training, momentum, gradient clipping, learning rate scheduling (constant, decay, step), training history tracking.
+
+**Key takeaway:** Implementing backpropagation from scratch reveals the core mechanics behind deep learning — it's just the chain rule applied systematically through a computation graph, with gradient descent updating weights to minimize loss.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -342,3 +413,12 @@ After working through these examples, try:
 | Imperative arrays | `matrix.ml` |
 | Gaussian elimination | `matrix.ml` |
 | Numerical algorithms | `matrix.ml` |
+| CPS / continuation-passing style | `delimited_cont.ml`, `effects.ml` |
+| Delimited continuations (shift/reset) | `delimited_cont.ml` |
+| Coroutines & cooperative threading | `delimited_cont.ml` |
+| String rewriting / L-systems | `lsystem.ml` |
+| Turtle graphics & SVG generation | `lsystem.ml` |
+| Fractal geometry | `lsystem.ml` |
+| Neural networks / backpropagation | `neural_network.ml`, `autodiff.ml` |
+| Gradient descent & optimization | `neural_network.ml` |
+| Weight initialization (Xavier/He) | `neural_network.ml` |
