@@ -13,7 +13,7 @@
  * option types, polymorphic comparison, tail recursion.
  *
  * Compile & run:
- *   ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv && ./csv
+ *   ocamlfind ocamlopt csv.ml -o csv && ./csv
  *)
 
 (* ---------- Cell types and type inference ---------- *)
@@ -47,11 +47,16 @@ let cell_to_float = function
 let cell_to_string = function
   | Int i -> string_of_int i
   | Float f ->
-    (* Clean up trailing zeros: 3.0 instead of 3.000000 *)
+    (* Clean up trailing zeros: 3.0 instead of 3.000000.
+       Pure string ops — no Str library dependency. *)
     let s = Printf.sprintf "%.6f" f in
-    let s = Str.global_replace (Str.regexp "0+$") "" s in
-    let s = Str.global_replace (Str.regexp "\\.$") ".0" s in
-    s
+    let len = String.length s in
+    (* Find last non-'0' position *)
+    let last = ref (len - 1) in
+    while !last > 0 && s.[!last] = '0' do decr last done;
+    (* If we stripped to a bare '.', keep one zero: "3." → "3.0" *)
+    if s.[!last] = '.' then incr last;
+    String.sub s 0 (!last + 1)
   | Str s -> s
   | Empty -> ""
 
@@ -198,8 +203,9 @@ let group_by (rows : cell list list) (col_idx : int) :
     (string * cell list list) list =
   let tbl = Hashtbl.create 16 in
   List.iter (fun row ->
+    let arr = Array.of_list row in
     let key =
-      if col_idx < List.length row then cell_to_string (List.nth row col_idx)
+      if col_idx < Array.length arr then cell_to_string arr.(col_idx)
       else "<missing>"
     in
     let existing = try Hashtbl.find tbl key with Not_found -> [] in
@@ -214,7 +220,8 @@ let group_by (rows : cell list list) (col_idx : int) :
 let filter_rows (rows : cell list list) (col_idx : int)
     (pred : cell -> bool) : cell list list =
   List.filter (fun row ->
-    col_idx < List.length row && pred (List.nth row col_idx)
+    let arr = Array.of_list row in
+    col_idx < Array.length arr && pred arr.(col_idx)
   ) rows
 
 (** Filter: numeric column > threshold. *)
@@ -226,11 +233,20 @@ let where_gt (rows : cell list list) (col_idx : int) (threshold : float) =
 (** Filter: string column contains substring (case-insensitive). *)
 let where_contains (rows : cell list list) (col_idx : int) (sub : string) =
   let lsub = String.lowercase_ascii sub in
+  let sub_len = String.length lsub in
   filter_rows rows col_idx (fun c ->
     let s = String.lowercase_ascii (cell_to_string c) in
-    try
-      let _ = Str.search_forward (Str.regexp_string lsub) s 0 in true
-    with Not_found -> false)
+    let s_len = String.length s in
+    if sub_len = 0 then true
+    else if sub_len > s_len then false
+    else
+      let found = ref false in
+      let i = ref 0 in
+      while !i <= s_len - sub_len && not !found do
+        if String.sub s !i sub_len = lsub then found := true
+        else incr i
+      done;
+      !found)
 
 (* ---------- Sorting ---------- *)
 
@@ -239,7 +255,8 @@ let where_contains (rows : cell list list) (col_idx : int) (sub : string) =
 let sort_by (rows : cell list list) (col_idx : int)
     ?(desc = false) () : cell list list =
   let get_key row =
-    if col_idx < List.length row then List.nth row col_idx else Empty
+    let arr = Array.of_list row in
+    if col_idx < Array.length arr then arr.(col_idx) else Empty
   in
   let cmp a b =
     let ka = get_key a and kb = get_key b in

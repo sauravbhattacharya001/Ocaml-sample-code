@@ -96,6 +96,14 @@ let bytes_to_hex s =
   String.iter (fun c -> Printf.bprintf buf "%02x" (Char.code c)) s;
   Buffer.contents buf
 
+(** Convert a hex digit character to its integer value (0-15).
+    Raises Invalid_argument for non-hex characters. *)
+let hex_char_value c =
+  if c >= '0' && c <= '9' then Char.code c - Char.code '0'
+  else if c >= 'a' && c <= 'f' then 10 + Char.code c - Char.code 'a'
+  else if c >= 'A' && c <= 'F' then 10 + Char.code c - Char.code 'A'
+  else invalid_arg (Printf.sprintf "hex_to_bytes: invalid hex character '%c' (0x%02x)" c (Char.code c))
+
 let hex_to_bytes hex =
   let hex_len = String.length hex in
   if hex_len mod 2 <> 0 then
@@ -103,8 +111,26 @@ let hex_to_bytes hex =
   else
     let len = hex_len / 2 in
     String.init len (fun i ->
-      Char.chr (int_of_string ("0x" ^ String.sub hex (i * 2) 2))
+      let hi = hex_char_value hex.[i * 2] in
+      let lo = hex_char_value hex.[i * 2 + 1] in
+      Char.chr ((hi lsl 4) lor lo)
     )
+
+(** Constant-time byte-string comparison.
+    Prevents timing side-channel attacks when comparing secrets
+    (e.g., MACs, password hashes, authentication tokens).
+    Returns true iff [a] and [b] have the same length and contents. *)
+let constant_time_equal a b =
+  let len_a = String.length a in
+  let len_b = String.length b in
+  if len_a <> len_b then false
+  else begin
+    let diff = ref 0 in
+    for i = 0 to len_a - 1 do
+      diff := !diff lor (Char.code a.[i] lxor Char.code b.[i])
+    done;
+    !diff = 0
+  end
 
 (* ── Rail Fence Cipher ───────────────────────────────────────────── *)
 
@@ -281,6 +307,24 @@ let () =
   Printf.printf "  Encrypted:  %s\n" enc;
   Printf.printf "  Decrypted:  %s\n" (atbash_cipher enc);
   Printf.printf "  Self-inverse: %b\n" (atbash_cipher (atbash_cipher msg) = msg);
+
+  sep ();
+  (* --- Security: hex_to_bytes validation --- *)
+  sep ();
+  Printf.printf "\xf0\x9f\x94\x90 Security Tests\n";
+  assert (hex_to_bytes "48656c6c6f" = "Hello");
+  assert (hex_to_bytes "" = "");
+  (try ignore (hex_to_bytes "zz"); assert false
+   with Invalid_argument _ -> ());
+  (try ignore (hex_to_bytes "abc"); assert false  (* odd length *)
+   with Invalid_argument _ -> ());
+  Printf.printf "  hex_to_bytes validation: OK\n";
+
+  assert (constant_time_equal "secret" "secret");
+  assert (not (constant_time_equal "secret" "Secret"));
+  assert (not (constant_time_equal "short" "longer"));
+  assert (constant_time_equal "" "");
+  Printf.printf "  constant_time_equal: OK\n";
 
   sep ();
   Printf.printf "✅ All cipher demos complete!\n"
