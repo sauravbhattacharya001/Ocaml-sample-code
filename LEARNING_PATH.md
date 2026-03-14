@@ -376,49 +376,68 @@ After working through these examples, try:
 
 | Concept | Files |
 |---------|-------|
-| Let bindings & type inference | `hello.ml` |
-| Pattern matching | `list_last_elem.ml`, `bst.ml`, `factor.ml`, `graph.ml` |
-| Option types | `list_last_elem.ml`, `bst.ml`, `graph.ml` |
-| Recursion | All files |
-| Tail recursion | `mergesort.ml`, `fibonacci.ml` |
-| Algebraic data types | `bst.ml`, `graph.ml`, `heap.ml`, `parser.ml` |
-| Polymorphism (`'a`) | `bst.ml`, `mergesort.ml`, `heap.ml`, `parser.ml` |
-| Higher-order functions | `mergesort.ml`, `hello.ml`, `heap.ml`, `parser.ml` |
-| Pipe operator (`\|>`) | `hello.ml` |
-| Hash tables & mutability | `fibonacci.ml`, `graph.ml` |
-| Closures | `fibonacci.ml`, `parser.ml` |
-| Accumulators | `bst.ml`, `mergesort.ml` |
-| Input validation | `factor.ml` |
-| Mutual recursion | `factor.ml` |
-| Benchmarking | `fibonacci.ml` |
-| Modules & functors | `graph.ml`, `trie.ml`, `matrix.ml` |
-| Record types | `graph.ml`, `trie.ml` |
-| Imperative queues | `graph.ml` |
-| Graph algorithms (BFS/DFS) | `graph.ml` |
-| Persistent data structures | `heap.ml`, `trie.ml` |
-| Priority queues / heaps | `heap.ml` |
-| Custom comparators | `mergesort.ml`, `heap.ml` |
-| Monadic composition (bind) | `parser.ml` |
-| Parser combinators | `parser.ml` |
-| Recursive descent parsing | `parser.ml`, `regex.ml` |
-| Operator precedence | `parser.ml` |
-| Tries & prefix search | `trie.ml` |
-| String manipulation | `trie.ml` |
-| Tree pruning | `trie.ml` |
-| Thompson's NFA construction | `regex.ml` |
-| Epsilon closure / NFA simulation | `regex.ml` |
-| Regular expressions | `regex.ml` |
-| Character classes & escapes | `regex.ml` |
-| Module signatures & abstract types | `matrix.ml` |
-| Imperative arrays | `matrix.ml` |
-| Gaussian elimination | `matrix.ml` |
-| Numerical algorithms | `matrix.ml` |
-| CPS / continuation-passing style | `delimited_cont.ml`, `effects.ml` |
-| Delimited continuations (shift/reset) | `delimited_cont.ml` |
-| Coroutines & cooperative threading | `delimited_cont.ml` |
-| String rewriting / L-systems | `lsystem.ml` |
-| Turtle graphics & SVG generation | `lsystem.ml` |
-| Fractal geometry | `lsystem.ml` |
-| Neural networks / backpropagation | `neural_network.ml`, `autodiff.ml` |
-| Gradient descent & optimization | `neural_network.ml` |
-| Weight initialization (Xavier/He) | `neural_network.ml` |
+| Abstract interpretation | `abstract_interp.ml` |
+| Actor model | `actor.ml` |
+| Algebraic data types | `bst.ml`, `btree.ml`, `calculus.ml`, `crdt.ml`, `csv.ml`, `free_monad.ml`, `fsm.ml`, `gadts.ml`, `game_ai.ml`, `genetic.ml`, `heap.ml`, `huffman.ml`, `lambda.ml`, `lsystem.ml`, `parser.ml`, `peg.ml`, `persistent_vector.ml`, `regex.ml`, `sat_solver.ml`, `stm.ml`, `theorem_prover.ml`, `type_infer.ml`, `zipper.ml` |
+| Algebraic effects | `effects.ml` |
+| Automata & finite state machines | `automata.ml`, `cellular_automata.ml`, `fsm.ml`, `regex.ml` |
+| Caching & eviction | `lru_cache.ml` |
+| Calculus & differentiation | `autodiff.ml`, `calculus.ml`, `integration.ml` |
+| Closures & encapsulation | `bytecode_vm.ml`, `fibonacci.ml`, `memoize.ml`, `parser.ml`, `regex.ml` |
+| Comonads | `comonad.ml` |
+| Compilers & interpreters | `abstract_interp.ml`, `bytecode_vm.ml`, `gadts.ml`, `lambda.ml` |
+| Compression algorithms | `huffman.ml` |
+| Computational geometry | `geometry.ml`, `kd_tree.ml` |
+| Concurrency & parallelism | `actor.ml`, `csp.ml`, `deque.ml`, `stm.ml` |
+| Constraint satisfaction | `constraint.ml`, `csp.ml` |
+| Continuations & CPS | `delimited_cont.ml`, `effects.ml`, `free_monad.ml`, `peg.ml` |
+| CRDTs (Conflict-free Replicated Data Types) | `crdt.ml` |
+| Cryptography | `crypto.ml` |
+| Data formats & serialization | `csv.ml`, `json.ml` |
+| Diff algorithms | `diff.ml` |
+| Distributed systems & consensus | `crdt.ml`, `raft.ml` |
+| Dynamic programming & memoization | `fibonacci.ml`, `game_ai.ml`, `memoize.ml`, `peg.ml`, `stream.ml` |
+| Evolutionary algorithms | `genetic.ml` |
+| Formal verification & model checking | `model_checker.ml`, `sat_solver.ml` |
+| Free monads | `free_monad.ml` |
+| Functional reactive programming | `frp.ml` |
+| GADTs (Generalized ADTs) | `gadts.ml` |
+| Game AI & minimax | `game_ai.ml` |
+| Garbage collection simulation | `gc_simulator.ml` |
+| Generative art & simulation | `cellular_automata.ml`, `lsystem.ml` |
+| Graph algorithms (BFS, DFS, shortest path) | `dijkstra.ml`, `graph.ml`, `graph_db.ml`, `network_flow.ml` |
+| Hash-based data structures | `bloom_filter.ml`, `hamt.ml`, `hashmap.ml` |
+| Higher-order functions | `autodiff.ml`, `calculus.ml`, `csv.ml`, `game_ai.ml`, `genetic.ml`, `lsystem.ml`, `matrix.ml`, `mergesort.ml`, `parser.ml`, `quickcheck.ml`, `signal_processing.ml`, `sorting.ml`, `stream.ml`, `trie.ml` |
+| Incremental computation | `incremental.ml` |
+| Lambda calculus | `lambda.ml` |
+| Lazy evaluation & streams | `quickcheck.ml`, `stream.ml` |
+| Linear algebra & tensors | `matrix.ml`, `tensor.ml` |
+| Logic programming | `datalog.ml`, `minikanren.ml`, `relational.ml` |
+| Machine learning & neural networks | `autodiff.ml`, `neural_network.ml` |
+| Modules & functors | `comonad.ml`, `constraint.ml`, `effects.ml`, `fenwick_tree.ml`, `finger_tree.ml`, `game_ai.ml`, `genetic.ml`, `heap.ml`, `matrix.ml`, `memoize.ml`, `monad_transformers.ml`, `segment_tree.ml`, `trie.ml` |
+| Monads & monad transformers | `delimited_cont.ml`, `frp.ml`, `monad_transformers.ml`, `parser.ml`, `probability.ml`, `quickcheck.ml`, `stm.ml` |
+| Network flow algorithms | `network_flow.ml` |
+| Numerical integration | `integration.ml` |
+| Optics & lenses | `optics.ml` |
+| Parsing & grammars | `csv.ml`, `earley.ml`, `json.ml`, `parser.ml`, `peg.ml`, `regex.ml` |
+| Pattern matching | `bst.ml`, `calculus.ml`, `csv.ml`, `factor.ml`, `fsm.ml`, `hello.ml`, `list_last_elem.ml`, `parser.ml`, `sat_solver.ml`, `sorting.ml`, `string_match.ml`, `term_rewriting.ml`, `theorem_prover.ml`, `zipper.ml` |
+| Persistent (immutable) data structures | `deque.ml`, `finger_tree.ml`, `hamt.ml`, `hashmap.ml`, `heap.ml`, `optics.ml`, `persistent_vector.ml`, `queue.ml`, `random_access_list.ml`, `rbtree.ml`, `trie.ml`, `union_find.ml`, `zipper.ml` |
+| Polymorphism (`'a`) | `bst.ml`, `btree.ml`, `csv.ml`, `diff.ml`, `dijkstra.ml`, `finger_tree.ml`, `hamt.ml`, `heap.ml`, `json.ml`, `mergesort.ml`, `monad_transformers.ml`, `parser.ml`, `persistent_vector.ml`, `quickcheck.ml`, `random_access_list.ml`, `rbtree.ml`, `skip_list.ml`, `stream.ml`, `type_infer.ml` |
+| Probabilistic data structures | `bloom_filter.ml`, `skip_list.ml` |
+| Probability & statistics | `probability.ml` |
+| Property-based testing | `quickcheck.ml` |
+| Queues, deques & heaps | `deque.ml`, `heap.ml`, `queue.ml` |
+| Range query structures | `fenwick_tree.ml`, `interval_tree.ml`, `segment_tree.ml` |
+| Ray tracing & graphics | `raytracer.ml` |
+| Recursion & structural induction | `bst.ml`, `btree.ml`, `csv.ml`, `factor.ml`, `fibonacci.ml`, `finger_tree.ml`, `game_ai.ml`, `huffman.ml`, `json.ml`, `kd_tree.ml`, `list_last_elem.ml`, `lsystem.ml`, `mergesort.ml`, `parser.ml`, `peg.ml`, `regex.ml`, `sat_solver.ml`, `sorting.ml`, `tensor.ml`, `theorem_prover.ml`, `trie.ml`, `type_infer.ml`, `zipper.ml` |
+| Signal processing & FFT | `signal_processing.ml` |
+| Software transactional memory | `stm.ml` |
+| Sorting algorithms | `mergesort.ml`, `sorting.ml` |
+| String algorithms | `rope.ml`, `string_match.ml`, `suffix_array.ml` |
+| Tail recursion & accumulators | `csv.ml`, `fibonacci.ml`, `mergesort.ml`, `persistent_vector.ml`, `sorting.ml`, `trie.ml` |
+| Term rewriting systems | `term_rewriting.ml` |
+| Theorem proving & logic | `theorem_prover.ml` |
+| Trees (BST, B-tree, red-black, etc.) | `bst.ml`, `btree.ml`, `fenwick_tree.ml`, `finger_tree.ml`, `huffman.ml`, `interval_tree.ml`, `kd_tree.ml`, `rbtree.ml`, `rope.ml`, `segment_tree.ml`, `trie.ml`, `union_find.ml` |
+| Type inference & type systems | `type_infer.ml` |
+| Union-Find (disjoint sets) | `union_find.ml` |
+| Zippers & cursor navigation | `zipper.ml` |

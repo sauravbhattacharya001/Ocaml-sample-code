@@ -144,10 +144,13 @@ let col_index (headers : string list) (name : string) : int option =
   in
   find 0 headers
 
-(** Get all values in a column by index. *)
+(** Get all values in a column by index.
+    Converts each row to an array for O(1) access instead of
+    O(col_index) per row via List.nth. *)
 let col_values (rows : cell list list) (idx : int) : cell list =
   List.filter_map (fun row ->
-    if idx < List.length row then Some (List.nth row idx) else None
+    let arr = Array.of_list row in
+    if idx < Array.length arr then Some arr.(idx) else None
   ) rows
 
 (* ---------- Aggregation ---------- *)
@@ -170,7 +173,9 @@ let agg_avg (cells : cell list) : float option =
     let total = List.fold_left ( +. ) 0.0 nums in
     Some (total /. float_of_int (List.length nums))
 
-let agg_min (cells : cell list) : cell option =
+(** Shared helper for agg_min/agg_max — extracts numeric cells and folds
+    with the given comparator to find the extreme value. *)
+let agg_extreme (cmp : float -> float -> bool) (cells : cell list) : cell option =
   let nums = List.filter_map (fun c ->
     match cell_to_float c with Some f -> Some (f, c) | None -> None
   ) cells in
@@ -178,21 +183,12 @@ let agg_min (cells : cell list) : cell option =
   | [] -> None
   | _ ->
     let (_, mc) = List.fold_left (fun (mv, mc) (v, c) ->
-      if v < mv then (v, c) else (mv, mc)
+      if cmp v mv then (v, c) else (mv, mc)
     ) (List.hd nums) (List.tl nums) in
     Some mc
 
-let agg_max (cells : cell list) : cell option =
-  let nums = List.filter_map (fun c ->
-    match cell_to_float c with Some f -> Some (f, c) | None -> None
-  ) cells in
-  match nums with
-  | [] -> None
-  | _ ->
-    let (_, mc) = List.fold_left (fun (mv, mc) (v, c) ->
-      if v > mv then (v, c) else (mv, mc)
-    ) (List.hd nums) (List.tl nums) in
-    Some mc
+let agg_min (cells : cell list) : cell option = agg_extreme ( < ) cells
+let agg_max (cells : cell list) : cell option = agg_extreme ( > ) cells
 
 (* ---------- Group-by ---------- *)
 
@@ -260,17 +256,20 @@ let sort_by (rows : cell list list) (col_idx : int)
 (** Pretty-print a table with aligned columns and borders. *)
 let pretty_print (headers : string list) (rows : cell list list) : string =
   let ncols = List.length headers in
-  (* Convert all cells to strings *)
+  let header_arr = Array.of_list headers in
+  (* Convert all cells to string arrays for O(1) column access
+     instead of O(col) per List.nth call in the inner loops. *)
   let str_rows = List.map (fun row ->
-    List.init ncols (fun i ->
-      if i < List.length row then cell_to_string (List.nth row i) else ""
+    let arr = Array.of_list row in
+    Array.init ncols (fun i ->
+      if i < Array.length arr then cell_to_string arr.(i) else ""
     )
   ) rows in
   (* Calculate column widths *)
-  let widths = List.init ncols (fun i ->
-    let header_w = String.length (List.nth headers i) in
+  let widths = Array.init ncols (fun i ->
+    let header_w = String.length header_arr.(i) in
     let data_w = List.fold_left (fun mx row ->
-      max mx (String.length (List.nth row i))
+      max mx (String.length row.(i))
     ) 0 str_rows in
     max header_w data_w
   ) in
@@ -278,17 +277,17 @@ let pretty_print (headers : string list) (rows : cell list list) : string =
   (* Separator line *)
   let sep () =
     Buffer.add_char buf '+';
-    List.iter (fun w ->
+    Array.iter (fun w ->
       Buffer.add_string buf (String.make (w + 2) '-');
       Buffer.add_char buf '+'
     ) widths;
     Buffer.add_char buf '\n'
   in
-  (* Row *)
-  let print_row cells =
+  (* Row — uses array indexing for O(1) width lookup *)
+  let print_row (cells : string array) =
     Buffer.add_char buf '|';
-    List.iteri (fun i cell ->
-      let w = List.nth widths i in
+    Array.iteri (fun i cell ->
+      let w = widths.(i) in
       Buffer.add_char buf ' ';
       (* Right-align numbers, left-align strings *)
       let is_num = match cell_to_float (infer_cell cell) with
@@ -306,7 +305,7 @@ let pretty_print (headers : string list) (rows : cell list list) : string =
     Buffer.add_char buf '\n'
   in
   sep ();
-  print_row headers;
+  print_row header_arr;
   sep ();
   List.iter print_row str_rows;
   sep ();
