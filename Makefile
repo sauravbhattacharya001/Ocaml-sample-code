@@ -22,13 +22,16 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	comonad.ml constraint.ml crdt.ml deque.ml finger_tree.ml \
 	genetic.ml monad_transformers.ml persistent_vector.ml \
 	random_access_list.ml raytracer.ml stm.ml delimited_cont.ml \
-	neural_network.ml lsystem.ml
+	neural_network.ml lsystem.ml cellular_automata.ml memoize.ml \
+	signal_processing.ml spreadsheet.ml
 
 # Sources that require ocamlfind + external packages
-SOURCES_PKG = csv.ml free_monad.ml actor.ml
+SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml
 # csv.ml needs: ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv
 # free_monad.ml needs: ocamlfind ocamlopt -package str -linkpkg free_monad.ml -o free_monad
 # actor.ml needs: ocamlfind ocamlopt -package unix -linkpkg actor.ml -o actor
+# kd_tree.ml needs: ocamlfind ocamlopt -package alcotest -linkpkg kd_tree.ml -o kd_tree
+# tensor.ml needs: ocamlfind ocamlopt -package alcotest -linkpkg tensor.ml -o tensor
 
 SOURCES = $(SOURCES_PLAIN) $(SOURCES_PKG)
 TARGETS_PLAIN = $(SOURCES_PLAIN:.ml=)
@@ -54,6 +57,14 @@ free_monad: free_monad.ml
 # actor needs the unix package via ocamlfind
 actor: actor.ml
 	ocamlfind $(OCAML) -package unix -linkpkg $< -o $@
+
+# kd_tree needs the alcotest package via ocamlfind
+kd_tree: kd_tree.ml
+	ocamlfind $(OCAML) -package alcotest -linkpkg $< -o $@
+
+# tensor needs the alcotest package via ocamlfind
+tensor: tensor.ml
+	ocamlfind $(OCAML) -package alcotest -linkpkg $< -o $@
 
 test: test_all
 	@echo "=== Running tests ==="

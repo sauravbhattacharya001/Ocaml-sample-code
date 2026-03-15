@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          opam install bisect_ppx ocamlfind --yes
+          opam install bisect_ppx ocamlfind alcotest --yes
           eval $(opam env)
 
       - name: Build all programs
