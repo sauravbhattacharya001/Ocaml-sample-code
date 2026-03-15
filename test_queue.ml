@@ -1,8 +1,7 @@
 (* test_queue.ml — Tests for the Purely Functional Queue *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
+#use "test_framework.ml";;
+
 let current_suite = ref ""
 
 let assert_equal_generic ~msg ~to_string expected actual =
@@ -31,24 +30,6 @@ let assert_equal_int_list ~msg expected actual =
 let assert_equal_int_opt ~msg expected actual =
   let s = function None -> "None" | Some x -> "Some(" ^ string_of_int x ^ ")" in
   assert_equal_generic ~msg ~to_string:s expected actual
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then
-    incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s\n" !current_suite msg
-  end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try
-    ignore (f ());
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected exception\n" !current_suite msg
-  with _ ->
-    incr tests_passed
 
 let suite name f =
   current_suite := name;
@@ -543,12 +524,4 @@ let () =
 
   (* ── Summary ─────────────────────────────────────────── *)
   Printf.printf "\n════════════════════════════════════════════\n";
-  Printf.printf "  Results: %d/%d passed" !tests_passed !tests_run;
-  if !tests_failed > 0 then
-    Printf.printf " (%d FAILED)" !tests_failed;
-  Printf.printf "\n════════════════════════════════════════════\n";
-
-  if !tests_failed > 0 then
-    exit 1
-  else
-    Printf.printf "✅ All queue tests passed!\n"
+  test_summary ()

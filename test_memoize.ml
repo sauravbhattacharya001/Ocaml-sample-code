@@ -1,25 +1,7 @@
 (* test_memoize.ml — Tests for memoization combinators *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
 
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then (
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" msg
-  ) else (
-    Printf.printf "  ✗ %s (expected %s, got %s)\n" msg
-      (string_of_int expected) (string_of_int actual)
-  )
-
-let assert_true ~msg b =
-  incr tests_run;
-  if b then (
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" msg
-  ) else
-    Printf.printf "  ✗ %s\n" msg
+#use "test_framework.ml";;
 
 let assert_float ~msg ~eps expected actual =
   incr tests_run;
@@ -171,5 +153,4 @@ let () =
   test_clearable ();
   test_collatz ();
   test_hit_rate ();
-  Printf.printf "\n%d/%d tests passed\n" !tests_passed !tests_run;
-  if !tests_passed < !tests_run then exit 1
+  test_summary ()

@@ -1,23 +1,10 @@
 (* test_graph_db.ml — Tests for the Property Graph Query Engine *)
 (* 100+ assertions covering graph construction, queries, aggregation,
+#use "test_framework.ml";;
+
    path finding, filtering, mutations, and edge cases *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
 let current_suite = ref ""
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then incr tests_passed
-  else begin incr tests_failed; Printf.printf "  FAIL [%s] %s\n" !current_suite msg end
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then incr tests_passed
-  else begin incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected %s, got %s\n"
-      !current_suite msg expected actual end
 
 let assert_int ~msg expected actual =
   assert_equal ~msg (string_of_int expected) (string_of_int actual)
@@ -630,12 +617,4 @@ let () =
   test_empty_graph_queries ();
   test_direction ();
 
-  Printf.printf "\n=== Results: %d/%d passed, %d failed ===\n"
-    !tests_passed !tests_run !tests_failed;
-  if !tests_failed > 0 then begin
-    Printf.printf "STATUS: SOME TESTS FAILED\n";
-    exit 1
-  end else begin
-    Printf.printf "STATUS: ALL TESTS PASSED ✓\n";
-    exit 0
-  end
+  test_summary ()

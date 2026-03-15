@@ -1,9 +1,8 @@
 (* Tests for cellular_automata.ml *)
 
+#use "test_framework.ml";;
 #use "cellular_automata.ml"
 
-let tests_passed = ref 0
-let tests_failed = ref 0
 
 let test name f =
   try
@@ -13,10 +12,6 @@ let test name f =
   with e ->
     incr tests_failed;
     Printf.printf "  ✗ %s: %s\n" name (Printexc.to_string e)
-
-let assert_eq a b =
-  if a <> b then failwith (Printf.sprintf "expected %s, got %s"
-    (string_of_int b) (string_of_int a))
 
 let () =
   print_endline "\n=== Cellular Automata Tests ===\n";
@@ -258,5 +253,4 @@ let () =
     assert (cx = 5.0 && cy = 5.0));
 
   (* Summary *)
-  Printf.printf "\n=== Results: %d passed, %d failed ===\n" !tests_passed !tests_failed;
-  if !tests_failed > 0 then exit 1
+  test_summary ()
