@@ -255,7 +255,7 @@ let handle_append_entries node req =
           List.rev (List.filteri (fun i _ -> i < keep) rev)
         else node.log in
         let new_entries = req.ae_entries in
-        node.log <- List.rev_append new_entries trimmed;
+        node.log <- trimmed @ new_entries;
         let new_match = last_log_index node in
         if req.ae_leader_commit > node.commit_index then
           node.commit_index <- min req.ae_leader_commit new_match;
@@ -264,7 +264,7 @@ let handle_append_entries node req =
       end
     end else begin
       (* prev_log_idx = 0 means starting from scratch *)
-      node.log <- List.rev req.ae_entries;
+      node.log <- req.ae_entries;
       let new_match = last_log_index node in
       if req.ae_leader_commit > node.commit_index then
         node.commit_index <- min req.ae_leader_commit new_match;
@@ -299,8 +299,7 @@ let handle_append_entries_resp node resp majority =
       let ni = List.assoc resp.aer_node_id node.next_index in
       let prev_idx = ni - 1 in
       let entries_to_send =
-        let rev = List.rev node.log in
-        List.filteri (fun i _ -> i >= ni - 1) rev
+        List.filteri (fun i _ -> i >= ni - 1) node.log
       in
       let req = {
         ae_term = node.term;
@@ -369,8 +368,7 @@ let tick_node cluster node =
       if not (is_partitioned cluster node.id nid) then begin
         let prev_idx = ni - 1 in
         let entries =
-          let rev = List.rev node.log in
-          List.filteri (fun i _ -> i >= ni - 1) rev
+          List.filteri (fun i _ -> i >= ni - 1) node.log
         in
         let req = {
           ae_term = node.term;
