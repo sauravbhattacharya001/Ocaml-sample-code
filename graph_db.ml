@@ -51,18 +51,33 @@ let value_to_float = function
   | VFloat f -> Some f
   | _ -> None
 
-let compare_values a b =
+let rec compare_values a b =
   match a, b with
-  | VInt x, VInt y -> compare x y
-  | VFloat x, VFloat y -> compare x y
-  | VInt x, VFloat y -> compare (float_of_int x) y
-  | VFloat x, VInt y -> compare x (float_of_int y)
-  | VString x, VString y -> compare x y
-  | VBool x, VBool y -> compare x y
   | VNull, VNull -> 0
   | VNull, _ -> -1
   | _, VNull -> 1
-  | _ -> compare a b
+  | VBool x, VBool y -> compare x y
+  | VBool _, _ -> -1
+  | _, VBool _ -> 1
+  | VInt x, VInt y -> compare x y
+  | VInt x, VFloat y -> compare (float_of_int x) y
+  | VFloat x, VInt y -> compare x (float_of_int y)
+  | VFloat x, VFloat y -> compare x y
+  | (VInt _ | VFloat _), _ -> -1
+  | _, (VInt _ | VFloat _) -> 1
+  | VString x, VString y -> compare x y
+  | VString _, VList _ -> -1
+  | VList _, VString _ -> 1
+  | VList xs, VList ys ->
+    let rec cmp xs ys =
+      match xs, ys with
+      | [], [] -> 0
+      | [], _ -> -1
+      | _, [] -> 1
+      | x :: xs', y :: ys' ->
+        let c = compare_values x y in
+        if c <> 0 then c else cmp xs' ys'
+    in cmp xs ys
 
 (* ── Nodes and edges ────────────────────────────────────────────────── *)
 

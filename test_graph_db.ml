@@ -117,6 +117,17 @@ let test_value_comparison () =
     assert_true ~msg:"string compare" (compare_values (VString "a") (VString "b") < 0);
     assert_true ~msg:"null equals null" (compare_values VNull VNull = 0);
     assert_true ~msg:"null less than int" (compare_values VNull (VInt 1) < 0);
+    (* Cross-type ordering: Null < Bool < Int/Float < String < List *)
+    assert_true ~msg:"bool equal" (compare_values (VBool true) (VBool true) = 0);
+    assert_true ~msg:"bool ordering" (compare_values (VBool false) (VBool true) < 0);
+    assert_true ~msg:"bool < int" (compare_values (VBool true) (VInt 0) < 0);
+    assert_true ~msg:"int < string" (compare_values (VInt 99) (VString "a") < 0);
+    assert_true ~msg:"string < list" (compare_values (VString "z") (VList [VInt 1]) < 0);
+    assert_true ~msg:"list equal" (compare_values (VList [VInt 1; VInt 2]) (VList [VInt 1; VInt 2]) = 0);
+    assert_true ~msg:"list less" (compare_values (VList [VInt 1]) (VList [VInt 1; VInt 2]) < 0);
+    assert_true ~msg:"list element compare" (compare_values (VList [VInt 1]) (VList [VInt 2]) < 0);
+    assert_true ~msg:"null < bool" (compare_values VNull (VBool false) < 0);
+    assert_true ~msg:"float < string" (compare_values (VFloat 3.14) (VString "x") < 0);
   )
 
 let test_node_query () =
