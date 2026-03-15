@@ -289,13 +289,13 @@ function render(){
     var q=curQ[ci],done=ans[ci]!==undefined,sel=done?ans[ci]:-1,L=['A','B','C','D'];
     var cn='';for(var x=0;x<CATS.length;x++)if(CATS[x].id===q.c){cn=CATS[x].l;break;}
     var h='<div class="qcard"><div class="qnum">Question '+(ci+1)+' of '+curQ.length+'<span class="qcat">'+esc(cn)+'</span></div>';
-    h+='<div class="qtxt">'+q.t+'</div><div class="opts">';
+    h+='<div class="qtxt">'+esc(q.t)+'</div><div class="opts">';
     for(var i=0;i<q.o.length;i++){
         var cl='opt';if(done){cl+=' lk';if(i===q.a)cl+=' cor';else if(i===sel&&i!==q.a)cl+=' wrn';}
-        h+='<div class="'+cl+'" data-i="'+i+'"><span class="olet">'+L[i]+'.</span> '+q.o[i]+'</div>';
+        h+='<div class="'+cl+'" data-i="'+i+'"><span class="olet">'+L[i]+'.</span> '+esc(q.o[i])+'</div>';
     }
     h+='</div>';
-    if(done){var ok=sel===q.a;h+='<div class="expl sh '+(ok?'cg':'wg')+'">'+(ok?'&#x2705; Correct! ':'&#x274c; Incorrect. ')+q.e+'</div>';}
+    if(done){var ok=sel===q.a;h+='<div class="expl sh '+(ok?'cg':'wg')+'">'+(ok?'&#x2705; Correct! ':'&#x274c; Incorrect. ')+esc(q.e)+'</div>';}
     h+='</div>';$('qBox').innerHTML=h;
     if(!done){var os=document.querySelectorAll('.opt');for(var j=0;j<os.length;j++)(function(o){
         o.addEventListener('click',function(){pick(parseInt(o.getAttribute('data-i'),10));});
@@ -337,7 +337,7 @@ function results(){
     $('newBtn').addEventListener('click',function(){ra.style.display='none';$('setup').style.display='block';renderHist();});
     saveH(pct,cor,curQ.length);
 }
-function loadH(){try{return JSON.parse(localStorage.getItem(SK)||'[]');}catch(e){return[];}}
+function loadH(){try{var raw=JSON.parse(localStorage.getItem(SK)||'[]');if(!Array.isArray(raw))return[];return raw.filter(function(r){return r&&typeof r.d==='string'&&typeof r.s==='number'&&typeof r.c==='number'&&typeof r.t==='number';}).slice(0,20);}catch(e){return[];}}
 function saveH(p,c,t){var h=loadH();h.unshift({d:new Date().toISOString(),s:p,c:c,t:t});
     if(h.length>20)h=h.slice(0,20);try{localStorage.setItem(SK,JSON.stringify(h));}catch(e){}}
 function renderHist(){var h=loadH(),el=$('hist');if(!h.length){el.innerHTML='';return;}
@@ -345,7 +345,7 @@ function renderHist(){var h=loadH(),el=$('hist');if(!h.length){el.innerHTML='';r
     for(var i=0;i<Math.min(h.length,10);i++){var r=h[i],dt=new Date(r.d);
         var ds=dt.toLocaleDateString()+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         var cl=r.s>=90?'var(--accent3)':r.s>=70?'var(--accent2)':r.s>=50?'var(--accent4)':'var(--accent)';
-        html+='<div class="hrow"><span>'+esc(ds)+'</span><span>'+r.c+'/'+r.t+'</span><span class="hsc" style="color:'+cl+'">'+r.s+'%</span></div>';}
+        html+='<div class="hrow"><span>'+esc(ds)+'</span><span>'+esc(String(r.c))+'/'+esc(String(r.t))+'</span><span class="hsc" style="color:'+cl+'">'+esc(String(r.s))+'%</span></div>';}
     el.innerHTML=html;}
 init();
 })();

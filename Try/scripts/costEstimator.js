@@ -1,4 +1,17 @@
 'use strict';
+// Guard against prototype pollution when merging user-supplied options.
+function sanitizeObject(obj) {
+  if (!obj || typeof obj !== 'object') return {};
+  var clean = {};
+  var banned = ['__proto__', 'constructor', 'prototype'];
+  for (var key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && banned.indexOf(key) === -1) {
+      clean[key] = obj[key];
+    }
+  }
+  return clean;
+}
+
 
 /**
  * Bioprint Cost Estimator
@@ -141,10 +154,10 @@ const DEFAULT_ENERGY_RATE = 0.12; // USD per kWh
 function createCostEstimator(options) {
   const opts = options || {};
   const materialPrices = Object.assign(
-    {}, DEFAULT_MATERIAL_PRICES, opts.customMaterials || {}
+    {}, DEFAULT_MATERIAL_PRICES, sanitizeObject(opts.customMaterials)
   );
   const consumablePrices = Object.assign(
-    {}, DEFAULT_CONSUMABLE_PRICES, opts.customConsumables || {}
+    {}, DEFAULT_CONSUMABLE_PRICES, sanitizeObject(opts.customConsumables)
   );
   const energyRate = opts.energyRate || DEFAULT_ENERGY_RATE;
   const currency = opts.currency || 'USD';
