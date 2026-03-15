@@ -1,9 +1,8 @@
 (* test_suffix_array.ml — Tests for Suffix Array module *)
 (* Compile: ocamlopt suffix_array.ml test_suffix_array.ml -o test_sa *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
+#use "test_framework.ml";;
+
 let current_suite = ref ""
 
 let assert_equal_int ~msg expected actual =
@@ -19,12 +18,6 @@ let assert_equal_str ~msg expected actual =
   else begin incr tests_failed;
     Printf.printf "  FAIL [%s] %s: expected \"%s\", got \"%s\"\n"
       !current_suite msg expected actual end
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then incr tests_passed
-  else begin incr tests_failed;
-    Printf.printf "  FAIL [%s] %s\n" !current_suite msg end
 
 let assert_list_equal ~msg expected actual =
   incr tests_run;
@@ -210,8 +203,4 @@ let () =
   Printf.printf "\n=== Suffix Array Test Suite ===\n\n";
   test_build (); test_lcp (); test_search (); test_count ();
   test_lrs (); test_distinct (); test_kth (); test_bwt (); test_edge ();
-  Printf.printf "\n=== Results ===\n";
-  Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
-    !tests_run !tests_passed !tests_failed;
-  if !tests_failed > 0 then (Printf.printf "STATUS: SOME TESTS FAILED\n"; exit 1)
-  else (Printf.printf "STATUS: ALL TESTS PASSED\n"; exit 0)
+  test_summary ()

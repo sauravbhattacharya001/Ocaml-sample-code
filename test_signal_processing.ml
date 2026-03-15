@@ -1,15 +1,7 @@
 (* test_signal_processing.ml — Tests for signal processing module *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
 
-let assert_true ~msg b =
-  incr tests_run;
-  if b then (
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" msg
-  ) else
-    Printf.printf "  ✗ %s\n" msg
+#use "test_framework.ml";;
 
 let assert_float ~msg ~eps expected actual =
   incr tests_run;
@@ -26,13 +18,6 @@ let assert_int ~msg expected actual =
     Printf.printf "  ✓ %s\n" msg
   ) else
     Printf.printf "  ✗ %s (expected %d, got %d)\n" msg expected actual
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try f (); Printf.printf "  ✗ %s (no exception raised)\n" msg
-  with _ -> (
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" msg)
 
 open Signal_processing
 
@@ -441,5 +426,4 @@ let () =
   test_time_domain ();
   test_filtering ();
   test_integration ();
-  Printf.printf "\n%d/%d tests passed\n" !tests_passed !tests_run;
-  if !tests_passed < !tests_run then exit 1
+  test_summary ()

@@ -1,45 +1,8 @@
 (* test_all.ml — Comprehensive test suite for OCaml sample code *)
 (* Tests core algorithms: BST, factorization, fibonacci, mergesort, heap, list_last, graph *)
-(* Uses simple assertion-based testing — no external dependencies required *)
+(* Uses shared test_framework.ml — loaded via #use for interpreter, or linked for compiler *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
-let current_suite = ref ""
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then
-    incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected %s, got %s\n"
-      !current_suite msg
-      (expected) (actual)
-  end
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then
-    incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s\n" !current_suite msg
-  end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try
-    ignore (f ());
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected exception\n" !current_suite msg
-  with _ ->
-    incr tests_passed
-
-let suite name f =
-  current_suite := name;
-  Printf.printf "Running: %s\n" name;
-  f ()
+#use "test_framework.ml";;
 
 let string_of_int_list lst =
   "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]"
@@ -7271,13 +7234,4 @@ let () =
   test_calculus ();
   test_type_infer ();
   test_minikanren ();
-  Printf.printf "\n=== Results ===\n";
-  Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
-    !tests_run !tests_passed !tests_failed;
-  if !tests_failed > 0 then begin
-    Printf.printf "STATUS: SOME TESTS FAILED\n";
-    exit 1
-  end else begin
-    Printf.printf "STATUS: ALL TESTS PASSED ✓\n";
-    exit 0
-  end
+  test_summary ()

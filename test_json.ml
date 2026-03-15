@@ -1,21 +1,10 @@
 (* test_json.ml — Comprehensive test suite for the JSON parser *)
 (* 170+ assertions covering parsing, serialization, queries, equality,
+#use "test_framework.ml";;
+
    transforms, edge cases, and error handling *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
 let current_suite = ref ""
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then incr tests_passed
-  else begin incr tests_failed; Printf.printf "  FAIL [%s] %s\n" !current_suite msg end
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then incr tests_passed
-  else begin incr tests_failed; Printf.printf "  FAIL [%s] %s: expected %s, got %s\n" !current_suite msg expected actual end
 
 let suite name f = current_suite := name; Printf.printf "Running: %s\n" name; f ()
 
@@ -614,4 +603,4 @@ let () =
   Printf.printf "Passed:    %d\n" !tests_passed;
   Printf.printf "Failed:    %d\n" !tests_failed;
   if !tests_failed = 0 then print_endline "All tests passed!"
-  else begin Printf.printf "FAILURES: %d\n" !tests_failed; exit 1 end
+  test_summary ()

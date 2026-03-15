@@ -3,33 +3,9 @@
 
 (* ── Test framework ────────────────────────────────────────────────── *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
+#use "test_framework.ml";;
+
 let current_suite = ref ""
-
-let assert_true ~msg condition =
-  incr tests_run;
-  if condition then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s\n" !current_suite msg
-  end
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected %s, got %s\n"
-      !current_suite msg expected actual
-  end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try ignore (f ()); incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected exception\n" !current_suite msg
-  with _ -> incr tests_passed
 
 let suite name f =
   current_suite := name;
@@ -469,6 +445,4 @@ let () =
   test_fold_order ();
   test_span_single ();
   test_remove_rebalance ();
-  Printf.printf "\n=== Results: %d passed, %d failed, %d total ===\n"
-    !tests_passed !tests_failed !tests_run;
-  if !tests_failed > 0 then exit 1
+  test_summary ()

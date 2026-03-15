@@ -1,35 +1,11 @@
 (* test_rope.ml — Tests for Rope module *)
 (* Run: ocaml test_rope.ml *)
 
+#use "test_framework.ml";;
 #use "rope.ml";;
 
 open Rope
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
-
-let assert_true ~msg cond =
-  incr tests_run;
-  if cond then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL: %s\n" msg
-  end
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL: %s (expected %s, got %s)\n" msg expected actual
-  end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try ignore (f ()); incr tests_failed;
-      Printf.printf "  FAIL: %s: expected exception\n" msg
-  with _ -> incr tests_passed
 
 (* ============================================================ *)
 (* Construction                                                  *)
@@ -460,6 +436,4 @@ let () =
 (* Summary                                                       *)
 (* ============================================================ *)
 let () =
-  Printf.printf "\nRope tests: %d passed, %d failed, %d total\n"
-    !tests_passed !tests_failed !tests_run;
-  if !tests_failed > 0 then exit 1
+  test_summary ()

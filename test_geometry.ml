@@ -7,28 +7,16 @@
  * Run: ocaml test_geometry.ml
  *)
 
+#use "test_framework.ml";;
 #use "geometry.ml";;
 
 (* ── Test infrastructure ────────────────────────────────────────── *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
 let current_section = ref ""
 
 let section name =
   current_section := name;
   Printf.printf "\n── %s ──\n" name
-
-let assert_true ~msg cond =
-  incr tests_run;
-  if cond then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s]: %s\n" !current_section msg
-  end
-
-let assert_false ~msg cond = assert_true ~msg (not cond)
 
 let assert_float ~msg ?(tol=1e-6) expected actual =
   incr tests_run;
@@ -38,13 +26,6 @@ let assert_float ~msg ?(tol=1e-6) expected actual =
     Printf.printf "  FAIL [%s]: %s (expected %.8f, got %.8f)\n"
       !current_section msg expected actual
   end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  (try ignore (f ());
-    incr tests_failed;
-    Printf.printf "  FAIL [%s]: %s (no exception raised)\n" !current_section msg
-  with _ -> incr tests_passed)
 
 let () =
   Printf.printf "=== Geometry Module Tests ===\n";
@@ -449,6 +430,4 @@ let () =
   assert_float ~msg:"very close points" 1e-5 dc;
 
   (* ── Summary ──────────────────────────────────────── *)
-  Printf.printf "\n=== Results: %d passed, %d failed (total: %d) ===\n"
-    !tests_passed !tests_failed !tests_run;
-  if !tests_failed > 0 then exit 1
+  test_summary ()

@@ -1,34 +1,8 @@
 (* test_matrix.ml — Tests for Matrix module *)
 (* Run: ocaml test_matrix.ml *)
 
+#use "test_framework.ml";;
 #use "matrix.ml";;
-
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
-
-let assert_true ~msg cond =
-  incr tests_run;
-  if cond then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL: %s\n" msg
-  end
-
-let assert_equal ~msg expected actual =
-  incr tests_run;
-  if expected = actual then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL: %s (expected %s, got %s)\n" msg expected actual
-  end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try ignore (f ());
-    incr tests_failed;
-    Printf.printf "  FAIL: %s (no exception raised)\n" msg
-  with _ -> incr tests_passed
 
 let () =
   Printf.printf "=== Matrix Tests ===\n\n";
@@ -289,13 +263,4 @@ let () =
   assert_true ~msg:"to_string not empty" (String.length s > 0);
   assert_true ~msg:"to_string contains dimension" (String.length s > 10);
 
-  Printf.printf "\n=== Results ===\n";
-  Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
-    !tests_run !tests_passed !tests_failed;
-  if !tests_failed > 0 then begin
-    Printf.printf "STATUS: SOME TESTS FAILED\n";
-    exit 1
-  end else begin
-    Printf.printf "STATUS: ALL TESTS PASSED ✓\n";
-    exit 0
-  end
+  test_summary ()

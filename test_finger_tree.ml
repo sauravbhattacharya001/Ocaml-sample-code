@@ -10,22 +10,12 @@
  *   ocamlopt ml test_ml -o test_finger_tree && ./test_finger_tree
  *)
 
+#use "test_framework.ml";;
 #use "ml";;
 
 (* ── Minimal test harness ─────────────────────────────────────────── *)
 
-let tests_run = ref 0
-let tests_passed = ref 0
-let tests_failed = ref 0
 let current_suite = ref ""
-
-let assert_true ~msg cond =
-  incr tests_run;
-  if cond then incr tests_passed
-  else begin
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s\n" !current_suite msg
-  end
 
 let assert_equal_list ~msg expected actual =
   incr tests_run;
@@ -45,14 +35,6 @@ let assert_int ~msg expected actual =
     Printf.printf "  FAIL [%s] %s: expected %d, got %d\n"
       !current_suite msg expected actual
   end
-
-let assert_raises ~msg f =
-  incr tests_run;
-  try
-    ignore (f ());
-    incr tests_failed;
-    Printf.printf "  FAIL [%s] %s: expected exception\n" !current_suite msg
-  with _ -> incr tests_passed
 
 let suite name f =
   current_suite := name;
@@ -283,8 +265,4 @@ let () =
   Printf.printf "Total: %d | Passed: %d | Failed: %d\n"
     !tests_run !tests_passed !tests_failed;
   if !tests_failed = 0 then
-    Printf.printf "All tests passed!\n"
-  else
-    Printf.printf "SOME TESTS FAILED\n";
-  exit !tests_failed
-
+  test_summary ()
