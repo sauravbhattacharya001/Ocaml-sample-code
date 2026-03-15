@@ -287,6 +287,13 @@ function colorClass(c) {
 
 function catClass(c) { return 'cat-' + c.toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-'); }
 
+// Prevent XSS — escape data before interpolating into innerHTML
+function escapeHtml(s) {
+    if (typeof s !== 'string') return String(s);
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // Populate category filter
 const cats = [...new Set(DATA.map(d => d.cat))].sort();
 const catSel = document.getElementById('catFilter');
@@ -317,13 +324,13 @@ function render() {
 
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = filtered.map(d => `<tr>
-        <td><strong>${d.name}</strong></td>
-        <td><span class="cat-badge ${catClass(d.cat)}">${d.cat}</span></td>
-        <td style="color:var(--text-dim);font-size:0.82rem">${d.op}</td>
-        <td><span class="big-o ${colorClass(d.avg)}">${d.avg}</span></td>
-        <td><span class="big-o ${colorClass(d.worst)}">${d.worst}</span></td>
-        <td><span class="big-o ${colorClass(d.space)}">${d.space}</span></td>
-        <td><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/${d.file}">${d.file}</a></td>
+        <td><strong>${escapeHtml(d.name)}</strong></td>
+        <td><span class="cat-badge ${catClass(d.cat)}">${escapeHtml(d.cat)}</span></td>
+        <td style="color:var(--text-dim);font-size:0.82rem">${escapeHtml(d.op)}</td>
+        <td><span class="big-o ${colorClass(d.avg)}">${escapeHtml(d.avg)}</span></td>
+        <td><span class="big-o ${colorClass(d.worst)}">${escapeHtml(d.worst)}</span></td>
+        <td><span class="big-o ${colorClass(d.space)}">${escapeHtml(d.space)}</span></td>
+        <td><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/${encodeURI(d.file)}">${escapeHtml(d.file)}</a></td>
     </tr>`).join('');
 
     // Stats
@@ -335,7 +342,7 @@ function render() {
         <div class="stat-card"><div class="stat-num">${filtered.length}</div><div class="stat-label">Algorithms</div></div>
         <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
         <div class="stat-card"><div class="stat-num">${o1Count}</div><div class="stat-label">O(1) Average</div></div>
-        <div class="stat-card"><div class="stat-num">${topCat ? topCat[0] : '—'}</div><div class="stat-label">Most Entries</div></div>
+        <div class="stat-card"><div class="stat-num">${topCat ? escapeHtml(topCat[0]) : '—'}</div><div class="stat-label">Most Entries</div></div>
     `;
 }
 
