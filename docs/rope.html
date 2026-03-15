@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rope Data Structure — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🪢 Rope</h1>
+    <p class="subtitle">Balanced binary tree of strings for efficient text editing</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>rope</strong> is a binary tree where leaves hold short strings and
+      internal nodes cache the total length of their left subtree. This gives
+      <strong>O(log n) concatenation, insertion, and deletion</strong> instead of the
+      O(n) copies required by flat strings. Ropes are the backbone of modern text
+      editors like VS Code, Xi, and Lapce.</p>
+      <p>This implementation includes automatic balancing (Fibonacci-based rebalancing),
+      line-aware indexing, and a full functional API.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic data types</strong> — tree structure with Leaf / Node variants</li>
+        <li><strong>Persistent data structures</strong> — immutable tree with structural sharing</li>
+        <li><strong>Weight-balanced trees</strong> — cached subtree sizes for O(log n) indexing</li>
+        <li><strong>Fibonacci rebalancing</strong> — threshold-based tree restructuring</li>
+        <li><strong>Higher-order functions</strong> — fold, map, iter over character sequences</li>
+        <li><strong>Pattern matching</strong> — recursive tree traversal</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Tree structure *)
+type t =
+  | Leaf of string            (* up to max_leaf chars *)
+  | Node of { left; right;
+              weight;         (* length of left subtree *)
+              len; depth }
+
+(* Build a rope from a string *)
+let r = Rope.of_string "Hello, world!"
+
+(* O(1) concatenation — just creates a new root node *)
+let r2 = Rope.concat r (Rope.of_string " Goodbye!")
+
+(* O(log n) character access *)
+let ch = Rope.index r2 7      (* → 'w' *)
+
+(* O(log n) insert at position *)
+let r3 = Rope.insert r2 5 " beautiful"
+
+(* O(log n) delete range *)
+let r4 = Rope.delete r3 0 6   (* remove "Hello," *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Complexity</th><th>Description</th></tr>
+        <tr><td><code>of_string s</code></td><td>O(n)</td><td>Build balanced rope from string</td></tr>
+        <tr><td><code>to_string r</code></td><td>O(n)</td><td>Flatten rope to string</td></tr>
+        <tr><td><code>concat a b</code></td><td>O(1)</td><td>Concatenate two ropes</td></tr>
+        <tr><td><code>length r</code></td><td>O(1)</td><td>Total character count</td></tr>
+        <tr><td><code>index r i</code></td><td>O(log n)</td><td>Character at position i</td></tr>
+        <tr><td><code>substring r i len</code></td><td>O(log n + len)</td><td>Extract substring</td></tr>
+        <tr><td><code>insert r i s</code></td><td>O(log n)</td><td>Insert string at position</td></tr>
+        <tr><td><code>delete r i len</code></td><td>O(log n)</td><td>Delete range</td></tr>
+        <tr><td><code>split r i</code></td><td>O(log n)</td><td>Split into two ropes at position</td></tr>
+        <tr><td><code>balance r</code></td><td>O(n)</td><td>Rebalance using Fibonacci thresholds</td></tr>
+        <tr><td><code>is_balanced r</code></td><td>O(1)</td><td>Check balance invariant</td></tr>
+        <tr><td><code>lines r</code></td><td>O(n)</td><td>Split into lines</td></tr>
+        <tr><td><code>iter f r</code></td><td>O(n)</td><td>Apply f to each character</td></tr>
+        <tr><td><code>fold f init r</code></td><td>O(n)</td><td>Left fold over characters</td></tr>
+        <tr><td><code>map f r</code></td><td>O(n)</td><td>Map function over characters</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Why Not Just Use Strings?</h2>
+      <table>
+        <tr><th>Operation</th><th>Flat String</th><th>Rope</th></tr>
+        <tr><td>Concatenation</td><td>O(n + m) — full copy</td><td>O(1) — new node</td></tr>
+        <tr><td>Insert at position</td><td>O(n) — shift + copy</td><td>O(log n) — split + concat</td></tr>
+        <tr><td>Delete range</td><td>O(n) — shift + copy</td><td>O(log n) — split + concat</td></tr>
+        <tr><td>Character access</td><td>O(1) — direct index</td><td>O(log n) — tree walk</td></tr>
+        <tr><td>Memory on edit</td><td>Full copy</td><td>Shared structure</td></tr>
+      </table>
+      <p>For documents longer than a few KB, ropes dramatically reduce the cost
+      of editing operations. The O(log n) access trade-off is rarely noticeable
+      since editors typically access characters sequentially.</p>
+    </section>
+
+    <section>
+      <h2>When to Use</h2>
+      <ul>
+        <li><strong>Text editors</strong> — fast insert/delete anywhere in large documents</li>
+        <li><strong>Version control</strong> — efficient diff and patch with structural sharing</li>
+        <li><strong>Log aggregation</strong> — concatenating many small strings without copying</li>
+        <li><strong>Undo/redo</strong> — persistent structure enables cheap snapshots</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/rope.ml">View source: rope.ml</a> (353 lines)</p>
+    </footer>
+  </main>
+</body>
+</html>
