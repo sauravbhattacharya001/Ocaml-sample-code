@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Sample Code — Cheat Sheet</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .cheat-main { padding: 2rem; max-width: 1100px; }
+        .cheat-header { margin-bottom: 2rem; }
+        .cheat-header h1 { font-size: 2rem; color: var(--accent2); margin-bottom: 0.5rem; }
+        .cheat-header p { color: var(--text-dim); line-height: 1.5; }
+        .toolbar { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+        .search-box { flex: 1; min-width: 200px; padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .search-box:focus { border-color: var(--accent2); }
+        .search-box::placeholder { color: var(--text-dim); }
+        .cat-btn { padding: 0.35rem 0.7rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 20px; font-size: 0.78rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .cat-btn:hover { border-color: var(--accent2); color: var(--text); }
+        .cat-btn.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+        .section { margin-bottom: 1.5rem; }
+        .section-title { font-size: 1.1rem; font-weight: 700; color: var(--accent3); padding: 0.5rem 0; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+        .section-title .icon { font-size: 1.2rem; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+        .snippet { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.2s; }
+        .snippet:hover { border-color: var(--accent2); }
+        .snippet-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
+        .snippet-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+        .copy-btn { padding: 0.2rem 0.5rem; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
+        .copy-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+        .copy-btn.copied { background: var(--accent3); color: var(--bg); border-color: var(--accent3); }
+        .snippet pre { margin: 0; padding: 0.7rem 0.8rem; font-family: 'Fira Code', 'JetBrains Mono', Consolas, monospace; font-size: 0.78rem; line-height: 1.55; overflow-x: auto; color: var(--text); background: var(--code-bg); }
+        .snippet .note { padding: 0.4rem 0.8rem; font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); line-height: 1.4; }
+        .stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .stats span { font-size: 0.82rem; color: var(--text-dim); }
+        .stats strong { color: var(--accent2); }
+        .kw { color: #bb9af7; font-weight: 600; }
+        .ty { color: #7dcfff; }
+        .str { color: #9ece6a; }
+        .cm { color: #565f89; font-style: italic; }
+        .num { color: #ff9e64; }
+        .op { color: #89ddff; }
+        kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; font-size: 0.72rem; font-family: inherit; color: var(--text-dim); }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">📋 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra's Algorithm</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="json.html" class="nav-link">📄 JSON Parser</a>
+            <a href="regex.html" class="nav-link">🔍 Regex Engine</a>
+            <a href="trie.html" class="nav-link">🔤 Trie (Prefix Tree)</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="lru-cache.html" class="nav-link">🧊 LRU Cache</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="skip-list.html" class="nav-link">⏭️ Skip List</a>
+            <a href="huffman.html" class="nav-link">📦 Huffman Coding</a>
+            <a href="rope.html" class="nav-link">🪢 Rope</a>
+            <a href="autodiff.html" class="nav-link">🧮 Automatic Differentiation</a>
+            <a href="sat-solver.html" class="nav-link">✅ SAT Solver</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link active">📋 Cheat Sheet</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+    <main class="content">
+        <div class="cheat-main">
+            <div class="cheat-header">
+                <h1>📋 OCaml Cheat Sheet</h1>
+                <p>Quick reference for OCaml syntax, patterns, and idioms. Click <strong>Copy</strong> on any snippet. Press <kbd>/</kbd> to search.</p>
+            </div>
+            <div class="toolbar">
+                <input type="text" class="search-box" id="search" placeholder="Search snippets (e.g. 'pattern matching', 'list', 'option')...">
+                <div id="cat-filters"></div>
+            </div>
+            <div class="stats" id="stats"></div>
+            <div id="sections"></div>
+        </div>
+    </main>
+<script>
+(function(){
+'use strict';
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+var SECTIONS=[
+{title:'Basics',icon:'📝',id:'basics',snippets:[
+{name:'Hello World',code:'let () = print_endline "Hello, World!"',note:'Entry point; let () = ... binds to unit.'},
+{name:'Comments',code:'(* This is a comment *)\n(* Comments can\n   span multiple lines *)',note:'No single-line comment syntax in OCaml.'},
+{name:'Let Binding',code:'let x = 42\nlet greeting = "hello"\nlet pi = 3.14159',note:'Immutable by default. Type inferred.'},
+{name:'Let ... in (local)',code:'let result =\n  let x = 10 in\n  let y = 20 in\n  x + y\n(* result = 30 *)',note:'Scoped bindings with let...in.'},
+{name:'Mutable Reference',code:'let counter = ref 0\ncounter := !counter + 1\nprint_int !counter',note:'ref creates, := updates, ! dereferences.'},
+{name:'Type Annotations',code:'let x : int = 42\nlet greet (name : string) : string =\n  "Hello, " ^ name',note:'Optional \u2014 type inference handles most cases.'},
+{name:'Printing',code:'print_int 42\nprint_float 3.14\nprint_string "text"\nprint_endline "with newline"\nPrintf.printf "%d %s %f\\n" 42 "hi" 3.14',note:'Printf for formatted output.'}
+]},
+{title:'Functions',icon:'\u26a1',id:'functions',snippets:[
+{name:'Basic Function',code:'let add x y = x + y\nlet result = add 3 4  (* 7 *)',note:'Functions are curried by default.'},
+{name:'Anonymous (Lambda)',code:'let double = fun x -> x * 2\nList.map (fun x -> x * x) [1;2;3]',note:'fun x -> ... for inline lambdas.'},
+{name:'Recursive Function',code:'let rec factorial n =\n  if n <= 1 then 1\n  else n * factorial (n - 1)',note:'Must use let rec for recursion.'},
+{name:'Mutual Recursion',code:'let rec is_even n =\n  if n = 0 then true\n  else is_odd (n - 1)\nand is_odd n =\n  if n = 0 then false\n  else is_even (n - 1)',note:'Use and for mutually recursive functions.'},
+{name:'Partial Application',code:'let add x y = x + y\nlet add5 = add 5\nlet result = add5 3  (* 8 *)',note:'Apply fewer args to get a new function.'},
+{name:'Pipe Operator',code:'[1;2;3;4;5]\n|> List.filter (fun x -> x mod 2 = 0)\n|> List.map (fun x -> x * x)\n(* [4; 16] *)',note:'|> pipes left value as last arg to right function.'},
+{name:'Labeled Arguments',code:'let greet ~greeting ~name =\n  greeting ^ ", " ^ name ^ "!"\nlet r = greet ~name:"Alice" ~greeting:"Hi"',note:'Order-independent with ~ labels.'},
+{name:'Optional Arguments',code:'let greet ?(greeting="Hello") name =\n  greeting ^ ", " ^ name\nlet a = greet "World"\nlet b = greet ~greeting:"Hi" "World"',note:'? with default value; callers can omit.'}
+]},
+{title:'Pattern Matching',icon:'\ud83c\udfaf',id:'matching',snippets:[
+{name:'Basic Match',code:'let describe x = match x with\n  | 0 -> "zero"\n  | 1 -> "one"\n  | _ -> "other"',note:'_ is the wildcard (catch-all) pattern.'},
+{name:'Tuple Matching',code:'let fst (a, _) = a\nlet snd (_, b) = b\nlet swap (a, b) = (b, a)',note:'Destructure tuples directly in parameters.'},
+{name:'List Matching',code:'let rec length = function\n  | [] -> 0\n  | _ :: rest -> 1 + length rest',note:'[] matches empty, hd :: tl matches head/tail.'},
+{name:'Guard Clauses',code:'let classify n = match n with\n  | n when n < 0 -> "negative"\n  | 0 -> "zero"\n  | n when n > 100 -> "big"\n  | _ -> "small positive"',note:'when adds conditions to patterns.'},
+{name:'Or Patterns',code:"let is_vowel = function\n  | 'a' | 'e' | 'i'\n  | 'o' | 'u' -> true\n  | _ -> false",note:'| between patterns = match any of them.'},
+{name:'Nested Patterns',code:'let deep = function\n  | Some (Some x) -> x\n  | _ -> 0',note:'Match nested structures in one pattern.'},
+{name:'As Pattern',code:'let head_and_rest = function\n  | (hd :: _ as lst) -> Some (hd, lst)\n  | [] -> None',note:'as binds the entire matched structure.'}
+]},
+{title:'Data Types',icon:'\ud83c\udfd7\ufe0f',id:'types',snippets:[
+{name:'Variant (Sum Type)',code:'type shape =\n  | Circle of float\n  | Rectangle of float * float\n  | Triangle of float * float * float\n\nlet area = function\n  | Circle r -> Float.pi *. r *. r\n  | Rectangle (w, h) -> w *. h\n  | Triangle _ -> 0.0',note:'Algebraic data types \u2014 the heart of OCaml.'},
+{name:'Record',code:'type person = {\n  name : string;\n  age : int;\n  mutable score : int;\n}\n\nlet p = { name="Alice"; age=30; score=0 }\nlet older = { p with age = 31 }\np.score <- 100',note:'Functional update with { x with ... }.'},
+{name:'Tuple',code:'let pair = (1, "hello")\nlet triple = (3.14, true, \'x\')\nlet (a, b) = pair',note:'Fixed-size, heterogeneous.'},
+{name:'Option Type',code:'let safe_div a b =\n  if b = 0 then None\n  else Some (a / b)\n\nmatch safe_div 10 3 with\n| Some v -> Printf.printf "%d\\n" v\n| None -> print_endline "div by zero"',note:'None | Some x \u2014 null-safe pattern.'},
+{name:'Result Type',code:'let parse_int s =\n  try Ok (int_of_string s)\n  with _ -> Error ("Invalid: " ^ s)\n\nmatch parse_int "42" with\n| Ok n -> Printf.printf "%d\\n" n\n| Error e -> print_endline e',note:'Ok/Error for explicit error handling.'},
+{name:'Recursive Type',code:'type \'a tree =\n  | Leaf\n  | Node of \'a * \'a tree * \'a tree\n\nlet rec size = function\n  | Leaf -> 0\n  | Node (_, l, r) -> 1 + size l + size r',note:'Types can reference themselves.'},
+{name:'Type Alias',code:'type point = float * float\ntype \'a pair = \'a * \'a\ntype matrix = float array array',note:'Give descriptive names to complex types.'}
+]},
+{title:'Lists',icon:'\ud83d\udccb',id:'lists',snippets:[
+{name:'Create & Access',code:'let nums = [1; 2; 3; 4; 5]\nlet prepend = 0 :: nums\nlet concat = [1;2] @ [3;4]\nlet hd = List.hd nums       (* 1 *)\nlet tl = List.tl nums       (* [2;3;4;5] *)\nlet n = List.nth nums 2     (* 3 *)',note:':: is O(1) prepend, @ is O(n) concat.'},
+{name:'Map / Filter / Fold',code:'List.map (fun x -> x * 2) [1;2;3]\n(* [2; 4; 6] *)\n\nList.filter (fun x -> x > 2) [1;2;3;4]\n(* [3; 4] *)\n\nList.fold_left (+) 0 [1;2;3;4]\n(* 10 *)',note:'fold_left is tail-recursive (prefer it).'},
+{name:'Common Operations',code:'List.length [1;2;3]          (* 3 *)\nList.rev [1;2;3]             (* [3;2;1] *)\nList.mem 2 [1;2;3]           (* true *)\nList.sort compare [3;1;2]    (* [1;2;3] *)\nList.exists (fun x -> x>3) [1;2;5]\nList.for_all (fun x -> x>0) [1;2;3]',note:'Comprehensive stdlib list functions.'},
+{name:'Zip / Unzip',code:'let zip = List.combine [1;2;3] ["a";"b";"c"]\n(* [(1,"a"); (2,"b"); (3,"c")] *)\n\nlet (nums, strs) = List.split zip',note:'combine zips, split unzips.'}
+]},
+{title:'Arrays & Strings',icon:'\ud83d\udce6',id:'arrays',snippets:[
+{name:'Arrays',code:'let arr = [| 1; 2; 3; 4; 5 |]\nlet x = arr.(0)               (* 1 *)\narr.(0) <- 99                 (* mutation *)\nlet len = Array.length arr\nlet doubled = Array.map (fun x -> x*2) arr\nlet sub = Array.sub arr 1 3   (* [|2;3;4|] *)',note:'Mutable, O(1) access. Use [| ... |].'},
+{name:'Array Init',code:'let zeros = Array.make 10 0\nlet indices = Array.init 5 (fun i -> i)\n(* [|0; 1; 2; 3; 4|] *)',note:'make for uniform, init for computed.'},
+{name:'Strings',code:'let s = "hello"\nlet c = s.[0]              (* \'h\' *)\nlet len = String.length s  (* 5 *)\nlet upper = String.uppercase_ascii s\nlet sub = String.sub s 1 3 (* "ell" *)\nlet joined = String.concat ", " ["a";"b";"c"]',note:'Strings are immutable byte sequences.'}
+]},
+{title:'Control Flow',icon:'\ud83d\udd00',id:'control',snippets:[
+{name:'If / Else',code:'let abs x =\n  if x >= 0 then x else -x\n\n(* if is an expression *)\nlet msg = if x > 0 then "pos" else "neg"',note:'Both branches must return the same type.'},
+{name:'For Loop',code:'for i = 1 to 10 do\n  Printf.printf "%d " i\ndone',note:'Imperative; prefer recursion in OCaml.'},
+{name:'While Loop',code:'let i = ref 0\nwhile !i < 10 do\n  Printf.printf "%d " !i;\n  i := !i + 1\ndone',note:'Requires mutable ref for the counter.'},
+{name:'Exceptions',code:'exception Not_found_msg of string\n\nlet find key lst =\n  match List.assoc_opt key lst with\n  | Some v -> v\n  | None -> raise (Not_found_msg key)\n\nlet r = try find "x" [("a",1)]\n  with Not_found_msg _ -> 0',note:'Custom exceptions with exception keyword.'},
+{name:'Sequencing',code:'let () =\n  print_string "Hello, ";\n  print_endline "World!";\n  Printf.printf "x = %d\\n" 42',note:'Semicolon ; sequences unit expressions.'}
+]},
+{title:'Modules',icon:'\ud83d\udce6',id:'modules',snippets:[
+{name:'Basic Module',code:'module MyMath = struct\n  let pi = 3.14159\n  let square x = x *. x\n  let circle_area r = pi *. square r\nend\n\nlet a = MyMath.circle_area 5.0',note:'Modules group related values and types.'},
+{name:'Module Signature',code:'module type STACK = sig\n  type \'a t\n  val empty : \'a t\n  val push : \'a -> \'a t -> \'a t\n  val pop : \'a t -> (\'a * \'a t) option\nend',note:'Signatures define the public interface.'},
+{name:'Functor',code:'module type COMPARABLE = sig\n  type t\n  val compare : t -> t -> int\nend\n\nmodule MakeSet (Elt : COMPARABLE) = struct\n  type t = Elt.t list\n  let empty = []\n  let add x s =\n    if List.exists\n      (fun e -> Elt.compare e x = 0) s\n    then s else x :: s\nend',note:'Functors = modules from modules.'},
+{name:'Open & Include',code:'open Printf\nlet () = printf "No prefix\\n"\n\n(* Local open *)\nlet x = List.(map (fun x -> x+1) [1;2;3])\n\nmodule Extended = struct\n  include List\n  let sum = fold_left (+) 0\nend',note:'open for access, include for extending.'}
+]},
+{title:'Higher-Order',icon:'\ud83e\udde0',id:'higher',snippets:[
+{name:'Option.map / bind',code:'Option.map (fun x -> x + 1) (Some 5)\n(* Some 6 *)\n\nOption.bind (Some 5) (fun x ->\n  if x > 0 then Some (x * 2) else None)\n(* Some 10 *)',note:'OCaml 4.08+ Option module.'},
+{name:'Bind Operator',code:'let ( >>= ) opt f = match opt with\n  | None -> None\n  | Some x -> f x\n\nlet safe_div a b =\n  if b = 0 then None else Some (a / b)\n\nlet r = Some 100 >>= fun x ->\n  safe_div x 5 >>= fun y ->\n  safe_div y 2',note:'Monadic bind \u2014 chain failable ops.'},
+{name:'Memoization',code:'let memo f =\n  let cache = Hashtbl.create 16 in\n  fun x ->\n    match Hashtbl.find_opt cache x with\n    | Some v -> v\n    | None ->\n      let v = f x in\n      Hashtbl.add cache x v; v',note:'Wrap any pure function with a cache.'},
+{name:'Tail-Recursive',code:'let rev lst =\n  let rec aux acc = function\n    | [] -> acc\n    | hd :: tl -> aux (hd :: acc) tl\n  in aux [] lst',note:'Accumulator pattern prevents stack overflow.'},
+{name:'Pipeline Style',code:'let process data =\n  data\n  |> List.filter (fun x -> x > 0)\n  |> List.map (fun x -> x * x)\n  |> List.sort compare\n  |> List.rev',note:'Chain transformations with |>.'}
+]},
+{title:'I/O & Files',icon:'\ud83d\udcbe',id:'io',snippets:[
+{name:'Read File',code:'let read_file path =\n  let ic = open_in path in\n  let n = in_channel_length ic in\n  let s = Bytes.create n in\n  really_input ic s 0 n;\n  close_in ic;\n  Bytes.to_string s',note:'Read entire file into a string.'},
+{name:'Write File',code:'let write_file path content =\n  let oc = open_out path in\n  output_string oc content;\n  close_out oc',note:'Write string to file (overwrite).'},
+{name:'Read Lines',code:'let read_lines path =\n  let ic = open_in path in\n  let rec loop acc =\n    match input_line ic with\n    | line -> loop (line :: acc)\n    | exception End_of_file ->\n      close_in ic; List.rev acc\n  in loop []',note:'Collect lines into a string list.'},
+{name:'Read stdin',code:'let () =\n  print_string "Name: ";\n  let name = read_line () in\n  Printf.printf "Hello, %s!\\n" name',note:'read_line () reads one line.'}
+]},
+{title:'Hashtbl & Map',icon:'\ud83d\uddfa\ufe0f',id:'hashtbl',snippets:[
+{name:'Hashtbl (Mutable)',code:'let tbl = Hashtbl.create 16\nHashtbl.add tbl "key1" 42\nHashtbl.replace tbl "key1" 99\nlet v = Hashtbl.find tbl "key1"\nHashtbl.remove tbl "key1"\nHashtbl.iter (fun k v ->\n  Printf.printf "%s: %d\\n" k v) tbl',note:'Mutable hash table.'},
+{name:'Map (Immutable)',code:'module SMap = Map.Make(String)\n\nlet m = SMap.empty\n  |> SMap.add "a" 1\n  |> SMap.add "b" 2\n\nlet v = SMap.find "b" m\nlet m2 = SMap.remove "a" m',note:'Balanced tree map \u2014 persistent, O(log n).'},
+{name:'Set',code:'module ISet = Set.Make(Int)\n\nlet s = ISet.of_list [3;1;4;1;5;9]\nlet has = ISet.mem 4 s  (* true *)\nlet s2 = ISet.add 7 s\nlet n = ISet.cardinal s (* 5 *)',note:'Immutable set via balanced tree.'}
+]},
+{title:'Common Idioms',icon:'\ud83d\udca1',id:'idioms',snippets:[
+{name:'Resource Wrapper',code:'let with_file path f =\n  let ic = open_in path in\n  Fun.protect\n    ~finally:(fun () -> close_in ic)\n    (fun () -> f ic)',note:'Ensure cleanup with Fun.protect.'},
+{name:'GADTs',code:'type _ expr =\n  | Int : int -> int expr\n  | Bool : bool -> bool expr\n  | Add : int expr * int expr -> int expr\n\nlet rec eval : type a. a expr -> a = function\n  | Int n -> n\n  | Bool b -> b\n  | Add (a, b) -> eval a + eval b',note:'Type-safe expression trees.'},
+{name:'First-Class Modules',code:'let sort (type a)\n  (module Cmp : Set.OrderedType\n    with type t = a) (lst : a list) =\n  let module S = Set.Make(Cmp) in\n  S.elements (S.of_list lst)\n\nlet sorted = sort (module Int) [3;1;4;1;5]',note:'Pass modules as values.'},
+{name:'Polymorphic Variant',code:'let describe = function\n  | `Red -> "red"\n  | `Blue -> "blue"\n  | `Rgb (r, g, b) ->\n    Printf.sprintf "#%02x%02x%02x" r g b',note:'Backtick variants \u2014 no type decl needed.'}
+]}
+];
+
+var sectionsEl=document.getElementById('sections'),searchEl=document.getElementById('search'),statsEl=document.getElementById('stats'),filtersEl=document.getElementById('cat-filters'),activeCat='all';
+
+function renderFilters(){
+    var cats=[{id:'all',label:'All'}].concat(SECTIONS.map(function(s){return{id:s.id,label:s.title};}));
+    filtersEl.innerHTML=cats.map(function(c){return '<button class="cat-btn'+(c.id===activeCat?' active':'')+'" data-cat="'+esc(c.id)+'">'+esc(c.label)+'</button>';}).join(' ');
+}
+
+function render(){
+    var q=searchEl.value.toLowerCase().trim(),total=0,vis=0,html='';
+    SECTIONS.forEach(function(sec){
+        if(activeCat!=='all'&&sec.id!==activeCat){sec.snippets.forEach(function(){total++;});return;}
+        var filt=sec.snippets.filter(function(s){total++;if(!q){vis++;return true;}var h=(s.name+' '+s.code+' '+(s.note||'')).toLowerCase();var m=h.indexOf(q)!==-1;if(m)vis++;return m;});
+        if(!filt.length)return;
+        html+='<div class="section"><div class="section-title"><span class="icon">'+esc(sec.icon)+'</span>'+esc(sec.title)+' <span style="font-size:0.75rem;color:var(--text-dim);font-weight:400;">('+filt.length+')</span></div><div class="card-grid">';
+        filt.forEach(function(s){var id='sn-'+Math.random().toString(36).slice(2,8);html+='<div class="snippet" id="'+id+'"><div class="snippet-head"><span class="snippet-name">'+esc(s.name)+'</span><button class="copy-btn" onclick="copyS(this,\''+id+'\')">Copy</button></div><pre>'+hl(s.code)+'</pre>';if(s.note)html+='<div class="note">'+esc(s.note)+'</div>';html+='</div>';});
+        html+='</div></div>';
+    });
+    if(!vis&&q)html='<div style="text-align:center;padding:3rem;color:var(--text-dim);">No snippets match "'+esc(q)+'"</div>';
+    sectionsEl.innerHTML=html;
+    statsEl.innerHTML='<span><strong>'+(q?vis:total)+'</strong> / '+total+' snippets</span><span><strong>'+SECTIONS.length+'</strong> categories</span>';
+}
+
+function hl(code){var e=esc(code);return e.replace(/\(\*[\s\S]*?\*\)/g,'<span class="cm">$&</span>').replace(/&quot;(?:[^&]|&(?!quot;))*?&quot;/g,'<span class="str">$&</span>').replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>').replace(/\b(let|rec|in|match|with|function|if|then|else|type|of|module|struct|sig|end|fun|val|open|include|for|to|downto|do|done|while|begin|try|raise|exception|and|or|not|true|false|when|as|mutable|ref)\b/g,'<span class="kw">$1</span>').replace(/\b(int|float|string|bool|char|unit|list|array|option|result)\b/g,'<span class="ty">$1</span>').replace(/(\|&gt;|&lt;-|:=|-&gt;|@@)/g,'<span class="op">$1</span>');}
+
+window.copyS=function(btn,id){var pre=document.getElementById(id).querySelector('pre');navigator.clipboard.writeText(pre.textContent).then(function(){btn.textContent='Copied!';btn.classList.add('copied');setTimeout(function(){btn.textContent='Copy';btn.classList.remove('copied');},1500);});};
+
+searchEl.addEventListener('input',render);
+filtersEl.addEventListener('click',function(e){if(e.target.classList.contains('cat-btn')){activeCat=e.target.dataset.cat;renderFilters();render();}});
+document.addEventListener('keydown',function(e){if(e.key==='/'&&document.activeElement!==searchEl){e.preventDefault();searchEl.focus();}});
+renderFilters();render();
+})();
+</script>
+</body>
+</html>
