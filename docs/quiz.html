@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Quiz &#x2014; Test Your Knowledge</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .quiz-controls { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+        .quiz-btn { padding:.4rem 1rem; border-radius:999px; border:1px solid var(--border);
+            background:var(--surface); color:var(--text-dim); font-size:.85rem; cursor:pointer;
+            transition:all .15s; }
+        .quiz-btn:hover { border-color:var(--accent2); color:var(--text); }
+        .quiz-btn.active { background:var(--accent2); color:var(--bg);
+            border-color:var(--accent2); font-weight:600; }
+        .quiz-btn.start { background:var(--accent); color:var(--bg);
+            border-color:var(--accent); font-weight:600; font-size:1rem; padding:.6rem 1.5rem; }
+        .quiz-btn.start:hover { opacity:.9; }
+        .pbar { height:6px; background:var(--surface); border-radius:3px;
+            margin-bottom:1.5rem; overflow:hidden; }
+        .pfill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2));
+            border-radius:3px; transition:width .3s ease; }
+        .qcard { background:var(--surface); border:1px solid var(--border);
+            border-radius:12px; padding:2rem; margin-bottom:1.5rem; }
+        .qnum { font-size:.75rem; text-transform:uppercase; letter-spacing:.1em;
+            color:var(--accent); margin-bottom:.5rem; }
+        .qcat { font-size:.7rem; padding:2px 8px; border-radius:999px;
+            border:1px solid var(--border); color:var(--accent2);
+            display:inline-block; margin-left:.5rem; }
+        .qtxt { font-size:1.1rem; margin-bottom:1rem; color:var(--text); line-height:1.6; }
+        .opts { display:flex; flex-direction:column; gap:.5rem; }
+        .opt { padding:.75rem 1rem; border:1px solid var(--border); border-radius:8px;
+            cursor:pointer; transition:all .15s; color:var(--text-dim); font-size:.95rem;
+            background:var(--bg); }
+        .opt:hover:not(.lk) { border-color:var(--accent2); color:var(--text); }
+        .opt.cor { border-color:var(--accent3); background:rgba(158,206,106,.12);
+            color:var(--accent3); }
+        .opt.wrn { border-color:var(--accent); background:rgba(247,118,142,.1);
+            color:var(--accent); }
+        .opt.lk { cursor:default; }
+        .olet { font-weight:600; margin-right:.5rem; color:var(--text-dim); }
+        .expl { margin-top:1rem; padding:1rem; border-radius:8px; border:1px solid var(--border);
+            font-size:.9rem; color:var(--text-dim); line-height:1.6; display:none; }
+        .expl.sh { display:block; }
+        .expl.cg { border-color:var(--accent3); background:rgba(158,206,106,.05); }
+        .expl.wg { border-color:var(--accent); background:rgba(247,118,142,.05); }
+        .navb { display:flex; justify-content:space-between; align-items:center; margin-top:1rem; }
+        .nbtn { padding:.5rem 1.25rem; border-radius:8px; border:1px solid var(--border);
+            background:var(--surface); color:var(--text-dim); cursor:pointer; font-size:.9rem;
+            transition:all .15s; }
+        .nbtn:hover { border-color:var(--accent2); color:var(--text); }
+        .nbtn:disabled { opacity:.3; cursor:default; }
+        .res { background:var(--surface); border:1px solid var(--border);
+            border-radius:12px; padding:2rem; text-align:center; }
+        .sc { width:140px; height:140px; border-radius:50%; margin:1rem auto;
+            display:flex; align-items:center; justify-content:center;
+            font-size:2.5rem; font-weight:700; }
+        .sc.g1 { background:rgba(158,206,106,.15); color:var(--accent3); border:3px solid var(--accent3); }
+        .sc.g2 { background:rgba(122,162,247,.15); color:var(--accent2); border:3px solid var(--accent2); }
+        .sc.g3 { background:rgba(224,175,104,.15); color:var(--accent4); border:3px solid var(--accent4); }
+        .sc.g4 { background:rgba(247,118,142,.15); color:var(--accent); border:3px solid var(--accent); }
+        .slbl { font-size:1.2rem; margin-top:.5rem; color:var(--text); }
+        .sdtl { color:var(--text-dim); margin:.5rem 0 1.5rem; font-size:.95rem; }
+        .sgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+            gap:1rem; margin:1.5rem 0; text-align:center; }
+        .scard { background:var(--bg); border-radius:8px; padding:1rem; }
+        .sval { font-size:1.5rem; font-weight:700; color:var(--accent2); }
+        .slb { font-size:.75rem; color:var(--text-dim); margin-top:.25rem; }
+        .hsec { margin-top:2rem; }
+        .hsec h3 { font-size:1rem; color:var(--text-dim); margin-bottom:.75rem; }
+        .hrow { display:flex; justify-content:space-between; align-items:center;
+            padding:.5rem 0; border-bottom:1px solid var(--border);
+            font-size:.85rem; color:var(--text-dim); }
+        .hsc { font-weight:600; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">&#x1f42b; OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="explorer.html" class="nav-link">&#x1f50d; Explorer</a>
+            <a href="complexity.html" class="nav-link">&#x1f4ca; Complexity</a>
+            <a href="quiz.html" class="nav-link active">&#x1f9e0; Quiz</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">&#x1f44b; Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">&#x1f4dd; Last Element</a>
+            <a href="factor.html" class="nav-link">&#x1f522; Factorization</a>
+            <a href="bst.html" class="nav-link">&#x1f333; Binary Search Tree</a>
+            <a href="mergesort.html" class="nav-link">&#x1f500; Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">&#x1f407; Fibonacci</a>
+            <a href="graph.html" class="nav-link">&#x26a1; Graph Algorithms</a>
+            <a href="heap.html" class="nav-link">&#x1f4da; Priority Queue</a>
+            <a href="parser.html" class="nav-link">&#x1f9e9; Parser Combinators</a>
+            <a href="trie.html" class="nav-link">&#x1f524; Trie (Prefix Tree)</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub &#x2197;</a>
+        </div>
+    </nav>
+    <main class="content">
+        <div class="container">
+            <h1>&#x1f9e0; OCaml Quiz</h1>
+            <p class="subtitle">Test your understanding of OCaml syntax, concepts, and patterns from the examples.</p>
+            <div id="setup">
+                <section>
+                    <h2>Choose a Category</h2>
+                    <div class="quiz-controls" id="catB"></div>
+                    <h2>Difficulty</h2>
+                    <div class="quiz-controls" id="difB"></div>
+                    <h2>Questions</h2>
+                    <div class="quiz-controls">
+                        <button class="quiz-btn qc active" data-n="5">5</button>
+                        <button class="quiz-btn qc" data-n="10">10</button>
+                        <button class="quiz-btn qc" data-n="15">15</button>
+                        <button class="quiz-btn qc" data-n="28">All</button>
+                    </div>
+                    <div style="margin-top:1.5rem;">
+                        <button class="quiz-btn start" id="goBtn">Start Quiz &#x2192;</button>
+                    </div>
+                </section>
+                <div class="hsec" id="hist"></div>
+            </div>
+            <div id="qArea" style="display:none;">
+                <div class="pbar"><div class="pfill" id="pf"></div></div>
+                <div id="qBox"></div>
+                <div class="navb">
+                    <button class="nbtn" id="pBtn" disabled>&#x2190; Previous</button>
+                    <span id="qCtr" style="color:var(--text-dim);font-size:.9rem;"></span>
+                    <button class="nbtn" id="nBtn">Next &#x2192;</button>
+                </div>
+            </div>
+            <div id="rArea" style="display:none;"></div>
+            <footer>
+                <p>
+                    <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">View on GitHub</a>
+                    &#xb7; MIT License &#xb7;
+                    Built by <a href="https://github.com/sauravbhattacharya001">Saurav Bhattacharya</a>
+                </p>
+            </footer>
+        </div>
+    </main>
+<script>
+(function(){
+'use strict';
+var QS=[
+{c:'syntax',d:'easy',t:'What does the <code>let</code> keyword do in OCaml?',
+o:['Declares a mutable variable','Binds a value to a name (immutable by default)','Defines a class','Creates a loop'],a:1,
+e:'In OCaml, <code>let x = 5</code> creates an immutable binding. Use <code>ref</code> for mutable state.'},
+{c:'syntax',d:'easy',t:'What is the pipe operator <code>|&gt;</code> used for?',
+o:['Bitwise OR','Pattern matching','Passing the left value as the last argument to the right function','Creating a process'],a:2,
+e:'<code>x |&gt; f</code> equals <code>f x</code>. Pipelines read left-to-right.'},
+{c:'syntax',d:'easy',t:'How do you define a recursive function in OCaml?',
+o:['<code>let rec f x = ...</code>','<code>recursive let f x = ...</code>','<code>def f(x) = ...</code>','<code>fun rec f x -&gt; ...</code>'],a:0,
+e:'The <code>rec</code> keyword after <code>let</code> puts the function name in scope within its own body.'},
+{c:'syntax',d:'medium',t:'What does this evaluate to?<pre><code><span class="kw">let</span> x = <span class="num">5</span> <span class="kw">in</span>\n<span class="kw">let</span> x = x + <span class="num">1</span> <span class="kw">in</span>\nx * <span class="num">2</span></code></pre>',
+o:['10','12','11','Error: x already defined'],a:1,
+e:'OCaml allows shadowing. Inner <code>let x = x + 1</code> creates x = 6, then 6 * 2 = 12.'},
+{c:'syntax',d:'medium',t:'What is the type of <code>fun x y -&gt; x + y</code>?',
+o:['<code>int * int -&gt; int</code>','<code>int -&gt; int -&gt; int</code>','<code>(int, int) -&gt; int</code>','<code>int -&gt; int</code>'],a:1,
+e:'OCaml functions are curried: <code>fun x y -&gt; ...</code> is <code>fun x -&gt; fun y -&gt; ...</code>.'},
+{c:'syntax',d:'hard',t:'What does <code>let (|&gt;) x f = f x</code> demonstrate?',
+o:['Operator overloading','Defining a custom infix operator','Pattern matching on operators','Invalid OCaml syntax'],a:1,
+e:'OCaml allows defining custom operators with symbolic characters wrapped in parentheses.'},
+{c:'patterns',d:'easy',t:'What does the <code>_</code> pattern match?',
+o:['Only the integer 0','Nothing (syntax error)','Anything (wildcard)','Only empty lists'],a:2,
+e:'The underscore <code>_</code> matches any value without binding it to a name.'},
+{c:'patterns',d:'medium',t:'What does <code>classify [1]</code> return?<pre><code><span class="kw">let</span> <span class="fn">classify</span> = <span class="kw">function</span>\n  | [] -&gt; <span class="str">"empty"</span>\n  | [_] -&gt; <span class="str">"singleton"</span>\n  | [_; _] -&gt; <span class="str">"pair"</span>\n  | _ -&gt; <span class="str">"many"</span></code></pre>',
+o:['"empty"','"singleton"','"pair"','"many"'],a:1,
+e:'<code>[1]</code> has exactly one element, matching <code>[_]</code>.'},
+{c:'patterns',d:'medium',t:'What happens if a <code>match</code> doesn\'t cover all cases?',
+o:['Compilation error','Runtime exception if unmatched case is reached','Returns <code>None</code>','Silently continues'],a:1,
+e:'OCaml warns at compile time but still compiles. Unmatched cases raise <code>Match_failure</code>.'},
+{c:'patterns',d:'hard',t:'What does <code>when</code> do in a match?<pre><code><span class="kw">match</span> x <span class="kw">with</span>\n| n <span class="kw">when</span> n &gt; <span class="num">0</span> -&gt; <span class="str">"positive"</span>\n| n <span class="kw">when</span> n &lt; <span class="num">0</span> -&gt; <span class="str">"negative"</span>\n| _ -&gt; <span class="str">"zero"</span></code></pre>',
+o:['Defines a type constraint','Adds a boolean guard to the pattern','Creates a loop','Delays evaluation'],a:1,
+e:'<code>when</code> adds a guard: the pattern must match AND the guard must be true.'},
+{c:'types',d:'easy',t:'What does <code>option</code> represent in OCaml?',
+o:['A command-line flag','A value that may or may not exist (like nullable)','A list of choices','An optimization hint'],a:1,
+e:'<code>\'a option</code> is <code>Some value</code> or <code>None</code>. Forces handling the missing case.'},
+{c:'types',d:'easy',t:'How is a binary tree defined in OCaml?',
+o:['<code>class Tree { ... }</code>','<code>type \'a tree = Leaf | Node of \'a * \'a tree * \'a tree</code>','<code>struct tree { ... }</code>','<code>data Tree a = ...</code>'],a:1,
+e:'Algebraic data types define recursive structures. See <a href="bst.html">bst.ml</a>.'},
+{c:'types',d:'medium',t:'What does <code>\'a</code> mean in <code>\'a list -&gt; int</code>?',
+o:['A string type','A type parameter (polymorphism)','An error type','A character literal'],a:1,
+e:'<code>\'a</code> is a type variable for any type, like in <code>List.length</code>.'},
+{c:'types',d:'medium',t:'What is a <em>variant type</em>?',
+o:['A variable that changes type at runtime','A type with multiple named constructors (sum type)','A type alias','A generic type parameter'],a:1,
+e:'<code>type shape = Circle of float | Rectangle of float * float</code>.'},
+{c:'types',d:'hard',t:'What is a GADT in OCaml?',
+o:['Generalized Array Data Type','Generalized Algebraic Data Type','Generic Abstract Definition Template','Garbage-collected Automatic Data Transformer'],a:1,
+e:'GADTs let each constructor refine the return type: <code>type _ expr = Int : int -&gt; int expr</code>.'},
+{c:'algorithms',d:'easy',t:'Time complexity of balanced BST lookup?',
+o:['O(1)','O(log n)','O(n)','O(n log n)'],a:1,
+e:'Halves the search space each step. See <a href="bst.html">bst.ml</a>.'},
+{c:'algorithms',d:'medium',t:'What data structure does a Trie use?',
+o:['Hash table of characters','Tree where each edge is a character','Linked list of strings','Sorted array'],a:1,
+e:'Trie stores strings as paths from root to leaf. See <a href="trie.html">trie.ml</a>.'},
+{c:'algorithms',d:'medium',t:'What does Huffman coding optimize?',
+o:['Sorting speed','Compression: shorter codes for frequent symbols','Memory allocation','Network routing'],a:1,
+e:'Frequent characters get short bit codes. See <a href="huffman.html">huffman.ml</a>.'},
+{c:'algorithms',d:'hard',t:'Key insight behind Dijkstra\'s algorithm?',
+o:['DP for all shortest paths','Greedily expands nearest unvisited node (non-negative weights)','DFS with backtracking','Requires a tree'],a:1,
+e:'Priority queue always processes closest unvisited node. See <a href="dijkstra.html">dijkstra.ml</a>.'},
+{c:'functional',d:'easy',t:'What is a higher-order function?',
+o:['A function with 3+ parameters','A function that takes or returns functions','A function in a module','A pure function'],a:1,
+e:'<code>List.map</code> takes a function argument. See <a href="mergesort.html">mergesort.ml</a>.'},
+{c:'functional',d:'easy',t:'What is tail recursion?',
+o:['Processing from the end','Recursive call is the very last operation','Limited to 2 calls','Uses a tail pointer'],a:1,
+e:'OCaml optimizes tail calls into loops, preventing stack overflow.'},
+{c:'functional',d:'medium',t:'What is a closure?',
+o:['Exits the program','Captures variables from enclosing scope','Prevents mutation','Hides module implementation'],a:1,
+e:'In <a href="fibonacci.html">fibonacci.ml</a>, memoization captures a hash table via closure.'},
+{c:'functional',d:'medium',t:'What does <code>List.fold_left f acc lst</code> do?',
+o:['Filters lst','Sorts lst','Accumulates by applying f to acc and each element','Splits lst in half'],a:2,
+e:'<code>List.fold_left (+) 0 [1;2;3]</code> = <code>((0+1)+2)+3 = 6</code>.'},
+{c:'functional',d:'hard',t:'What is a monad in OCaml terms?',
+o:['A loop construct','bind + return for sequencing computations','A parallel primitive','An exception handler'],a:1,
+e:'Monads provide <code>return</code> (wrap) and <code>bind</code> (chain). Option monad chains fallible operations.'},
+{c:'functional',d:'hard',t:'What problem does an OCaml functor solve?',
+o:['Mapping over containers','Parameterizing a module over another module','Creating polymorphic variants','Error handling'],a:1,
+e:'<code>Map.Make(String)</code> = generics for modules.'},
+{c:'ecosystem',d:'easy',t:'What is <code>opam</code>?',
+o:['Package manager','An IDE','A testing framework','A code formatter'],a:0,
+e:'<code>opam</code> manages packages and compiler versions.'},
+{c:'ecosystem',d:'medium',t:'What does <code>dune</code> do?',
+o:['Static analysis','Build system for OCaml projects','Doc generator','Web framework'],a:1,
+e:'Dune handles compilation, linking, and tests.'},
+{c:'ecosystem',d:'medium',t:'Difference between <code>.ml</code> and <code>.mli</code>?',
+o:['<code>.ml</code> = implementation, <code>.mli</code> = interface','<code>.ml</code> interpreted, <code>.mli</code> compiled','<code>.mli</code> = tests','No difference'],a:0,
+e:'<code>.mli</code> defines what is exposed publicly.'}
+];
+var CATS=[{id:'all',l:'All Topics'},{id:'syntax',l:'Syntax'},{id:'patterns',l:'Pattern Matching'},{id:'types',l:'Types'},{id:'algorithms',l:'Algorithms'},{id:'functional',l:'Functional'},{id:'ecosystem',l:'Ecosystem'}];
+var DIFS=[{id:'all',l:'All Levels'},{id:'easy',l:'Easy'},{id:'medium',l:'Medium'},{id:'hard',l:'Hard'}];
+var selCat='all',selDif='all',qCnt=5,curQ=[],ci=0,ans={},SK='ocaml_quiz_history';
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function $(id){return document.getElementById(id);}
+function init(){
+    renderBtns('catB',CATS,'cat',selCat,function(v){selCat=v;});
+    renderBtns('difB',DIFS,'dif',selDif,function(v){selDif=v;});
+    var qcs=document.querySelectorAll('.qc');
+    for(var i=0;i<qcs.length;i++)(function(b){b.addEventListener('click',function(){
+        qCnt=parseInt(b.getAttribute('data-n'),10);
+        for(var j=0;j<qcs.length;j++)qcs[j].classList.remove('active');
+        b.classList.add('active');
+    });})(qcs[i]);
+    $('goBtn').addEventListener('click',go);
+    $('pBtn').addEventListener('click',prev);
+    $('nBtn').addEventListener('click',next);
+    renderHist();
+}
+function renderBtns(elId,items,cls,sel,cb){
+    var el=$(elId),h='';
+    for(var i=0;i<items.length;i++)
+        h+='<button class="quiz-btn '+cls+(items[i].id===sel?' active':'')+'" data-v="'+items[i].id+'">'+esc(items[i].l)+'</button>';
+    el.innerHTML=h;
+    var bs=el.querySelectorAll('.'+cls);
+    for(var j=0;j<bs.length;j++)(function(b){b.addEventListener('click',function(){
+        cb(b.getAttribute('data-v'));
+        for(var k=0;k<bs.length;k++)bs[k].classList.remove('active');
+        b.classList.add('active');
+    });})(bs[j]);
+}
+function go(){
+    var pool=[];
+    for(var i=0;i<QS.length;i++){
+        if(selCat!=='all'&&QS[i].c!==selCat)continue;
+        if(selDif!=='all'&&QS[i].d!==selDif)continue;
+        pool.push(QS[i]);
+    }
+    if(!pool.length){alert('No questions match. Try different filters.');return;}
+    for(var j=pool.length-1;j>0;j--){var r=Math.floor(Math.random()*(j+1)),t=pool[j];pool[j]=pool[r];pool[r]=t;}
+    curQ=pool.slice(0,Math.min(qCnt,pool.length));ci=0;ans={};
+    $('setup').style.display='none';$('rArea').style.display='none';$('qArea').style.display='block';
+    render();
+}
+function render(){
+    var q=curQ[ci],done=ans[ci]!==undefined,sel=done?ans[ci]:-1,L=['A','B','C','D'];
+    var cn='';for(var x=0;x<CATS.length;x++)if(CATS[x].id===q.c){cn=CATS[x].l;break;}
+    var h='<div class="qcard"><div class="qnum">Question '+(ci+1)+' of '+curQ.length+'<span class="qcat">'+esc(cn)+'</span></div>';
+    h+='<div class="qtxt">'+q.t+'</div><div class="opts">';
+    for(var i=0;i<q.o.length;i++){
+        var cl='opt';if(done){cl+=' lk';if(i===q.a)cl+=' cor';else if(i===sel&&i!==q.a)cl+=' wrn';}
+        h+='<div class="'+cl+'" data-i="'+i+'"><span class="olet">'+L[i]+'.</span> '+q.o[i]+'</div>';
+    }
+    h+='</div>';
+    if(done){var ok=sel===q.a;h+='<div class="expl sh '+(ok?'cg':'wg')+'">'+(ok?'&#x2705; Correct! ':'&#x274c; Incorrect. ')+q.e+'</div>';}
+    h+='</div>';$('qBox').innerHTML=h;
+    if(!done){var os=document.querySelectorAll('.opt');for(var j=0;j<os.length;j++)(function(o){
+        o.addEventListener('click',function(){pick(parseInt(o.getAttribute('data-i'),10));});
+    })(os[j]);}
+    $('pf').style.width=((ci+1)/curQ.length*100)+'%';
+    $('qCtr').textContent=(ci+1)+' / '+curQ.length;
+    $('pBtn').disabled=ci===0;
+    var nb=$('nBtn');
+    if(ci===curQ.length-1&&done){nb.textContent='See Results \u2192';nb.onclick=results;}
+    else{nb.textContent='Next \u2192';nb.onclick=next;}
+}
+function pick(i){ans[ci]=i;render();}
+function next(){if(ans[ci]===undefined)return;if(ci<curQ.length-1){ci++;render();}}
+function prev(){if(ci>0){ci--;render();}}
+function results(){
+    var cor=0,bc={},bd={easy:[0,0],medium:[0,0],hard:[0,0]};
+    for(var i=0;i<curQ.length;i++){var q=curQ[i],ok=ans[i]===q.a;if(ok)cor++;
+        if(!bc[q.c])bc[q.c]=[0,0];bc[q.c][1]++;if(ok)bc[q.c][0]++;
+        bd[q.d][1]++;if(ok)bd[q.d][0]++;}
+    var pct=Math.round(cor/curQ.length*100),gr=pct>=90?'g1':pct>=70?'g2':pct>=50?'g3':'g4';
+    var msg=pct>=90?'Outstanding!':pct>=70?'Well done!':pct>=50?'Keep studying!':'Keep practicing!';
+    var h='<div class="res"><h2>Quiz Complete!</h2><div class="sc '+gr+'">'+pct+'%</div>';
+    h+='<div class="slbl">'+esc(msg)+'</div><div class="sdtl">'+cor+' of '+curQ.length+' correct</div>';
+    h+='<div class="sgrid">';
+    ['easy','medium','hard'].forEach(function(d){var s=bd[d];if(s[1]>0)
+        h+='<div class="scard"><div class="sval">'+s[0]+'/'+s[1]+'</div><div class="slb">'+d.charAt(0).toUpperCase()+d.slice(1)+'</div></div>';});
+    h+='</div><div style="text-align:left;margin-top:1.5rem;"><h3 style="font-size:1rem;color:var(--text-dim);margin-bottom:.5rem;">By Topic</h3>';
+    Object.keys(bc).forEach(function(k){var s=bc[k],cn=k;
+        for(var x=0;x<CATS.length;x++)if(CATS[x].id===k){cn=CATS[x].l;break;}
+        var w=Math.round(s[0]/s[1]*100);
+        h+='<div style="margin-bottom:.5rem;"><div style="display:flex;justify-content:space-between;font-size:.85rem;color:var(--text-dim);margin-bottom:.2rem;"><span>'+esc(cn)+'</span><span>'+s[0]+'/'+s[1]+'</span></div>';
+        h+='<div class="pbar"><div class="pfill" style="width:'+w+'%"></div></div></div>';});
+    h+='</div><div style="margin-top:2rem;">';
+    h+='<button class="quiz-btn start" id="revBtn">Review Answers</button> ';
+    h+='<button class="quiz-btn" style="font-size:1rem;padding:.6rem 1.5rem;" id="newBtn">New Quiz</button>';
+    h+='</div></div>';
+    $('qArea').style.display='none';var ra=$('rArea');ra.innerHTML=h;ra.style.display='block';
+    $('revBtn').addEventListener('click',function(){ra.style.display='none';$('qArea').style.display='block';ci=0;render();});
+    $('newBtn').addEventListener('click',function(){ra.style.display='none';$('setup').style.display='block';renderHist();});
+    saveH(pct,cor,curQ.length);
+}
+function loadH(){try{return JSON.parse(localStorage.getItem(SK)||'[]');}catch(e){return[];}}
+function saveH(p,c,t){var h=loadH();h.unshift({d:new Date().toISOString(),s:p,c:c,t:t});
+    if(h.length>20)h=h.slice(0,20);try{localStorage.setItem(SK,JSON.stringify(h));}catch(e){}}
+function renderHist(){var h=loadH(),el=$('hist');if(!h.length){el.innerHTML='';return;}
+    var html='<h3>Recent Scores</h3>';
+    for(var i=0;i<Math.min(h.length,10);i++){var r=h[i],dt=new Date(r.d);
+        var ds=dt.toLocaleDateString()+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        var cl=r.s>=90?'var(--accent3)':r.s>=70?'var(--accent2)':r.s>=50?'var(--accent4)':'var(--accent)';
+        html+='<div class="hrow"><span>'+esc(ds)+'</span><span>'+r.c+'/'+r.t+'</span><span class="hsc" style="color:'+cl+'">'+r.s+'%</span></div>';}
+    el.innerHTML=html;}
+init();
+})();
+</script>
+</body>
+</html>
