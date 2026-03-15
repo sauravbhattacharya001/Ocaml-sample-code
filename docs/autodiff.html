@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatic Differentiation — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🧮 Automatic Differentiation</h1>
+    <p class="subtitle">Exact derivatives via dual numbers and computation graphs</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A complete <strong>automatic differentiation</strong> library supporting both
+      forward mode (dual numbers) and reverse mode (computation graphs). Unlike
+      symbolic differentiation (which manipulates expressions) or numerical
+      differentiation (which approximates with finite differences), AD computes
+      <strong>exact derivatives</strong> at machine precision by applying the chain rule
+      to elementary operations.</p>
+      <p>This is the core technique behind modern deep learning frameworks like
+      PyTorch and TensorFlow, implemented from scratch in ~1000 lines of OCaml.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Dual numbers</strong> — forward-mode AD via (value, derivative) pairs</li>
+        <li><strong>Computation graphs</strong> — reverse-mode AD with backpropagation</li>
+        <li><strong>Operator overloading</strong> — seamless derivative tracking through arithmetic</li>
+        <li><strong>Chain rule</strong> — composing derivatives of elementary operations</li>
+        <li><strong>Gradient computation</strong> — partial derivatives of multivariate functions</li>
+        <li><strong>Jacobian &amp; Hessian matrices</strong> — higher-order derivative structures</li>
+        <li><strong>Gradient descent</strong> — optimization using computed gradients</li>
+        <li><strong>Neural network building blocks</strong> — layers and activations via AD</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Forward Mode (Dual Numbers)</h2>
+      <p>Each value carries its derivative alongside it. One forward pass computes
+      the derivative with respect to one input variable. Best for functions with
+      <strong>few inputs, many outputs</strong> (cost: O(n) passes for n inputs).</p>
+      <pre><code>(* Dual number: value + tangent *)
+type t = { v : float; d : float }
+
+(* Derivative of x² + sin(x) at x = π/4 *)
+let f x = Forward.(x * x + sin x)
+let deriv = Forward.diff f (Float.pi /. 4.0)
+(* deriv ≈ 2·(π/4) + cos(π/4) ≈ 2.278 *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Reverse Mode (Backpropagation)</h2>
+      <p>Builds a computation graph during the forward pass, then propagates
+      gradients backward. One reverse pass computes derivatives with respect to
+      <strong>all inputs</strong>. Best for functions with <strong>many inputs,
+      few outputs</strong> — exactly the case for loss functions in ML.</p>
+      <pre><code>(* Build computation graph *)
+let x = Reverse.var 2.0
+let y = Reverse.var 3.0
+let z = Reverse.(x * y + sin x)
+
+(* Backpropagate from z *)
+let () = Reverse.backward z
+let dz_dx = Reverse.grad x   (* ∂z/∂x = y + cos(x) *)
+let dz_dy = Reverse.grad y   (* ∂z/∂y = x *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <h3>Forward Module</h3>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>var x</code></td><td>Create independent variable (derivative = 1)</td></tr>
+        <tr><td><code>const x</code></td><td>Create constant (derivative = 0)</td></tr>
+        <tr><td><code>diff f x</code></td><td>Compute f'(x) via one forward pass</td></tr>
+        <tr><td><code>nth_diff n f x</code></td><td>n-th derivative (AD + finite differences)</td></tr>
+        <tr><td><code>gradient f x</code></td><td>Gradient ∇f at point x (array)</td></tr>
+        <tr><td><code>jacobian f x</code></td><td>Jacobian matrix of f : ℝⁿ → ℝᵐ</td></tr>
+        <tr><td><code>hessian f x</code></td><td>Hessian matrix of f : ℝⁿ → ℝ</td></tr>
+        <tr><td><code>directional_deriv f x v</code></td><td>Directional derivative along v</td></tr>
+      </table>
+
+      <h3>Reverse Module</h3>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>var x</code></td><td>Create input node in computation graph</td></tr>
+        <tr><td><code>backward z</code></td><td>Backpropagate gradients from output z</td></tr>
+        <tr><td><code>grad x</code></td><td>Read accumulated gradient ∂z/∂x</td></tr>
+        <tr><td><code>gradient f x</code></td><td>Gradient via single reverse pass</td></tr>
+        <tr><td><code>grad_descent f x0 ~lr ~steps</code></td><td>Minimize f by gradient descent</td></tr>
+      </table>
+
+      <h3>Supported Operations</h3>
+      <table>
+        <tr><th>Category</th><th>Operations</th></tr>
+        <tr><td>Arithmetic</td><td><code>+ - * / neg abs pow</code></td></tr>
+        <tr><td>Trigonometric</td><td><code>sin cos tan asin acos atan atan2</code></td></tr>
+        <tr><td>Hyperbolic</td><td><code>sinh cosh tanh</code></td></tr>
+        <tr><td>Exponential</td><td><code>exp log sqrt</code></td></tr>
+        <tr><td>Activations</td><td><code>sigmoid relu softplus</code></td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Forward vs Reverse Mode</h2>
+      <table>
+        <tr><th></th><th>Forward Mode</th><th>Reverse Mode</th></tr>
+        <tr><td>Mechanism</td><td>Dual numbers (value + tangent)</td><td>Computation graph + backprop</td></tr>
+        <tr><td>Cost per pass</td><td>One ∂f/∂xᵢ</td><td>All ∂f/∂xᵢ</td></tr>
+        <tr><td>Best for</td><td>f : ℝ → ℝᵐ (few inputs)</td><td>f : ℝⁿ → ℝ (few outputs)</td></tr>
+        <tr><td>Memory</td><td>O(1) extra</td><td>O(ops) — stores graph</td></tr>
+        <tr><td>Use case</td><td>Jacobian columns, sensitivities</td><td>Loss function gradients (ML)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>When to Use</h2>
+      <ul>
+        <li><strong>Machine learning</strong> — training neural networks via backpropagation</li>
+        <li><strong>Scientific computing</strong> — sensitivities in simulations and ODEs</li>
+        <li><strong>Optimization</strong> — gradient-based minimization (Newton, L-BFGS)</li>
+        <li><strong>Probabilistic programming</strong> — gradient estimation in inference</li>
+        <li><strong>Physics engines</strong> — differentiable simulation for control</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/autodiff.ml">View source: autodiff.ml</a> (1063 lines)</p>
+    </footer>
+  </main>
+</body>
+</html>

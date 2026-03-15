@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAT Solver — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>✅ SAT Solver</h1>
+    <p class="subtitle">Boolean satisfiability via the DPLL algorithm</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>SAT solver</strong> determines whether a Boolean formula in
+      <strong>conjunctive normal form (CNF)</strong> has a satisfying assignment.
+      This is the canonical NP-complete problem — the first problem proven
+      NP-complete (Cook–Levin, 1971). Despite worst-case exponential time, modern
+      SAT solvers handle millions of variables using clever heuristics.</p>
+      <p>This implementation uses the <strong>DPLL</strong> (Davis–Putnam–Logemann–Loveland)
+      algorithm with unit propagation, pure literal elimination, and backtracking.
+      Includes support for DIMACS CNF parsing and solution verification.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic data types</strong> — literals as <code>Pos | Neg</code> variants</li>
+        <li><strong>Pattern matching</strong> — clause evaluation and propagation</li>
+        <li><strong>Backtracking search</strong> — systematic exploration of variable assignments</li>
+        <li><strong>Unit propagation</strong> — forced assignments from unit clauses</li>
+        <li><strong>Pure literal elimination</strong> — variables appearing in only one polarity</li>
+        <li><strong>Immutable maps</strong> — persistent assignment tracking for backtracking</li>
+        <li><strong>NP-completeness</strong> — the foundation of computational complexity</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The DPLL Algorithm</h2>
+      <pre><code>(* CNF formula: (a ∨ ¬b) ∧ (b ∨ c) ∧ (¬a ∨ ¬c) *)
+let formula = [
+  [Pos 1; Neg 2];       (* a ∨ ¬b *)
+  [Pos 2; Pos 3];       (* b ∨ c  *)
+  [Neg 1; Neg 3];       (* ¬a ∨ ¬c *)
+]
+
+(* DPLL proceeds by:
+   1. Unit propagation — if a clause has one unset literal, force it
+   2. Pure literal elim — if a var appears only positive (or only
+      negative), assign it to satisfy all those clauses
+   3. Choose — pick an unassigned variable, try true then false
+   4. Backtrack — if a conflict is found, undo and try the other branch
+*)
+
+match solve formula with
+| Some assignment -> (* satisfying assignment found *)
+| None            -> (* formula is unsatisfiable *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>solve formula</code></td><td>Find satisfying assignment or return None</td></tr>
+        <tr><td><code>unit_propagate</code></td><td>Find and propagate unit clauses (single-literal)</td></tr>
+        <tr><td><code>pure_literal_elim</code></td><td>Assign variables appearing in only one polarity</td></tr>
+        <tr><td><code>simplify</code></td><td>Remove satisfied clauses and falsified literals</td></tr>
+        <tr><td><code>variables</code></td><td>Collect all variables in a formula</td></tr>
+        <tr><td><code>eval_clause</code></td><td>Evaluate clause under partial assignment</td></tr>
+        <tr><td><code>eval_formula</code></td><td>Evaluate entire formula under assignment</td></tr>
+        <tr><td><code>parse_dimacs</code></td><td>Parse standard DIMACS CNF format</td></tr>
+        <tr><td><code>verify</code></td><td>Verify a solution against the original formula</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>DPLL Optimizations</h2>
+      <table>
+        <tr><th>Technique</th><th>Effect</th></tr>
+        <tr><td>Unit propagation</td><td>Forced deductions — dramatically prunes the search tree</td></tr>
+        <tr><td>Pure literal elimination</td><td>Variables that only appear positive (or negative) can be set freely</td></tr>
+        <tr><td>Early termination</td><td>Stop as soon as a clause is falsified (no need to check the rest)</td></tr>
+        <tr><td>Immutable assignments</td><td>Backtracking is free — just discard the current map</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Applications of SAT Solving</h2>
+      <ul>
+        <li><strong>Hardware verification</strong> — checking circuit correctness (Intel, AMD)</li>
+        <li><strong>Software verification</strong> — bounded model checking for bug finding</li>
+        <li><strong>Planning &amp; scheduling</strong> — encoding constraints as Boolean formulas</li>
+        <li><strong>Cryptanalysis</strong> — attacking ciphers by encoding as SAT</li>
+        <li><strong>Package managers</strong> — dependency resolution (apt, opam)</li>
+        <li><strong>Sudoku &amp; puzzles</strong> — constraint satisfaction via CNF encoding</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>CNF Format</h2>
+      <pre><code>(* DIMACS CNF — standard interchange format *)
+(* p cnf &lt;num_vars&gt; &lt;num_clauses&gt; *)
+(* Each line: space-separated literals, 0-terminated *)
+(* Positive int = positive literal, negative = negation *)
+
+p cnf 3 3
+1 -2 0       (* a ∨ ¬b *)
+2 3 0        (* b ∨ c  *)
+-1 -3 0      (* ¬a ∨ ¬c *)
+
+(* Parse with: parse_dimacs input_string *)</code></pre>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/sat_solver.ml">View source: sat_solver.ml</a> (389 lines)</p>
+    </footer>
+  </main>
+</body>
+</html>
