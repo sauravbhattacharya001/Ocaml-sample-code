@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complexity Cheat Sheet — OCaml Sample Code</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Cheat sheet specific styles */
+.controls {
+    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.controls input, .controls select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem;
+}
+.controls input { flex: 1; min-width: 200px; }
+.controls select { min-width: 140px; }
+.controls input:focus, .controls select:focus { outline: none; border-color: var(--accent2); }
+
+.complexity-table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem;
+}
+.complexity-table th {
+    text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border);
+    color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.05em; cursor: pointer; user-select: none; white-space: nowrap;
+}
+.complexity-table th:hover { color: var(--accent2); }
+.complexity-table th .arrow { margin-left: 4px; font-size: 0.7rem; }
+.complexity-table td {
+    padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border);
+}
+.complexity-table tr:hover td { background: var(--surface-hover); }
+.complexity-table td a { color: var(--accent2); text-decoration: none; }
+.complexity-table td a:hover { text-decoration: underline; }
+
+.big-o { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem; font-weight: 600; }
+.o-1 { color: var(--accent3); }
+.o-logn { color: #73daca; }
+.o-n { color: var(--accent2); }
+.o-nlogn { color: var(--accent4); }
+.o-n2 { color: var(--accent); }
+.o-n3 { color: #ff5370; }
+.o-2n { color: #ff5370; }
+.o-nk { color: var(--accent); }
+
+.cat-badge {
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border); display: inline-block; white-space: nowrap;
+}
+.cat-data-structure { color: var(--accent2); border-color: rgba(122,162,247,0.3); }
+.cat-sorting { color: var(--accent3); border-color: rgba(158,206,106,0.3); }
+.cat-graph { color: var(--accent4); border-color: rgba(224,175,104,0.3); }
+.cat-search { color: #73daca; border-color: rgba(115,218,202,0.3); }
+.cat-tree { color: #bb9af7; border-color: rgba(187,154,247,0.3); }
+.cat-string { color: #7dcfff; border-color: rgba(125,207,255,0.3); }
+.cat-math { color: var(--accent); border-color: rgba(247,118,142,0.3); }
+.cat-ai-ml { color: #ff9e64; border-color: rgba(255,158,100,0.3); }
+.cat-parsing { color: #c0caf5; border-color: rgba(192,202,245,0.3); }
+.cat-concurrency { color: #e0af68; border-color: rgba(224,175,104,0.3); }
+.cat-functional { color: #9ece6a; border-color: rgba(158,206,106,0.3); }
+
+.stats-row {
+    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;
+}
+.stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.25rem; flex: 1; min-width: 120px; text-align: center;
+}
+.stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent2); }
+.stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+.legend {
+    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); font-size: 0.8rem;
+}
+.legend-item { display: flex; align-items: center; gap: 0.35rem; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+.match-count { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem; }
+</style>
+</head>
+<body>
+<nav class="sidebar">
+    <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Examples</a></div>
+    <div class="nav-section">
+        <div class="nav-title">Reference</div>
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="explorer.html" class="nav-link">Explorer</a>
+        <a href="complexity.html" class="nav-link active">Complexity</a>
+        <a href="learning-path.html" class="nav-link">Learning Path</a>
+        <a href="concepts.html" class="nav-link">Concepts</a>
+        <a href="setup.html" class="nav-link">Setup</a>
+    </div>
+</nav>
+<div class="content">
+<div class="container">
+
+<header>
+    <h1>⚡ Complexity Cheat Sheet</h1>
+    <p class="subtitle">Big-O time & space complexity for every algorithm and data structure in this collection</p>
+</header>
+
+<div class="stats-row" id="stats"></div>
+
+<div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div> O(1)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#73daca"></div> O(log n)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div> O(n)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent4)"></div> O(n log n)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> O(n²)+</div>
+</div>
+
+<div class="controls">
+    <input type="text" id="search" placeholder="Search algorithms, operations, categories…">
+    <select id="catFilter"><option value="">All Categories</option></select>
+    <select id="complexityFilter">
+        <option value="">All Complexities</option>
+        <option value="O(1)">O(1)</option>
+        <option value="O(log n)">O(log n)</option>
+        <option value="O(n)">O(n)</option>
+        <option value="O(n log n)">O(n log n)</option>
+        <option value="O(n²)">O(n²)+</option>
+    </select>
+    <select id="sortBy">
+        <option value="name">Sort: Name</option>
+        <option value="best">Sort: Best→Worst</option>
+        <option value="worst">Sort: Worst→Best</option>
+        <option value="category">Sort: Category</option>
+    </select>
+</div>
+
+<div class="match-count" id="matchCount"></div>
+
+<table class="complexity-table">
+<thead>
+<tr>
+    <th>Algorithm / Structure</th>
+    <th>Category</th>
+    <th>Operation</th>
+    <th>Time (Avg)</th>
+    <th>Time (Worst)</th>
+    <th>Space</th>
+    <th>File</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+
+<footer><p>Part of <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">OCaml Sample Code</a></p></footer>
+</div></div>
+
+<script>
+const DATA = [
+  // Data Structures
+  { name:"Hash Map", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"hashmap.ml" },
+  { name:"Binary Search Tree", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log n)", worst:"O(n)", space:"O(n)", file:"bst.ml" },
+  { name:"Red-Black Tree", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"rbtree.ml" },
+  { name:"B-Tree", cat:"Data Structure", op:"insert / search / delete", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"btree.ml" },
+  { name:"Heap (Binary)", cat:"Data Structure", op:"insert / extract-min", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"heap.ml" },
+  { name:"Queue (Functional)", cat:"Data Structure", op:"enqueue / dequeue", avg:"O(1)*", worst:"O(n)", space:"O(n)", file:"queue.ml" },
+  { name:"Deque", cat:"Data Structure", op:"push / pop (both ends)", avg:"O(1)*", worst:"O(n)", space:"O(n)", file:"deque.ml" },
+  { name:"Trie", cat:"Data Structure", op:"insert / lookup", avg:"O(k)", worst:"O(k)", space:"O(n·k)", file:"trie.ml" },
+  { name:"Skip List", cat:"Data Structure", op:"insert / search / delete", avg:"O(log n)", worst:"O(n)", space:"O(n log n)", file:"skip_list.ml" },
+  { name:"Bloom Filter", cat:"Data Structure", op:"add / query", avg:"O(k)", worst:"O(k)", space:"O(m)", file:"bloom_filter.ml" },
+  { name:"LRU Cache", cat:"Data Structure", op:"get / put", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"lru_cache.ml" },
+  { name:"Rope", cat:"Data Structure", op:"concat / index / split", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"rope.ml" },
+  { name:"Finger Tree", cat:"Data Structure", op:"push / concat / split", avg:"O(1)* / O(log n)", worst:"O(log n)", space:"O(n)", file:"finger_tree.ml" },
+  { name:"Persistent Vector", cat:"Data Structure", op:"get / set / append", avg:"O(log₃₂ n)", worst:"O(log₃₂ n)", space:"O(n)", file:"persistent_vector.ml" },
+  { name:"HAMT", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log₃₂ n)", worst:"O(log₃₂ n)", space:"O(n)", file:"hamt.ml" },
+  { name:"Random Access List", cat:"Data Structure", op:"cons / head / lookup", avg:"O(1) / O(log n)", worst:"O(log n)", space:"O(n)", file:"random_access_list.ml" },
+  { name:"Union-Find", cat:"Data Structure", op:"find / union", avg:"O(α(n))", worst:"O(α(n))", space:"O(n)", file:"union_find.ml" },
+  { name:"Segment Tree", cat:"Tree", op:"query / update", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"segment_tree.ml" },
+  { name:"Interval Tree", cat:"Tree", op:"insert / query", avg:"O(log n)", worst:"O(n + k)", space:"O(n)", file:"interval_tree.ml" },
+  { name:"Fenwick Tree (BIT)", cat:"Tree", op:"update / prefix sum", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"fenwick_tree.ml" },
+  { name:"KD-Tree", cat:"Tree", op:"insert / nearest neighbor", avg:"O(log n)", worst:"O(n)", space:"O(n)", file:"kd_tree.ml" },
+  { name:"Zipper", cat:"Data Structure", op:"navigate / modify", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"zipper.ml" },
+
+  // Sorting
+  { name:"Merge Sort", cat:"Sorting", op:"sort", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"mergesort.ml" },
+  { name:"Sorting (collection)", cat:"Sorting", op:"sort (multiple algs)", avg:"O(n log n)", worst:"O(n²)", space:"O(n)", file:"sorting.ml" },
+
+  // Graph
+  { name:"Dijkstra's Algorithm", cat:"Graph", op:"shortest path", avg:"O((V+E) log V)", worst:"O((V+E) log V)", space:"O(V)", file:"dijkstra.ml" },
+  { name:"Graph (BFS/DFS/Topo)", cat:"Graph", op:"traversal / topo sort", avg:"O(V + E)", worst:"O(V + E)", space:"O(V)", file:"graph.ml" },
+  { name:"Network Flow", cat:"Graph", op:"max flow (Edmonds-Karp)", avg:"O(V·E²)", worst:"O(V·E²)", space:"O(V²)", file:"network_flow.ml" },
+  { name:"Graph Database", cat:"Graph", op:"add / query / path", avg:"O(1) / O(V+E)", worst:"O(V+E)", space:"O(V+E)", file:"graph_db.ml" },
+
+  // String
+  { name:"Regex Engine", cat:"String", op:"match", avg:"O(n·m)", worst:"O(2ⁿ) backtrack", space:"O(m)", file:"regex.ml" },
+  { name:"String Matching", cat:"String", op:"KMP / Rabin-Karp", avg:"O(n + m)", worst:"O(n + m) / O(n·m)", space:"O(m)", file:"string_match.ml" },
+  { name:"Suffix Array", cat:"String", op:"build / search", avg:"O(n log n) / O(m log n)", worst:"O(n log²n)", space:"O(n)", file:"suffix_array.ml" },
+  { name:"Diff (Myers)", cat:"String", op:"edit distance / diff", avg:"O(n·d)", worst:"O(n²)", space:"O(n)", file:"diff.ml" },
+
+  // Search / Optimization
+  { name:"SAT Solver", cat:"Search", op:"DPLL satisfiability", avg:"varies", worst:"O(2ⁿ)", space:"O(n)", file:"sat_solver.ml" },
+  { name:"Constraint Solver", cat:"Search", op:"backtracking + propagation", avg:"varies", worst:"O(dⁿ)", space:"O(n·d)", file:"constraint.ml" },
+  { name:"MiniKanren", cat:"Search", op:"relational query", avg:"varies", worst:"O(∞)", space:"O(n)", file:"minikanren.ml" },
+  { name:"Datalog", cat:"Search", op:"query evaluation", avg:"O(n^k)", worst:"O(n^k)", space:"O(n^k)", file:"datalog.ml" },
+
+  // Math / Numeric
+  { name:"Fibonacci", cat:"Math", op:"nth Fibonacci", avg:"O(n) / O(log n)", worst:"O(n)", space:"O(1)", file:"fibonacci.ml" },
+  { name:"Factor", cat:"Math", op:"prime factorization", avg:"O(√n)", worst:"O(√n)", space:"O(log n)", file:"factor.ml" },
+  { name:"Matrix Operations", cat:"Math", op:"multiply / determinant", avg:"O(n³)", worst:"O(n³)", space:"O(n²)", file:"matrix.ml" },
+  { name:"Calculus (Symbolic)", cat:"Math", op:"differentiate / simplify", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"calculus.ml" },
+  { name:"Integration (Numeric)", cat:"Math", op:"Simpson's / Gauss", avg:"O(n)", worst:"O(n)", space:"O(1)", file:"integration.ml" },
+  { name:"Autodiff", cat:"Math", op:"forward/reverse AD", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"autodiff.ml" },
+  { name:"Probability", cat:"Math", op:"distributions / Bayes", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"probability.ml" },
+  { name:"Tensor", cat:"Math", op:"elementwise / matmul", avg:"O(n) / O(n³)", worst:"O(n³)", space:"O(n)", file:"tensor.ml" },
+  { name:"Huffman Coding", cat:"Math", op:"encode / decode", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"huffman.ml" },
+  { name:"Cryptography", cat:"Math", op:"hash / cipher", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"crypto.ml" },
+  { name:"Signal Processing", cat:"Math", op:"FFT / filter", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"signal_processing.ml" },
+
+  // AI / ML
+  { name:"Neural Network", cat:"AI/ML", op:"forward / backward pass", avg:"O(n·w)", worst:"O(n·w)", space:"O(w)", file:"neural_network.ml" },
+  { name:"Genetic Algorithm", cat:"AI/ML", op:"evolve generation", avg:"O(p·g·f)", worst:"O(p·g·f)", space:"O(p)", file:"genetic.ml" },
+  { name:"Game AI (Minimax)", cat:"AI/ML", op:"minimax + α-β pruning", avg:"O(b^(d/2))", worst:"O(bᵈ)", space:"O(d)", file:"game_ai.ml" },
+  { name:"Raft Consensus", cat:"AI/ML", op:"leader election / replication", avg:"O(n)", worst:"O(n)", space:"O(n·log)", file:"raft.ml" },
+  { name:"Model Checker", cat:"AI/ML", op:"state space exploration", avg:"O(|S|·|T|)", worst:"O(|S|·|T|)", space:"O(|S|)", file:"model_checker.ml" },
+
+  // Parsing
+  { name:"Parser Combinator", cat:"Parsing", op:"parse", avg:"O(n)", worst:"O(n²)", space:"O(n)", file:"parser.ml" },
+  { name:"PEG Parser", cat:"Parsing", op:"parse (packrat)", avg:"O(n)", worst:"O(n)", space:"O(n·g)", file:"peg.ml" },
+  { name:"Earley Parser", cat:"Parsing", op:"parse (general CFG)", avg:"O(n³)", worst:"O(n³)", space:"O(n²)", file:"earley.ml" },
+  { name:"JSON Parser", cat:"Parsing", op:"parse / serialize", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"json.ml" },
+  { name:"CSV Parser", cat:"Parsing", op:"parse / write", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"csv.ml" },
+  { name:"Lambda Calculus", cat:"Parsing", op:"eval (β-reduction)", avg:"varies", worst:"O(∞)", space:"O(n)", file:"lambda.ml" },
+  { name:"Type Inference", cat:"Parsing", op:"infer (Algorithm W)", avg:"O(n)", worst:"O(2ⁿ)", space:"O(n)", file:"type_infer.ml" },
+  { name:"Theorem Prover", cat:"Parsing", op:"prove / refute", avg:"varies", worst:"O(∞)", space:"O(n)", file:"theorem_prover.ml" },
+  { name:"Term Rewriting", cat:"Parsing", op:"rewrite / normalize", avg:"varies", worst:"O(∞)", space:"O(n)", file:"term_rewriting.ml" },
+
+  // Concurrency
+  { name:"CSP (Channels)", cat:"Concurrency", op:"send / receive / select", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"csp.ml" },
+  { name:"STM", cat:"Concurrency", op:"atomic transaction", avg:"O(1)*", worst:"O(n) retries", space:"O(n)", file:"stm.ml" },
+  { name:"Actor Model", cat:"Concurrency", op:"send / receive", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"actor.ml" },
+
+  // Functional
+  { name:"Free Monad", cat:"Functional", op:"bind / interpret", avg:"O(n)", worst:"O(n²)", space:"O(n)", file:"free_monad.ml" },
+  { name:"Monad Transformers", cat:"Functional", op:"lift / bind", avg:"O(1) per layer", worst:"O(k) layers", space:"O(k)", file:"monad_transformers.ml" },
+  { name:"Optics (Lenses)", cat:"Functional", op:"get / set / over", avg:"O(1)", worst:"O(1)", space:"O(1)", file:"optics.ml" },
+  { name:"Comonad", cat:"Functional", op:"extract / extend", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"comonad.ml" },
+  { name:"Stream (Lazy)", cat:"Functional", op:"head / tail / take", avg:"O(1) / O(k)", worst:"O(k)", space:"O(k)", file:"stream.ml" },
+  { name:"FRP (Signals)", cat:"Functional", op:"map / merge / fold", avg:"O(1) per event", worst:"O(n)", space:"O(n)", file:"frp.ml" },
+  { name:"Delimited Continuations", cat:"Functional", op:"shift / reset", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"delimited_cont.ml" },
+  { name:"Effects (Algebraic)", cat:"Functional", op:"perform / handle", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"effects.ml" },
+  { name:"GADTs", cat:"Functional", op:"construct / match", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"gadts.ml" },
+  { name:"QuickCheck", cat:"Functional", op:"generate / shrink / test", avg:"O(t·n)", worst:"O(t·n·s)", space:"O(n)", file:"quickcheck.ml" },
+  { name:"Memoize", cat:"Functional", op:"memoized call", avg:"O(1) cached", worst:"O(f(n)) miss", space:"O(n)", file:"memoize.ml" },
+  { name:"Spreadsheet", cat:"Functional", op:"eval / topo-sort deps", avg:"O(V+E)", worst:"O(V+E)", space:"O(V)", file:"spreadsheet.ml" },
+
+  // Simulation
+  { name:"Cellular Automata", cat:"AI/ML", op:"step / evolve", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"cellular_automata.ml" },
+  { name:"L-System", cat:"AI/ML", op:"iterate / render", avg:"O(|output|)", worst:"O(kⁿ)", space:"O(|output|)", file:"lsystem.ml" },
+  { name:"Raytracer", cat:"Math", op:"render pixel", avg:"O(w·h·obj)", worst:"O(w·h·obj·bounces)", space:"O(obj)", file:"raytracer.ml" },
+  { name:"GC Simulator", cat:"AI/ML", op:"mark-sweep / compact", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"gc_simulator.ml" },
+  { name:"Bytecode VM", cat:"AI/ML", op:"execute instruction", avg:"O(1) per insn", worst:"O(n)", space:"O(n)", file:"bytecode_vm.ml" },
+  { name:"FSM", cat:"AI/ML", op:"transition / accept", avg:"O(n)", worst:"O(n)", space:"O(|states|)", file:"fsm.ml" },
+  { name:"Automata (NFA→DFA)", cat:"AI/ML", op:"subset construction", avg:"O(2^|Q|·|Σ|)", worst:"O(2^|Q|·|Σ|)", space:"O(2^|Q|)", file:"automata.ml" },
+  { name:"Abstract Interpretation", cat:"AI/ML", op:"analyze program", avg:"O(n·h)", worst:"O(n·h)", space:"O(n)", file:"abstract_interp.ml" },
+  { name:"CRDT", cat:"Concurrency", op:"merge / update", avg:"O(1) / O(n)", worst:"O(n)", space:"O(n)", file:"crdt.ml" },
+  { name:"Relational Algebra", cat:"Search", op:"select / join / project", avg:"O(n) / O(n·m)", worst:"O(n·m)", space:"O(n+m)", file:"relational.ml" },
+  { name:"Geometry (Convex Hull)", cat:"Math", op:"Graham scan", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"geometry.ml" },
+];
+
+const COMPLEXITY_ORDER = {"O(1)":1,"O(1)*":1,"O(α(n))":1.5,"O(k)":2,"O(1) / O(log n)":2.5,"O(log n)":3,"O(log₃₂ n)":3,
+  "O(1)* / O(log n)":3,"O(n)":5,"O(1) cached":1,"O(n + m)":5.5,"O(n·d)":6,"O(n log n)":7,"O(n³)":10,
+  "O(n²)":9,"O(V + E)":5,"O(V+E)":5,"O((V+E) log V)":7,"O(V·E²)":11,"O(n·w)":8,"O(b^(d/2))":12,
+  "O(bᵈ)":13,"O(2ⁿ)":14,"O(∞)":15,"varies":8,"O(√n)":4,"O(n·m)":9,"O(t·n)":8,"O(t·n·s)":9,
+  "O(|S|·|T|)":10,"O(|output|)":8,"O(kⁿ)":14,"O(2^|Q|·|Σ|)":14,"O(n·h)":8,"O(dⁿ)":14,
+  "O(n^k)":12,"O(p·g·f)":8,"O(m log n)":7,"O(n log²n)":7.5,"O(w·h·obj)":10,"O(w·h·obj·bounces)":11,
+  "O(1) per layer":1,"O(k) layers":2,"O(1) per event":1,"O(1) per insn":1,"O(f(n)) miss":8,
+  "O(n) retries":5,"O(n) / O(n³)":8,"O(n) / O(log n)":4,"O(2ⁿ) backtrack":14,"O(n·m) / O(n + m)":6};
+
+function getOrder(c) { return COMPLEXITY_ORDER[c] || 8; }
+
+function colorClass(c) {
+    const o = getOrder(c);
+    if (o <= 1.5) return 'o-1';
+    if (o <= 3.5) return 'o-logn';
+    if (o <= 5.5) return 'o-n';
+    if (o <= 7.5) return 'o-nlogn';
+    if (o <= 9.5) return 'o-n2';
+    return 'o-2n';
+}
+
+function catClass(c) { return 'cat-' + c.toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-'); }
+
+// Populate category filter
+const cats = [...new Set(DATA.map(d => d.cat))].sort();
+const catSel = document.getElementById('catFilter');
+cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+
+function render() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const cat = catSel.value;
+    const comp = document.getElementById('complexityFilter').value;
+    const sort = document.getElementById('sortBy').value;
+
+    let filtered = DATA.filter(d => {
+        if (cat && d.cat !== cat) return false;
+        if (q && !(d.name.toLowerCase().includes(q) || d.cat.toLowerCase().includes(q) || d.op.toLowerCase().includes(q) || d.file.toLowerCase().includes(q))) return false;
+        if (comp) {
+            if (comp === 'O(n²)') { if (getOrder(d.avg) < 9 && getOrder(d.worst) < 9) return false; }
+            else { if (!d.avg.includes(comp) && !d.worst.includes(comp)) return false; }
+        }
+        return true;
+    });
+
+    if (sort === 'best') filtered.sort((a,b) => getOrder(a.avg) - getOrder(b.avg));
+    else if (sort === 'worst') filtered.sort((a,b) => getOrder(b.worst) - getOrder(a.worst));
+    else if (sort === 'category') filtered.sort((a,b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name));
+    else filtered.sort((a,b) => a.name.localeCompare(b.name));
+
+    document.getElementById('matchCount').textContent = `Showing ${filtered.length} of ${DATA.length} entries`;
+
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = filtered.map(d => `<tr>
+        <td><strong>${d.name}</strong></td>
+        <td><span class="cat-badge ${catClass(d.cat)}">${d.cat}</span></td>
+        <td style="color:var(--text-dim);font-size:0.82rem">${d.op}</td>
+        <td><span class="big-o ${colorClass(d.avg)}">${d.avg}</span></td>
+        <td><span class="big-o ${colorClass(d.worst)}">${d.worst}</span></td>
+        <td><span class="big-o ${colorClass(d.space)}">${d.space}</span></td>
+        <td><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/${d.file}">${d.file}</a></td>
+    </tr>`).join('');
+
+    // Stats
+    const catCounts = {};
+    filtered.forEach(d => { catCounts[d.cat] = (catCounts[d.cat]||0)+1; });
+    const topCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0];
+    const o1Count = filtered.filter(d => getOrder(d.avg) <= 1.5).length;
+    document.getElementById('stats').innerHTML = `
+        <div class="stat-card"><div class="stat-num">${filtered.length}</div><div class="stat-label">Algorithms</div></div>
+        <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
+        <div class="stat-card"><div class="stat-num">${o1Count}</div><div class="stat-label">O(1) Average</div></div>
+        <div class="stat-card"><div class="stat-num">${topCat ? topCat[0] : '—'}</div><div class="stat-label">Most Entries</div></div>
+    `;
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('catFilter').addEventListener('change', render);
+document.getElementById('complexityFilter').addEventListener('change', render);
+document.getElementById('sortBy').addEventListener('change', render);
+render();
+</script>
+</body>
+</html>
