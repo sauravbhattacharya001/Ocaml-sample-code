@@ -228,6 +228,13 @@ const CATEGORIES = {
 
 const DIFF_ORDER = { beginner: 0, intermediate: 1, advanced: 2 };
 
+// Prevent XSS — escape data before interpolating into innerHTML
+function escapeHtml(s) {
+    if (typeof s !== 'string') return String(s);
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 let activeCategory = "all";
 let expandedCard = null;
 
@@ -272,21 +279,28 @@ function render() {
     }
 
     grid.innerHTML = filtered.map(ex => {
-        const badgeClass = `badge-${ex.difficulty}`;
+        const badgeClass = `badge-${escapeHtml(ex.difficulty)}`;
         const isExpanded = expandedCard === ex.name;
+        const eName = escapeHtml(ex.name);
+        const eTitle = escapeHtml(ex.title);
+        const eDesc = escapeHtml(ex.desc);
+        const eDiff = escapeHtml(ex.difficulty);
+        const catInfo = CATEGORIES[ex.category];
+        const catIcon = catInfo ? catInfo.icon : '';
+        const catLabel = catInfo ? escapeHtml(catInfo.label) : escapeHtml(ex.category);
         return `
-            <div class="example-card ${isExpanded ? 'expanded' : ''}" data-name="${ex.name}" onclick="toggleCard('${ex.name}')">
+            <div class="example-card ${isExpanded ? 'expanded' : ''}" data-name="${eName}">
                 <div class="card-header">
-                    <span class="card-title">${ex.title}</span>
-                    <span class="card-badge ${badgeClass}">${ex.difficulty}</span>
+                    <span class="card-title">${eTitle}</span>
+                    <span class="card-badge ${badgeClass}">${eDiff}</span>
                 </div>
-                <div class="card-desc">${ex.desc}</div>
+                <div class="card-desc">${eDesc}</div>
                 <div class="card-meta">
-                    <span class="card-tag">${CATEGORIES[ex.category]?.icon || ""} ${CATEGORIES[ex.category]?.label || ex.category}</span>
+                    <span class="card-tag">${catIcon} ${catLabel}</span>
                     <span class="card-lines">${ex.lines} lines</span>
-                    ${ex.docPage ? `<a class="card-doc-link" href="${ex.docPage}" onclick="event.stopPropagation()">📖 Docs</a>` : ''}
+                    ${ex.docPage ? `<a class="card-doc-link" href="${escapeHtml(ex.docPage)}" data-doc-link>📖 Docs</a>` : ''}
                 </div>
-                <div class="code-preview ${isExpanded ? 'visible' : ''}" id="code-${ex.name}">
+                <div class="code-preview ${isExpanded ? 'visible' : ''}" id="code-${eName}">
                     <pre>${isExpanded ? '⏳ Loading...' : ''}</pre>
                 </div>
             </div>`;
@@ -329,7 +343,7 @@ function renderFilters() {
     counts.all = EXAMPLES.length;
 
     container.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
-        `<button class="filter-btn ${activeCategory === key ? 'active' : ''}" onclick="setCategory('${key}')">${cat.icon} ${cat.label} (${counts[key] || 0})</button>`
+        `<button class="filter-btn ${activeCategory === key ? 'active' : ''}" data-category="${escapeHtml(key)}">${cat.icon} ${escapeHtml(cat.label)} (${counts[key] || 0})</button>`
     ).join("");
 }
 
@@ -340,9 +354,21 @@ function setCategory(cat) {
     render();
 }
 
-// Event listeners
+// Event listeners — use event delegation instead of inline onclick (XSS-safe)
 document.getElementById("search").addEventListener("input", () => { expandedCard = null; render(); });
 document.getElementById("sort-by").addEventListener("change", render);
+
+document.getElementById("grid").addEventListener("click", function(e) {
+    // Don't toggle card when clicking doc links
+    if (e.target.hasAttribute('data-doc-link')) return;
+    const card = e.target.closest('.example-card');
+    if (card) toggleCard(card.getAttribute('data-name'));
+});
+
+document.getElementById("category-filters").addEventListener("click", function(e) {
+    const btn = e.target.closest('.filter-btn');
+    if (btn) setCategory(btn.getAttribute('data-category'));
+});
 
 // Boot
 renderFilters();
