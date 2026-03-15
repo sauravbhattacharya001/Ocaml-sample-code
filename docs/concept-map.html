@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Sample Code — Concept Map</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .map-main { padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .map-header { padding: 1.2rem 2rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .map-header h1 { font-size: 1.5rem; color: var(--accent2); margin-bottom: 0.3rem; }
+        .map-header p { color: var(--text-dim); font-size: 0.85rem; }
+
+        .map-toolbar { display: flex; gap: 0.8rem; padding: 0.8rem 2rem; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+        .toolbar-btn { padding: 0.35rem 0.7rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 16px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+        .toolbar-btn:hover { border-color: var(--accent2); color: var(--text); }
+        .toolbar-btn.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+        .toolbar-sep { width: 1px; height: 20px; background: var(--border); }
+        .toolbar-label { font-size: 0.75rem; color: var(--text-dim); }
+
+        .map-container { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+        canvas#graph { width: 100%; height: 100%; display: block; }
+
+        .info-panel { position: absolute; top: 1rem; right: 1rem; width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; display: none; max-height: calc(100vh - 200px); overflow-y: auto; z-index: 10; }
+        .info-panel.visible { display: block; }
+        .info-panel h3 { font-size: 1rem; color: var(--accent2); margin-bottom: 0.4rem; }
+        .info-panel .info-desc { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.5; }
+        .info-panel .info-meta { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+        .info-panel .info-meta strong { color: var(--text); }
+        .info-panel .info-connections { margin-top: 0.8rem; }
+        .info-panel .info-connections h4 { font-size: 0.8rem; color: var(--accent4); margin-bottom: 0.4rem; }
+        .info-conn-item { font-size: 0.78rem; color: var(--text-dim); padding: 0.2rem 0; cursor: pointer; }
+        .info-conn-item:hover { color: var(--accent2); }
+        .info-conn-reason { font-size: 0.65rem; color: var(--text-dim); opacity: 0.7; margin-left: 0.3rem; }
+        .info-close { position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none; color: var(--text-dim); font-size: 1.1rem; cursor: pointer; }
+        .info-close:hover { color: var(--text); }
+
+        .legend { position: absolute; bottom: 1rem; left: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.7rem; z-index: 10; }
+        .legend h4 { font-size: 0.75rem; color: var(--text); margin-bottom: 0.4rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; color: var(--text-dim); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        .stats-overlay { position: absolute; bottom: 1rem; right: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 1rem; font-size: 0.7rem; color: var(--text-dim); z-index: 10; }
+
+        .tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.75rem; color: var(--text); pointer-events: none; display: none; z-index: 20; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+        .learning-path-panel { position: absolute; top: 1rem; left: 1rem; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; display: none; z-index: 10; max-height: calc(100vh - 200px); overflow-y: auto; }
+        .learning-path-panel.visible { display: block; }
+        .learning-path-panel h3 { font-size: 0.9rem; color: var(--accent3); margin-bottom: 0.6rem; }
+        .path-step { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: flex-start; }
+        .path-num { width: 20px; height: 20px; border-radius: 50%; background: var(--accent2); color: var(--bg); font-size: 0.65rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; }
+        .path-info { font-size: 0.78rem; }
+        .path-info .path-title { color: var(--text); cursor: pointer; }
+        .path-info .path-title:hover { color: var(--accent2); }
+        .path-info .path-cat { font-size: 0.65rem; color: var(--text-dim); }
+        .path-close { position: absolute; top: 0.5rem; right: 0.7rem; background: none; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer; }
+
+        @media (max-width: 768px) {
+            .info-panel { width: 260px; }
+            .learning-path-panel { width: 220px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="concept-map.html" class="nav-link active">🗺️ Concept Map</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="json.html" class="nav-link">📄 JSON Parser</a>
+            <a href="regex.html" class="nav-link">🔍 Regex Engine</a>
+            <a href="trie.html" class="nav-link">🔤 Trie</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="huffman.html" class="nav-link">📦 Huffman Coding</a>
+        </div>
+    </nav>
+
+    <main class="content map-main">
+        <div class="map-header">
+            <h1>🗺️ Concept Map</h1>
+            <p>Interactive graph showing how <span id="node-count">0</span> examples connect through shared concepts. Drag nodes, click for details, explore learning paths.</p>
+        </div>
+
+        <div class="map-toolbar">
+            <span class="toolbar-label">Filter:</span>
+            <button class="toolbar-btn active" data-filter="all">All</button>
+            <button class="toolbar-btn" data-filter="basics">🖐 Basics</button>
+            <button class="toolbar-btn" data-filter="data-structures">🏗️ Data Structures</button>
+            <button class="toolbar-btn" data-filter="algorithms">⚡ Algorithms</button>
+            <button class="toolbar-btn" data-filter="functional">λ Functional</button>
+            <button class="toolbar-btn" data-filter="parsing">🧩 Parsing</button>
+            <button class="toolbar-btn" data-filter="math">📐 Math</button>
+            <button class="toolbar-btn" data-filter="compilers">⚙️ Compilers</button>
+            <button class="toolbar-btn" data-filter="concurrency">🔄 Concurrency</button>
+            <button class="toolbar-btn" data-filter="simulation">🎮 Simulation</button>
+            <button class="toolbar-btn" data-filter="systems">🖥️ Systems</button>
+            <button class="toolbar-btn" data-filter="testing">✅ Testing</button>
+            <div class="toolbar-sep"></div>
+            <span class="toolbar-label">Paths:</span>
+            <button class="toolbar-btn" id="btn-path-ds">Data Structures</button>
+            <button class="toolbar-btn" id="btn-path-fp">Functional</button>
+            <button class="toolbar-btn" id="btn-path-pl">Languages</button>
+            <button class="toolbar-btn" id="btn-path-sys">Systems</button>
+        </div>
+
+        <div class="map-container">
+            <canvas id="graph"></canvas>
+
+            <div class="tooltip" id="tooltip"></div>
+
+            <div class="info-panel" id="info-panel">
+                <button class="info-close" id="info-close">&times;</button>
+                <h3 id="info-title"></h3>
+                <div class="info-desc" id="info-desc"></div>
+                <div class="info-meta" id="info-meta"></div>
+                <div class="info-connections" id="info-connections"></div>
+            </div>
+
+            <div class="learning-path-panel" id="path-panel">
+                <button class="path-close" id="path-close">&times;</button>
+                <h3 id="path-title"></h3>
+                <div id="path-steps"></div>
+            </div>
+
+            <div class="legend">
+                <h4>Categories</h4>
+                <div class="legend-item"><div class="legend-dot" style="background:#9ece6a"></div> Basics</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#7aa2f7"></div> Data Structures</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#f7768e"></div> Algorithms</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#bb9af7"></div> Functional</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e0af68"></div> Parsing</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ff9e64"></div> Math</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#73daca"></div> Compilers &amp; PL</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2ac3de"></div> Concurrency</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#c0caf5"></div> Simulation</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#a9b1d6"></div> Systems</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#9ece6a"></div> Testing</div>
+                <h4 style="margin-top:0.5rem">Node Size</h4>
+                <div style="color:var(--text-dim)">= lines of code</div>
+                <h4 style="margin-top:0.3rem">Edge</h4>
+                <div style="color:var(--text-dim)">= shared concept</div>
+            </div>
+
+            <div class="stats-overlay" id="stats-overlay"></div>
+        </div>
+    </main>
+
+<script>
+// ── Example data ──
+const EXAMPLES = [
+    { name: "abstract_interp", title: "Abstract Interpretation", desc: "Abstract interpretation with interval domain — static program analysis", lines: 1121, category: "compilers", difficulty: "advanced", concepts: ["pattern-matching", "variants", "static-analysis", "abstract-domains"] },
+    { name: "actor", title: "Actor Model", desc: "Message-passing concurrency with actors, mailboxes, and supervision", lines: 837, category: "concurrency", difficulty: "advanced", concepts: ["concurrency", "message-passing", "queues", "pattern-matching"] },
+    { name: "autodiff", title: "Automatic Differentiation", desc: "Forward and reverse mode automatic differentiation for ML/optimization", lines: 1063, category: "math", difficulty: "advanced", concepts: ["recursion", "variants", "numerical-methods", "graphs"] },
+    { name: "automata", title: "Finite Automata", desc: "NFA/DFA construction, Thompson's construction, subset construction, minimization", lines: 1030, category: "compilers", difficulty: "advanced", concepts: ["state-machines", "sets", "graphs", "pattern-matching"] },
+    { name: "bloom_filter", title: "Bloom Filter", desc: "Probabilistic set membership — space-efficient data structure with tunable false positives", lines: 178, category: "data-structures", difficulty: "intermediate", concepts: ["hashing", "arrays", "probability"] },
+    { name: "bst", title: "Binary Search Tree", desc: "BST operations using algebraic data types — insert, search, delete, traversal", lines: 96, category: "data-structures", difficulty: "beginner", concepts: ["recursion", "variants", "pattern-matching", "trees"] },
+    { name: "btree", title: "B-Tree", desc: "B-tree with configurable order — balanced multi-way search tree for databases", lines: 201, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "variants", "pattern-matching", "balancing"] },
+    { name: "bytecode_vm", title: "Bytecode VM", desc: "Stack-based virtual machine with bytecode compiler, garbage collector, closures", lines: 689, category: "compilers", difficulty: "advanced", concepts: ["stacks", "arrays", "pattern-matching", "compilation"] },
+    { name: "calculus", title: "Symbolic Differentiation", desc: "Compute derivatives of mathematical expressions symbolically", lines: 403, category: "math", difficulty: "intermediate", concepts: ["recursion", "variants", "pattern-matching", "symbolic-math"] },
+    { name: "cellular_automata", title: "Cellular Automata", desc: "Game of Life, Elementary (Rule 110), Langton's Ant, Wireworld", lines: 509, category: "simulation", difficulty: "intermediate", concepts: ["arrays", "iteration", "simulation", "pattern-matching"] },
+    { name: "comonad", title: "Comonads", desc: "Comonad abstraction — Store, Env, Traced comonads with examples", lines: 592, category: "functional", difficulty: "advanced", concepts: ["functors", "modules", "higher-order", "category-theory"] },
+    { name: "constraint", title: "Constraint Solver", desc: "Constraint satisfaction problem solver with backtracking and arc consistency", lines: 542, category: "algorithms", difficulty: "advanced", concepts: ["backtracking", "recursion", "graphs", "propagation"] },
+    { name: "crdt", title: "CRDTs", desc: "Conflict-free Replicated Data Types — G-Counter, PN-Counter, LWW-Register, OR-Set", lines: 837, category: "concurrency", difficulty: "advanced", concepts: ["sets", "maps", "concurrency", "modules"] },
+    { name: "crypto", title: "Classical Ciphers", desc: "Caesar, Vigenère, substitution ciphers — classical cryptography", lines: 330, category: "algorithms", difficulty: "intermediate", concepts: ["strings", "arrays", "modular-arithmetic"] },
+    { name: "csp", title: "CSP Solver", desc: "Constraint Satisfaction Problem solver — Sudoku, N-Queens, map coloring", lines: 528, category: "algorithms", difficulty: "intermediate", concepts: ["backtracking", "recursion", "arrays", "propagation"] },
+    { name: "csv", title: "CSV Parser", desc: "CSV parser with type inference and data analysis", lines: 498, category: "parsing", difficulty: "intermediate", concepts: ["parsing", "strings", "pattern-matching", "io"] },
+    { name: "datalog", title: "Datalog Engine", desc: "Datalog query engine with semi-naive evaluation and stratified negation", lines: 1344, category: "compilers", difficulty: "advanced", concepts: ["sets", "maps", "fixpoint", "pattern-matching", "graphs"] },
+    { name: "delimited_cont", title: "Delimited Continuations", desc: "shift/reset for advanced control flow — coroutines, generators, nondeterminism", lines: 872, category: "functional", difficulty: "advanced", concepts: ["continuations", "higher-order", "effects", "control-flow"] },
+    { name: "deque", title: "Deque", desc: "Purely functional double-ended queue with O(1) amortized operations", lines: 889, category: "data-structures", difficulty: "intermediate", concepts: ["lists", "amortization", "pattern-matching", "lazy"] },
+    { name: "diff", title: "Myers Diff", desc: "Myers diff algorithm — compute minimal edit scripts between sequences", lines: 1089, category: "algorithms", difficulty: "advanced", concepts: ["arrays", "dynamic-programming", "graphs"] },
+    { name: "dijkstra", title: "Dijkstra's Algorithm", desc: "Weighted graph shortest path with priority queue", lines: 375, category: "algorithms", difficulty: "intermediate", concepts: ["graphs", "heaps", "maps", "priority-queues"] },
+    { name: "earley", title: "Earley Parser", desc: "Earley parser for context-free grammars — handles ambiguous grammars", lines: 1069, category: "parsing", difficulty: "advanced", concepts: ["parsing", "sets", "grammars", "dynamic-programming"] },
+    { name: "effects", title: "Algebraic Effects", desc: "Algebraic effects and handlers — structured side effects in OCaml 5", lines: 783, category: "functional", difficulty: "advanced", concepts: ["effects", "continuations", "higher-order", "pattern-matching"] },
+    { name: "factor", title: "Prime Factorization", desc: "Prime factorization using recursive trial division", lines: 29, category: "math", difficulty: "beginner", concepts: ["recursion", "modular-arithmetic", "lists"] },
+    { name: "fenwick_tree", title: "Fenwick Tree", desc: "Binary indexed tree — efficient prefix sums and point updates in O(log n)", lines: 296, category: "data-structures", difficulty: "intermediate", concepts: ["arrays", "trees", "bit-manipulation"] },
+    { name: "fibonacci", title: "Fibonacci", desc: "Fibonacci with memoization using a hash table", lines: 73, category: "math", difficulty: "beginner", concepts: ["recursion", "memoization", "hashing"] },
+    { name: "finger_tree", title: "Finger Trees", desc: "2-3 finger trees (Hinze & Paterson) — general-purpose persistent sequence", lines: 796, category: "data-structures", difficulty: "advanced", concepts: ["trees", "variants", "modules", "amortization", "lazy"] },
+    { name: "free_monad", title: "Free Monads", desc: "Separating description from execution — interpreters, DSLs, testing", lines: 891, category: "functional", difficulty: "advanced", concepts: ["functors", "variants", "higher-order", "interpreters"] },
+    { name: "frp", title: "Functional Reactive Programming", desc: "Signals, behaviors, events — reactive data flow with automatic propagation", lines: 1124, category: "functional", difficulty: "advanced", concepts: ["higher-order", "graphs", "lazy", "refs"] },
+    { name: "fsm", title: "Finite State Machines", desc: "Deterministic and nondeterministic automata — regex matching, protocol validation", lines: 321, category: "algorithms", difficulty: "intermediate", concepts: ["state-machines", "sets", "pattern-matching"] },
+    { name: "gadts", title: "GADTs", desc: "Generalized Algebraic Data Types — type-safe heterogeneous lists, typed expressions", lines: 568, category: "functional", difficulty: "advanced", concepts: ["variants", "type-safety", "pattern-matching", "modules"] },
+    { name: "game_ai", title: "Game AI", desc: "Minimax with alpha-beta pruning — tic-tac-toe, connect-four AI", lines: 857, category: "algorithms", difficulty: "intermediate", concepts: ["recursion", "trees", "backtracking", "arrays"] },
+    { name: "gc_simulator", title: "GC Simulator", desc: "Garbage collector simulator — mark-sweep, copying, generational collection", lines: 1139, category: "systems", difficulty: "advanced", concepts: ["graphs", "arrays", "simulation", "refs"] },
+    { name: "genetic", title: "Genetic Algorithm", desc: "Evolutionary optimization — selection, crossover, mutation, fitness landscapes", lines: 1176, category: "algorithms", difficulty: "intermediate", concepts: ["arrays", "randomness", "higher-order", "iteration"] },
+    { name: "geometry", title: "Computational Geometry", desc: "Convex hull, line intersection, polygon area, point-in-polygon, Voronoi", lines: 588, category: "math", difficulty: "intermediate", concepts: ["numerical-methods", "sorting", "lists", "tuples"] },
+    { name: "graph_db", title: "Property Graph Engine", desc: "Graph database with Cypher-like queries, property storage, traversals", lines: 1005, category: "data-structures", difficulty: "advanced", concepts: ["graphs", "maps", "pattern-matching", "querying"] },
+    { name: "graph", title: "Graph Algorithms", desc: "BFS, DFS, topological sort, cycle detection, connected components", lines: 329, category: "algorithms", difficulty: "intermediate", concepts: ["graphs", "recursion", "sets", "queues"] },
+    { name: "hamt", title: "HAMT", desc: "Hash Array Mapped Trie — persistent hash map with structural sharing", lines: 823, category: "data-structures", difficulty: "advanced", concepts: ["hashing", "trees", "bit-manipulation", "persistence"] },
+    { name: "hashmap", title: "Hash Map", desc: "Persistent functional hash map with separate chaining", lines: 265, category: "data-structures", difficulty: "intermediate", concepts: ["hashing", "arrays", "lists", "modules"] },
+    { name: "heap", title: "Priority Queue", desc: "Leftist min-heap — efficient merge, insert, extract-min", lines: 317, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "variants", "pattern-matching", "heaps"] },
+    { name: "hello", title: "Hello OCaml", desc: "Variables, types, string formatting, pattern matching basics", lines: 42, category: "basics", difficulty: "beginner", concepts: ["basics", "pattern-matching", "strings", "io"] },
+    { name: "huffman", title: "Huffman Coding", desc: "Lossless data compression — tree building, encoding, decoding", lines: 360, category: "algorithms", difficulty: "intermediate", concepts: ["trees", "priority-queues", "maps", "pattern-matching"] },
+    { name: "incremental", title: "Incremental Computation", desc: "Self-adjusting computation — automatic change propagation, memoized recomputation", lines: 852, category: "functional", difficulty: "advanced", concepts: ["graphs", "refs", "memoization", "lazy"] },
+    { name: "integration", title: "Symbolic Integration", desc: "Symbolic integration engine — pattern matching on mathematical expressions", lines: 1017, category: "math", difficulty: "advanced", concepts: ["recursion", "variants", "pattern-matching", "symbolic-math"] },
+    { name: "interval_tree", title: "Interval Tree", desc: "Augmented AVL tree for efficient interval queries — overlap, containment", lines: 263, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "balancing", "variants", "pattern-matching"] },
+    { name: "json", title: "JSON Parser", desc: "Complete JSON parser built with parser combinators — recursive descent", lines: 613, category: "parsing", difficulty: "intermediate", concepts: ["parsing", "variants", "recursion", "pattern-matching"] },
+    { name: "kd_tree", title: "k-d Tree", desc: "k-dimensional binary search tree — spatial queries, nearest neighbor", lines: 808, category: "data-structures", difficulty: "advanced", concepts: ["trees", "recursion", "sorting", "tuples"] },
+    { name: "lambda", title: "Lambda Calculus", desc: "Untyped lambda calculus interpreter — beta reduction, Church encodings", lines: 800, category: "compilers", difficulty: "advanced", concepts: ["variants", "recursion", "interpreters", "substitution"] },
+    { name: "list_last_elem", title: "Last Element", desc: "Find the last element of a list using pattern matching", lines: 17, category: "basics", difficulty: "beginner", concepts: ["lists", "pattern-matching", "recursion"] },
+    { name: "lru_cache", title: "LRU Cache", desc: "Least Recently Used cache — O(1) get/put with doubly linked list + hash map", lines: 206, category: "data-structures", difficulty: "intermediate", concepts: ["hashing", "maps", "refs", "mutation"] },
+    { name: "lsystem", title: "L-Systems", desc: "Lindenmayer systems — fractal generation, turtle graphics, botanical modeling", lines: 728, category: "simulation", difficulty: "intermediate", concepts: ["strings", "recursion", "simulation", "pattern-matching"] },
+    { name: "matrix", title: "Matrix Operations", desc: "Linear algebra — multiply, transpose, determinant, inverse, LU decomposition", lines: 699, category: "math", difficulty: "intermediate", concepts: ["arrays", "numerical-methods", "iteration", "tuples"] },
+    { name: "memoize", title: "Memoization", desc: "Memoization combinators — transparent caching for recursive functions", lines: 289, category: "functional", difficulty: "beginner", concepts: ["higher-order", "hashing", "memoization", "refs"] },
+    { name: "mergesort", title: "Merge Sort", desc: "Merge sort on lists — divide and conquer with stable ordering", lines: 45, category: "algorithms", difficulty: "beginner", concepts: ["recursion", "lists", "sorting", "pattern-matching"] },
+    { name: "minikanren", title: "miniKanren", desc: "Logic programming engine — unification, search, relational programming", lines: 492, category: "compilers", difficulty: "advanced", concepts: ["unification", "recursion", "streams", "variants"] },
+    { name: "model_checker", title: "CTL Model Checker", desc: "Model checking for finite-state systems — CTL temporal logic formulas", lines: 802, category: "compilers", difficulty: "advanced", concepts: ["sets", "graphs", "fixpoint", "variants", "state-machines"] },
+    { name: "monad_transformers", title: "Monad Transformers", desc: "Composing monads — ReaderT, StateT, OptionT, error handling stacks", lines: 879, category: "functional", difficulty: "advanced", concepts: ["functors", "modules", "higher-order", "category-theory"] },
+    { name: "network_flow", title: "Network Flow", desc: "Max-flow/min-cut — Ford-Fulkerson, Edmonds-Karp, bipartite matching", lines: 726, category: "algorithms", difficulty: "advanced", concepts: ["graphs", "arrays", "queues", "iteration"] },
+    { name: "neural_network", title: "Neural Network", desc: "Feedforward neural network with backpropagation — XOR, classification", lines: 555, category: "math", difficulty: "advanced", concepts: ["arrays", "numerical-methods", "randomness", "iteration"] },
+    { name: "optics", title: "Optics", desc: "Lenses, prisms, traversals — composable accessors for nested data", lines: 498, category: "functional", difficulty: "advanced", concepts: ["higher-order", "modules", "functors", "records"] },
+    { name: "parser", title: "Parser Combinators", desc: "Build parsers from small pieces — map, bind, choice, many, sep_by", lines: 555, category: "parsing", difficulty: "intermediate", concepts: ["parsing", "higher-order", "pattern-matching", "strings"] },
+    { name: "peg", title: "PEG Parser", desc: "Parsing Expression Grammar engine — packrat parsing, memoization", lines: 1144, category: "parsing", difficulty: "advanced", concepts: ["parsing", "memoization", "grammars", "maps"] },
+    { name: "persistent_vector", title: "Persistent Vector", desc: "Clojure-style immutable array with structural sharing — O(log32 n) operations", lines: 641, category: "data-structures", difficulty: "advanced", concepts: ["trees", "arrays", "bit-manipulation", "persistence"] },
+    { name: "probability", title: "Probability Monad", desc: "Probability distributions as monads — Monte Carlo simulation, Bayesian inference", lines: 843, category: "math", difficulty: "advanced", concepts: ["higher-order", "randomness", "lists", "numerical-methods"] },
+    { name: "queue", title: "Functional Queue", desc: "Banker's queue — purely functional O(1) amortized enqueue/dequeue", lines: 366, category: "data-structures", difficulty: "intermediate", concepts: ["lists", "amortization", "pattern-matching"] },
+    { name: "quickcheck", title: "QuickCheck", desc: "Property-based testing — random test generation, shrinking, counterexamples", lines: 659, category: "testing", difficulty: "intermediate", concepts: ["higher-order", "randomness", "variants", "modules"] },
+    { name: "raft", title: "Raft Consensus", desc: "Raft distributed consensus — leader election, log replication, safety", lines: 577, category: "concurrency", difficulty: "advanced", concepts: ["state-machines", "concurrency", "arrays", "pattern-matching"] },
+    { name: "random_access_list", title: "Random Access List", desc: "Okasaki's random access list — O(log n) indexing on persistent list", lines: 621, category: "data-structures", difficulty: "advanced", concepts: ["trees", "lists", "variants", "pattern-matching"] },
+    { name: "raytracer", title: "Raytracer", desc: "Ray tracing renderer — spheres, planes, reflections, shadows, PPM output", lines: 523, category: "simulation", difficulty: "intermediate", concepts: ["tuples", "numerical-methods", "recursion", "io"] },
+    { name: "rbtree", title: "Red-Black Tree", desc: "Self-balancing BST — guaranteed O(log n) operations with color invariants", lines: 306, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "variants", "pattern-matching", "balancing"] },
+    { name: "regex", title: "Regex Engine", desc: "Regular expression engine — Thompson NFA construction, matching, captures", lines: 725, category: "parsing", difficulty: "advanced", concepts: ["state-machines", "variants", "recursion", "sets"] },
+    { name: "relational", title: "Relational Algebra", desc: "Mini relational algebra engine — select, project, join, union, difference", lines: 811, category: "compilers", difficulty: "advanced", concepts: ["sets", "maps", "pattern-matching", "querying"] },
+    { name: "rope", title: "Rope", desc: "Rope data structure — efficient string concatenation, split, index", lines: 353, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "strings", "variants", "pattern-matching"] },
+    { name: "sat_solver", title: "SAT Solver", desc: "DPLL algorithm — Boolean satisfiability with unit propagation and backtracking", lines: 389, category: "algorithms", difficulty: "advanced", concepts: ["backtracking", "sets", "recursion", "propagation"] },
+    { name: "segment_tree", title: "Segment Tree", desc: "Efficient range queries (sum, min, max) and point updates in O(log n)", lines: 159, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "arrays", "recursion"] },
+    { name: "signal_processing", title: "Signal Processing", desc: "FFT, convolution, spectral analysis, windowing functions", lines: 496, category: "math", difficulty: "advanced", concepts: ["arrays", "numerical-methods", "iteration", "complex-numbers"] },
+    { name: "skip_list", title: "Skip List", desc: "Probabilistic skip list — O(log n) search with random tower heights", lines: 300, category: "data-structures", difficulty: "intermediate", concepts: ["randomness", "arrays", "refs", "mutation"] },
+    { name: "sorting", title: "Sorting Algorithms", desc: "Quicksort, insertion sort, selection sort — comparison and analysis", lines: 265, category: "algorithms", difficulty: "beginner", concepts: ["recursion", "lists", "sorting", "pattern-matching", "higher-order"] },
+    { name: "spreadsheet", title: "Spreadsheet Engine", desc: "Spreadsheet with formulas, cell references, dependency graph, recalculation", lines: 1737, category: "systems", difficulty: "advanced", concepts: ["graphs", "maps", "parsing", "variants", "refs"] },
+    { name: "stm", title: "Software Transactional Memory", desc: "STM with retry, orElse — composable atomic transactions", lines: 581, category: "concurrency", difficulty: "advanced", concepts: ["concurrency", "refs", "higher-order", "mutation"] },
+    { name: "stream", title: "Lazy Streams", desc: "Infinite lazy sequences — on-demand evaluation, memoized thunks", lines: 326, category: "functional", difficulty: "intermediate", concepts: ["lazy", "higher-order", "recursion", "pattern-matching"] },
+    { name: "string_match", title: "String Matching", desc: "KMP, Rabin-Karp, Boyer-Moore — efficient pattern matching algorithms", lines: 961, category: "algorithms", difficulty: "advanced", concepts: ["strings", "arrays", "hashing", "iteration"] },
+    { name: "suffix_array", title: "Suffix Array", desc: "Suffix array with LCP — efficient string search and substring queries", lines: 246, category: "data-structures", difficulty: "intermediate", concepts: ["strings", "sorting", "arrays"] },
+    { name: "tensor", title: "Tensor Operations", desc: "Multi-dimensional arrays — broadcasting, slicing, element-wise operations", lines: 1232, category: "math", difficulty: "advanced", concepts: ["arrays", "numerical-methods", "iteration", "modules"] },
+    { name: "term_rewriting", title: "Term Rewriting", desc: "Term rewriting systems — pattern matching, substitution, normal forms", lines: 1099, category: "compilers", difficulty: "advanced", concepts: ["variants", "recursion", "substitution", "pattern-matching"] },
+    { name: "theorem_prover", title: "Theorem Prover", desc: "Propositional theorem prover via natural deduction — automated reasoning", lines: 849, category: "compilers", difficulty: "advanced", concepts: ["variants", "recursion", "sets", "pattern-matching"] },
+    { name: "trie", title: "Trie", desc: "Prefix tree — efficient string storage, prefix search, autocomplete", lines: 282, category: "data-structures", difficulty: "intermediate", concepts: ["trees", "maps", "strings", "recursion"] },
+    { name: "type_infer", title: "Type Inference", desc: "Hindley-Milner type inference engine — unification, generalization, let-polymorphism", lines: 476, category: "compilers", difficulty: "advanced", concepts: ["unification", "variants", "maps", "recursion"] },
+    { name: "union_find", title: "Union-Find", desc: "Persistent disjoint sets — path compression, union by rank", lines: 182, category: "data-structures", difficulty: "intermediate", concepts: ["arrays", "trees", "refs"] },
+    { name: "zipper", title: "Zipper", desc: "Functional zipper — navigate and modify trees with O(1) local updates", lines: 956, category: "functional", difficulty: "advanced", concepts: ["variants", "trees", "pattern-matching", "persistence"] },
+];
+
+const CATEGORY_COLORS = {
+    "basics": "#9ece6a",
+    "data-structures": "#7aa2f7",
+    "algorithms": "#f7768e",
+    "functional": "#bb9af7",
+    "parsing": "#e0af68",
+    "math": "#ff9e64",
+    "compilers": "#73daca",
+    "concurrency": "#2ac3de",
+    "simulation": "#c0caf5",
+    "systems": "#a9b1d6",
+    "testing": "#9ece6a",
+};
+
+const DIFF_RADIUS = { beginner: 8, intermediate: 12, advanced: 16 };
+
+// ── Learning paths ──
+const LEARNING_PATHS = {
+    "Data Structures": [
+        "hello", "list_last_elem", "bst", "mergesort", "hashmap", "heap",
+        "rbtree", "trie", "bloom_filter", "deque", "queue", "rope",
+        "fenwick_tree", "interval_tree", "skip_list", "segment_tree",
+        "union_find", "btree", "finger_tree", "hamt", "persistent_vector",
+        "kd_tree", "random_access_list", "graph_db"
+    ],
+    "Functional Programming": [
+        "hello", "fibonacci", "memoize", "stream", "sorting",
+        "parser", "gadts", "optics", "free_monad", "comonad",
+        "monad_transformers", "delimited_cont", "effects", "frp",
+        "incremental", "zipper"
+    ],
+    "Programming Languages": [
+        "hello", "factor", "calculus", "parser", "json", "regex",
+        "lambda", "fsm", "automata", "type_infer", "bytecode_vm",
+        "earley", "peg", "minikanren", "datalog", "abstract_interp",
+        "term_rewriting", "theorem_prover", "model_checker"
+    ],
+    "Systems & Concurrency": [
+        "hello", "hashmap", "graph", "lru_cache", "gc_simulator",
+        "spreadsheet", "actor", "stm", "crdt", "raft"
+    ],
+};
+
+// ── Build edges from shared concepts ──
+function buildEdges() {
+    const edges = [];
+    for (let i = 0; i < EXAMPLES.length; i++) {
+        for (let j = i + 1; j < EXAMPLES.length; j++) {
+            const shared = EXAMPLES[i].concepts.filter(c => EXAMPLES[j].concepts.includes(c));
+            if (shared.length >= 2) {
+                edges.push({ source: i, target: j, shared, weight: shared.length });
+            }
+        }
+    }
+    return edges;
+}
+
+// ── Force-directed layout ──
+class ForceGraph {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.nodes = [];
+        this.edges = [];
+        this.allEdges = [];
+        this.visibleSet = new Set();
+        this.selectedNode = null;
+        this.hoveredNode = null;
+        this.dragNode = null;
+        this.highlightPath = null;
+        this.panX = 0;
+        this.panY = 0;
+        this.zoom = 1;
+        this.isPanning = false;
+        this.lastMouse = { x: 0, y: 0 };
+        this.animating = true;
+        this.damping = 0.92;
+        this.temperature = 1.0;
+
+        this.resize();
+        this.initNodes();
+        this.allEdges = buildEdges();
+        this.edges = this.allEdges;
+        this.bindEvents();
+        this.simulate();
+    }
+
+    resize() {
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = rect.width * devicePixelRatio;
+        this.canvas.height = rect.height * devicePixelRatio;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        this.ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        this.W = rect.width;
+        this.H = rect.height;
+    }
+
+    initNodes() {
+        const cx = 400, cy = 300;
+        this.nodes = EXAMPLES.map((ex, i) => ({
+            idx: i,
+            x: cx + (Math.random() - 0.5) * 600,
+            y: cy + (Math.random() - 0.5) * 400,
+            vx: 0, vy: 0,
+            radius: Math.max(6, Math.min(20, Math.sqrt(ex.lines) / 3)),
+            color: CATEGORY_COLORS[ex.category] || '#c0caf5',
+            data: ex,
+            pinned: false,
+        }));
+    }
+
+    setFilter(category) {
+        if (category === 'all') {
+            this.visibleSet = new Set(EXAMPLES.map((_, i) => i));
+        } else {
+            this.visibleSet = new Set();
+            EXAMPLES.forEach((ex, i) => { if (ex.category === category) this.visibleSet.add(i); });
+        }
+        this.edges = this.allEdges.filter(e => this.visibleSet.has(e.source) && this.visibleSet.has(e.target));
+        this.temperature = 1.0;
+        this.animating = true;
+        this.updateStats();
+    }
+
+    showAll() {
+        this.visibleSet = new Set(EXAMPLES.map((_, i) => i));
+        this.edges = this.allEdges;
+        this.updateStats();
+    }
+
+    setLearningPath(name) {
+        const path = LEARNING_PATHS[name];
+        if (!path) return;
+        const idxs = path.map(n => EXAMPLES.findIndex(e => e.name === n)).filter(i => i >= 0);
+        this.highlightPath = new Set(idxs);
+        this.visibleSet = new Set(EXAMPLES.map((_, i) => i));
+        this.edges = this.allEdges;
+        showPathPanel(name, idxs);
+        this.draw();
+    }
+
+    clearPath() {
+        this.highlightPath = null;
+        this.draw();
+    }
+
+    screenToWorld(sx, sy) {
+        return { x: (sx - this.W / 2) / this.zoom - this.panX + this.W / 2, y: (sy - this.H / 2) / this.zoom - this.panY + this.H / 2 };
+    }
+
+    worldToScreen(wx, wy) {
+        return { x: (wx - this.W / 2 + this.panX) * this.zoom + this.W / 2, y: (wy - this.H / 2 + this.panY) * this.zoom + this.H / 2 };
+    }
+
+    findNode(sx, sy) {
+        const { x, y } = this.screenToWorld(sx, sy);
+        for (let i = this.nodes.length - 1; i >= 0; i--) {
+            if (!this.visibleSet.has(i)) continue;
+            const n = this.nodes[i];
+            const d = Math.hypot(n.x - x, n.y - y);
+            if (d < n.radius + 4) return n;
+        }
+        return null;
+    }
+
+    bindEvents() {
+        const c = this.canvas;
+        c.addEventListener('mousedown', e => {
+            const node = this.findNode(e.offsetX, e.offsetY);
+            if (node) {
+                this.dragNode = node;
+                node.pinned = true;
+            } else {
+                this.isPanning = true;
+            }
+            this.lastMouse = { x: e.offsetX, y: e.offsetY };
+        });
+        c.addEventListener('mousemove', e => {
+            if (this.dragNode) {
+                const { x, y } = this.screenToWorld(e.offsetX, e.offsetY);
+                this.dragNode.x = x;
+                this.dragNode.y = y;
+                this.draw();
+            } else if (this.isPanning) {
+                this.panX += (e.offsetX - this.lastMouse.x) / this.zoom;
+                this.panY += (e.offsetY - this.lastMouse.y) / this.zoom;
+                this.lastMouse = { x: e.offsetX, y: e.offsetY };
+                this.draw();
+            } else {
+                const node = this.findNode(e.offsetX, e.offsetY);
+                if (node !== this.hoveredNode) {
+                    this.hoveredNode = node;
+                    c.style.cursor = node ? 'pointer' : 'grab';
+                    if (node) {
+                        showTooltip(e.offsetX, e.offsetY, node.data.title + ' — ' + node.data.category);
+                    } else {
+                        hideTooltip();
+                    }
+                    this.draw();
+                }
+                if (node) {
+                    showTooltip(e.offsetX, e.offsetY, node.data.title + ' — ' + node.data.category);
+                }
+            }
+        });
+        c.addEventListener('mouseup', () => {
+            if (this.dragNode) this.dragNode.pinned = false;
+            this.dragNode = null;
+            this.isPanning = false;
+        });
+        c.addEventListener('click', e => {
+            if (this.dragNode) return;
+            const node = this.findNode(e.offsetX, e.offsetY);
+            if (node) {
+                this.selectedNode = node;
+                showInfoPanel(node, this);
+            } else {
+                this.selectedNode = null;
+                hideInfoPanel();
+            }
+            this.draw();
+        });
+        c.addEventListener('wheel', e => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.1 : 0.9;
+            this.zoom = Math.max(0.2, Math.min(5, this.zoom * factor));
+            this.draw();
+        }, { passive: false });
+        window.addEventListener('resize', () => { this.resize(); this.draw(); });
+    }
+
+    step() {
+        const nodes = this.nodes;
+        const vis = this.visibleSet;
+        const k = 80; // ideal spring length
+        const repulsion = 3000;
+
+        // Repulsion between visible nodes
+        for (const i of vis) {
+            for (const j of vis) {
+                if (i >= j) continue;
+                const dx = nodes[i].x - nodes[j].x;
+                const dy = nodes[i].y - nodes[j].y;
+                const d = Math.max(1, Math.hypot(dx, dy));
+                const f = repulsion / (d * d);
+                const fx = (dx / d) * f;
+                const fy = (dy / d) * f;
+                nodes[i].vx += fx;
+                nodes[i].vy += fy;
+                nodes[j].vx -= fx;
+                nodes[j].vy -= fy;
+            }
+        }
+
+        // Spring attraction along edges
+        for (const e of this.edges) {
+            const a = nodes[e.source], b = nodes[e.target];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const d = Math.max(1, Math.hypot(dx, dy));
+            const f = (d - k) * 0.005 * e.weight;
+            const fx = (dx / d) * f;
+            const fy = (dy / d) * f;
+            a.vx += fx; a.vy += fy;
+            b.vx -= fx; b.vy -= fy;
+        }
+
+        // Center gravity
+        for (const i of vis) {
+            const n = nodes[i];
+            n.vx += (this.W / 2 - n.x) * 0.0005;
+            n.vy += (this.H / 2 - n.y) * 0.0005;
+        }
+
+        // Update positions
+        let totalV = 0;
+        for (const i of vis) {
+            const n = nodes[i];
+            if (n.pinned) { n.vx = 0; n.vy = 0; continue; }
+            n.vx *= this.damping;
+            n.vy *= this.damping;
+            n.vx *= this.temperature;
+            n.vy *= this.temperature;
+            n.x += n.vx;
+            n.y += n.vy;
+            totalV += Math.abs(n.vx) + Math.abs(n.vy);
+        }
+
+        this.temperature = Math.max(0.01, this.temperature * 0.995);
+        return totalV;
+    }
+
+    draw() {
+        const ctx = this.ctx;
+        const W = this.W, H = this.H;
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(this.zoom, this.zoom);
+        ctx.translate(-W / 2 + this.panX, -H / 2 + this.panY);
+
+        // Edges
+        for (const e of this.edges) {
+            const a = this.nodes[e.source], b = this.nodes[e.target];
+            const isHover = this.hoveredNode && (e.source === this.hoveredNode.idx || e.target === this.hoveredNode.idx);
+            const isSel = this.selectedNode && (e.source === this.selectedNode.idx || e.target === this.selectedNode.idx);
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            if (isHover || isSel) {
+                ctx.strokeStyle = 'rgba(122,162,247,0.5)';
+                ctx.lineWidth = 1.5;
+            } else {
+                ctx.strokeStyle = 'rgba(65,72,104,0.25)';
+                ctx.lineWidth = 0.5;
+            }
+            ctx.stroke();
+        }
+
+        // Path highlight edges
+        if (this.highlightPath) {
+            const pathArr = [...this.highlightPath];
+            ctx.strokeStyle = 'rgba(158,206,106,0.6)';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            for (let i = 0; i < pathArr.length - 1; i++) {
+                const a = this.nodes[pathArr[i]], b = this.nodes[pathArr[i + 1]];
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        // Nodes
+        for (const i of this.visibleSet) {
+            const n = this.nodes[i];
+            const isPath = this.highlightPath && this.highlightPath.has(i);
+            const isHover = this.hoveredNode === n;
+            const isSel = this.selectedNode === n;
+            const dim = this.highlightPath && !isPath;
+
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+            ctx.fillStyle = dim ? (n.color + '33') : n.color;
+            ctx.globalAlpha = dim ? 0.3 : 1;
+            ctx.fill();
+
+            if (isHover || isSel || isPath) {
+                ctx.strokeStyle = isSel ? '#fff' : isPath ? '#9ece6a' : n.color;
+                ctx.lineWidth = isSel ? 2.5 : 2;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Labels for larger or hovered nodes
+            if (n.radius > 10 || isHover || isSel || (isPath && this.zoom > 0.6)) {
+                ctx.fillStyle = dim ? 'rgba(192,202,245,0.2)' : 'rgba(192,202,245,0.9)';
+                ctx.font = (isHover || isSel) ? 'bold 10px sans-serif' : '9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(n.data.title, n.x, n.y + n.radius + 13);
+            }
+
+            // Path step numbers
+            if (isPath && this.highlightPath) {
+                const pathArr = [...this.highlightPath];
+                const step = pathArr.indexOf(i);
+                if (step >= 0) {
+                    ctx.fillStyle = '#1a1b26';
+                    ctx.font = 'bold 8px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(step + 1, n.x, n.y);
+                    ctx.textBaseline = 'alphabetic';
+                }
+            }
+        }
+
+        ctx.restore();
+    }
+
+    simulate() {
+        const tick = () => {
+            if (this.animating) {
+                const v = this.step();
+                if (v < 0.5) this.animating = false;
+            }
+            this.draw();
+            requestAnimationFrame(tick);
+        };
+        tick();
+    }
+
+    updateStats() {
+        const el = document.getElementById('stats-overlay');
+        el.textContent = `${this.visibleSet.size} nodes · ${this.edges.length} edges`;
+    }
+
+    getConnections(nodeIdx) {
+        const conns = [];
+        for (const e of this.allEdges) {
+            if (e.source === nodeIdx) conns.push({ idx: e.target, shared: e.shared });
+            else if (e.target === nodeIdx) conns.push({ idx: e.source, shared: e.shared });
+        }
+        conns.sort((a, b) => b.shared.length - a.shared.length);
+        return conns;
+    }
+}
+
+// ── UI helpers ──
+const tooltip = document.getElementById('tooltip');
+function showTooltip(x, y, text) {
+    tooltip.textContent = text;
+    tooltip.style.left = (x + 15) + 'px';
+    tooltip.style.top = (y - 10) + 'px';
+    tooltip.style.display = 'block';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showInfoPanel(node, graph) {
+    const panel = document.getElementById('info-panel');
+    document.getElementById('info-title').textContent = node.data.title;
+    document.getElementById('info-desc').textContent = node.data.desc;
+    document.getElementById('info-meta').innerHTML =
+        `<strong>Category:</strong> ${escapeHtml(node.data.category)} · <strong>Difficulty:</strong> ${escapeHtml(node.data.difficulty)} · <strong>Lines:</strong> ${node.data.lines}<br>` +
+        `<strong>Concepts:</strong> ${node.data.concepts.map(c => `<span style="color:var(--accent4)">${escapeHtml(c)}</span>`).join(', ')}`;
+
+    const conns = graph.getConnections(node.idx);
+    const connDiv = document.getElementById('info-connections');
+    if (conns.length > 0) {
+        connDiv.innerHTML = `<h4>Connected to (${conns.length})</h4>` +
+            conns.slice(0, 15).map(c => {
+                const ex = EXAMPLES[c.idx];
+                return `<div class="info-conn-item" data-idx="${c.idx}">${escapeHtml(ex.title)} <span class="info-conn-reason">(${c.shared.join(', ')})</span></div>`;
+            }).join('');
+        connDiv.querySelectorAll('.info-conn-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.dataset.idx);
+                graph.selectedNode = graph.nodes[idx];
+                showInfoPanel(graph.nodes[idx], graph);
+                graph.draw();
+            });
+        });
+    } else {
+        connDiv.innerHTML = '<h4>No connections</h4>';
+    }
+    panel.classList.add('visible');
+}
+
+function hideInfoPanel() {
+    document.getElementById('info-panel').classList.remove('visible');
+}
+
+function showPathPanel(name, idxs) {
+    const panel = document.getElementById('path-panel');
+    document.getElementById('path-title').textContent = '📚 ' + name;
+    document.getElementById('path-steps').innerHTML = idxs.map((idx, i) => {
+        const ex = EXAMPLES[idx];
+        return `<div class="path-step">
+            <div class="path-num">${i + 1}</div>
+            <div class="path-info">
+                <div class="path-title" data-idx="${idx}">${escapeHtml(ex.title)}</div>
+                <div class="path-cat">${escapeHtml(ex.difficulty)} · ${ex.lines} lines</div>
+            </div>
+        </div>`;
+    }).join('');
+    panel.querySelectorAll('.path-title').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.idx);
+            graph.selectedNode = graph.nodes[idx];
+            showInfoPanel(graph.nodes[idx], graph);
+            graph.draw();
+        });
+    });
+    panel.classList.add('visible');
+}
+
+function hidePathPanel() {
+    document.getElementById('path-panel').classList.remove('visible');
+}
+
+// ── Init ──
+let graph;
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('graph');
+    graph = new ForceGraph(canvas);
+    graph.showAll();
+    graph.updateStats();
+    document.getElementById('node-count').textContent = EXAMPLES.length;
+
+    // Category filters
+    document.querySelectorAll('.toolbar-btn[data-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.toolbar-btn[data-filter]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            graph.highlightPath = null;
+            hidePathPanel();
+            graph.setFilter(btn.dataset.filter);
+        });
+    });
+
+    // Learning paths
+    document.getElementById('btn-path-ds').addEventListener('click', () => graph.setLearningPath('Data Structures'));
+    document.getElementById('btn-path-fp').addEventListener('click', () => graph.setLearningPath('Functional Programming'));
+    document.getElementById('btn-path-pl').addEventListener('click', () => graph.setLearningPath('Programming Languages'));
+    document.getElementById('btn-path-sys').addEventListener('click', () => graph.setLearningPath('Systems & Concurrency'));
+
+    document.getElementById('info-close').addEventListener('click', () => { hideInfoPanel(); graph.selectedNode = null; graph.draw(); });
+    document.getElementById('path-close').addEventListener('click', () => { hidePathPanel(); graph.clearPath(); });
+});
+</script>
+</body>
+</html>
