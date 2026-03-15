@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Sample Code — Example Explorer</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .explorer-main { padding: 2rem; max-width: 1200px; }
+        .explorer-header { margin-bottom: 2rem; }
+        .explorer-header h1 { font-size: 2rem; color: var(--accent2); margin-bottom: 0.5rem; }
+        .explorer-header p { color: var(--text-dim); }
+
+        .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+        .search-box { flex: 1; min-width: 200px; padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .search-box:focus { border-color: var(--accent2); }
+        .search-box::placeholder { color: var(--text-dim); }
+
+        .filter-btn { padding: 0.4rem 0.8rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .filter-btn:hover { border-color: var(--accent2); color: var(--text); }
+        .filter-btn.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+
+        .stats-bar { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .stat { font-size: 0.85rem; color: var(--text-dim); }
+        .stat strong { color: var(--accent2); }
+
+        .example-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+
+        .example-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; cursor: pointer; transition: all 0.2s; position: relative; }
+        .example-card:hover { border-color: var(--accent2); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .example-card.expanded { grid-column: 1 / -1; }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+        .card-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+        .card-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .badge-beginner { background: rgba(158,206,106,0.15); color: var(--accent3); }
+        .badge-intermediate { background: rgba(224,175,104,0.15); color: var(--accent4); }
+        .badge-advanced { background: rgba(247,118,142,0.15); color: var(--accent); }
+
+        .card-desc { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.6rem; line-height: 1.4; }
+        .card-meta { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; }
+        .card-tag { font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(122,162,247,0.1); color: var(--accent2); border-radius: 6px; }
+        .card-lines { font-size: 0.7rem; color: var(--text-dim); }
+        .card-doc-link { font-size: 0.7rem; color: var(--accent3); text-decoration: none; }
+        .card-doc-link:hover { text-decoration: underline; }
+
+        .code-preview { display: none; margin-top: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 400px; overflow: auto; }
+        .code-preview.visible { display: block; }
+        .code-preview pre { font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace; font-size: 0.8rem; line-height: 1.5; white-space: pre; color: var(--text); }
+
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-dim); }
+        .empty-state h3 { margin-bottom: 0.5rem; }
+
+        .sort-select { padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 0.85rem; outline: none; cursor: pointer; }
+
+        @media (max-width: 768px) {
+            .example-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link active">🔍 Explorer</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="json.html" class="nav-link">📄 JSON Parser</a>
+            <a href="regex.html" class="nav-link">🔍 Regex Engine</a>
+            <a href="trie.html" class="nav-link">🔤 Trie</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="huffman.html" class="nav-link">📦 Huffman Coding</a>
+        </div>
+    </nav>
+
+    <main class="content explorer-main">
+        <div class="explorer-header">
+            <h1>🔍 Example Explorer</h1>
+            <p>Browse, search, and preview all <span id="total-count">0</span> OCaml examples. Click any card to see the source code.</p>
+        </div>
+
+        <div class="controls">
+            <input type="text" class="search-box" id="search" placeholder="Search examples... (name, description, category)">
+            <select class="sort-select" id="sort-by">
+                <option value="name">Sort: Name</option>
+                <option value="lines-asc">Sort: Lines ↑</option>
+                <option value="lines-desc">Sort: Lines ↓</option>
+                <option value="difficulty">Sort: Difficulty</option>
+            </select>
+        </div>
+
+        <div id="category-filters" class="controls" style="margin-top:-0.5rem;"></div>
+
+        <div class="stats-bar" id="stats-bar"></div>
+
+        <div class="example-grid" id="grid"></div>
+    </main>
+
+<script>
+// ── Example database ──
+// Built from the actual .ml files in the repository
+const EXAMPLES = [
+    { name: "abstract_interp", title: "Abstract Interpretation", desc: "Abstract interpretation with interval domain — static program analysis", lines: 1121, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "actor", title: "Actor Model", desc: "Message-passing concurrency with actors, mailboxes, and supervision", lines: 837, category: "concurrency", difficulty: "advanced", docPage: null },
+    { name: "autodiff", title: "Automatic Differentiation", desc: "Forward and reverse mode automatic differentiation for ML/optimization", lines: 1063, category: "math", difficulty: "advanced", docPage: null },
+    { name: "automata", title: "Finite Automata Toolkit", desc: "NFA/DFA construction, Thompson's construction, subset construction, minimization", lines: 1030, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "bloom_filter", title: "Bloom Filter", desc: "Probabilistic set membership — space-efficient data structure with tunable false positives", lines: 178, category: "data-structures", difficulty: "intermediate", docPage: "bloom-filter.html" },
+    { name: "bst", title: "Binary Search Tree", desc: "BST operations using algebraic data types — insert, search, delete, traversal", lines: 96, category: "data-structures", difficulty: "beginner", docPage: "bst.html" },
+    { name: "btree", title: "B-Tree", desc: "B-tree with configurable order — balanced multi-way search tree for databases", lines: 201, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "bytecode_vm", title: "Bytecode VM", desc: "Stack-based virtual machine with bytecode compiler, garbage collector, closures", lines: 689, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "calculus", title: "Symbolic Differentiation", desc: "Compute derivatives of mathematical expressions symbolically", lines: 403, category: "math", difficulty: "intermediate", docPage: null },
+    { name: "cellular_automata", title: "Cellular Automata", desc: "Game of Life, Elementary (Rule 110), Langton's Ant, Wireworld", lines: 509, category: "simulation", difficulty: "intermediate", docPage: null },
+    { name: "comonad", title: "Comonads", desc: "Comonad abstraction — Store, Env, Traced comonads with examples", lines: 592, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "constraint", title: "Constraint Solver", desc: "Constraint satisfaction problem solver with backtracking and arc consistency", lines: 542, category: "algorithms", difficulty: "advanced", docPage: null },
+    { name: "crdt", title: "CRDTs", desc: "Conflict-free Replicated Data Types — G-Counter, PN-Counter, LWW-Register, OR-Set", lines: 837, category: "concurrency", difficulty: "advanced", docPage: null },
+    { name: "crypto", title: "Classical Ciphers", desc: "Caesar, Vigenère, substitution ciphers — classical cryptography", lines: 330, category: "algorithms", difficulty: "intermediate", docPage: null },
+    { name: "csp", title: "CSP Solver", desc: "Constraint Satisfaction Problem solver — Sudoku, N-Queens, map coloring", lines: 528, category: "algorithms", difficulty: "intermediate", docPage: null },
+    { name: "csv", title: "CSV Parser", desc: "CSV parser with type inference and data analysis — handles quoted fields, stats", lines: 498, category: "parsing", difficulty: "intermediate", docPage: null },
+    { name: "datalog", title: "Datalog Engine", desc: "Datalog query engine with semi-naive evaluation and stratified negation", lines: 1344, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "delimited_cont", title: "Delimited Continuations", desc: "shift/reset for advanced control flow — coroutines, generators, nondeterminism", lines: 872, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "deque", title: "Deque", desc: "Purely functional double-ended queue with O(1) amortized operations", lines: 889, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "diff", title: "Myers Diff", desc: "Myers diff algorithm — compute minimal edit scripts between sequences", lines: 1089, category: "algorithms", difficulty: "advanced", docPage: null },
+    { name: "dijkstra", title: "Dijkstra's Algorithm", desc: "Weighted graph shortest path with priority queue", lines: 375, category: "algorithms", difficulty: "intermediate", docPage: "dijkstra.html" },
+    { name: "earley", title: "Earley Parser", desc: "Earley parser for context-free grammars — handles ambiguous grammars", lines: 1069, category: "parsing", difficulty: "advanced", docPage: null },
+    { name: "effects", title: "Algebraic Effects", desc: "Algebraic effects and handlers — structured side effects in OCaml 5", lines: 783, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "factor", title: "Prime Factorization", desc: "Prime factorization using recursive trial division", lines: 29, category: "math", difficulty: "beginner", docPage: "factor.html" },
+    { name: "fenwick_tree", title: "Fenwick Tree", desc: "Binary indexed tree — efficient prefix sums and point updates in O(log n)", lines: 296, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "fibonacci", title: "Fibonacci", desc: "Fibonacci with memoization using a hash table", lines: 73, category: "math", difficulty: "beginner", docPage: "fibonacci.html" },
+    { name: "finger_tree", title: "Finger Trees", desc: "2-3 finger trees (Hinze & Paterson) — general-purpose persistent sequence", lines: 796, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "free_monad", title: "Free Monads", desc: "Separating description from execution — interpreters, DSLs, testing", lines: 891, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "frp", title: "Functional Reactive Programming", desc: "Signals, behaviors, events — reactive data flow with automatic propagation", lines: 1124, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "fsm", title: "Finite State Machines", desc: "Deterministic and nondeterministic automata — regex matching, protocol validation", lines: 321, category: "algorithms", difficulty: "intermediate", docPage: null },
+    { name: "gadts", title: "GADTs", desc: "Generalized Algebraic Data Types — type-safe heterogeneous lists, typed expressions", lines: 568, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "game_ai", title: "Game AI", desc: "Minimax with alpha-beta pruning — tic-tac-toe, connect-four AI", lines: 857, category: "algorithms", difficulty: "intermediate", docPage: null },
+    { name: "gc_simulator", title: "GC Simulator", desc: "Garbage collector simulator — mark-sweep, copying, generational collection", lines: 1139, category: "systems", difficulty: "advanced", docPage: null },
+    { name: "genetic", title: "Genetic Algorithm", desc: "Evolutionary optimization — selection, crossover, mutation, fitness landscapes", lines: 1176, category: "algorithms", difficulty: "intermediate", docPage: null },
+    { name: "geometry", title: "Computational Geometry", desc: "Convex hull, line intersection, polygon area, point-in-polygon, Voronoi", lines: 588, category: "math", difficulty: "intermediate", docPage: null },
+    { name: "graph_db", title: "Property Graph Engine", desc: "Graph database with Cypher-like queries, property storage, traversals", lines: 1005, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "graph", title: "Graph Algorithms", desc: "BFS, DFS, topological sort, cycle detection, connected components", lines: 329, category: "algorithms", difficulty: "intermediate", docPage: "graph.html" },
+    { name: "hamt", title: "HAMT", desc: "Hash Array Mapped Trie — persistent hash map with structural sharing", lines: 823, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "hashmap", title: "Hash Map", desc: "Persistent functional hash map with separate chaining", lines: 265, category: "data-structures", difficulty: "intermediate", docPage: "hashmap.html" },
+    { name: "heap", title: "Priority Queue", desc: "Leftist min-heap — efficient merge, insert, extract-min", lines: 317, category: "data-structures", difficulty: "intermediate", docPage: "heap.html" },
+    { name: "hello", title: "Hello OCaml", desc: "Variables, types, string formatting, pattern matching basics", lines: 42, category: "basics", difficulty: "beginner", docPage: "hello.html" },
+    { name: "huffman", title: "Huffman Coding", desc: "Lossless data compression — tree building, encoding, decoding", lines: 360, category: "algorithms", difficulty: "intermediate", docPage: "huffman.html" },
+    { name: "incremental", title: "Incremental Computation", desc: "Self-adjusting computation — automatic change propagation, memoized recomputation", lines: 852, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "integration", title: "Symbolic Integration", desc: "Symbolic integration engine — pattern matching on mathematical expressions", lines: 1017, category: "math", difficulty: "advanced", docPage: null },
+    { name: "interval_tree", title: "Interval Tree", desc: "Augmented AVL tree for efficient interval queries — overlap, containment", lines: 263, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "json", title: "JSON Parser", desc: "Complete JSON parser built with parser combinators — recursive descent", lines: 613, category: "parsing", difficulty: "intermediate", docPage: "json.html" },
+    { name: "kd_tree", title: "k-d Tree", desc: "k-dimensional binary search tree — spatial queries, nearest neighbor", lines: 808, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "lambda", title: "Lambda Calculus", desc: "Untyped lambda calculus interpreter — beta reduction, Church encodings", lines: 800, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "list_last_elem", title: "Last Element", desc: "Find the last element of a list using pattern matching", lines: 17, category: "basics", difficulty: "beginner", docPage: "list-last.html" },
+    { name: "lru_cache", title: "LRU Cache", desc: "Least Recently Used cache — O(1) get/put with doubly linked list + hash map", lines: 206, category: "data-structures", difficulty: "intermediate", docPage: "lru-cache.html" },
+    { name: "lsystem", title: "L-Systems", desc: "Lindenmayer systems — fractal generation, turtle graphics, botanical modeling", lines: 728, category: "simulation", difficulty: "intermediate", docPage: null },
+    { name: "matrix", title: "Matrix Operations", desc: "Linear algebra — multiply, transpose, determinant, inverse, LU decomposition", lines: 699, category: "math", difficulty: "intermediate", docPage: null },
+    { name: "memoize", title: "Memoization", desc: "Memoization combinators — transparent caching for recursive functions", lines: 289, category: "functional", difficulty: "beginner", docPage: null },
+    { name: "mergesort", title: "Merge Sort", desc: "Merge sort on lists — divide and conquer with stable ordering", lines: 45, category: "algorithms", difficulty: "beginner", docPage: "mergesort.html" },
+    { name: "minikanren", title: "miniKanren", desc: "Logic programming engine — unification, search, relational programming", lines: 492, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "model_checker", title: "CTL Model Checker", desc: "Model checking for finite-state systems — CTL temporal logic formulas", lines: 802, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "monad_transformers", title: "Monad Transformers", desc: "Composing monads — ReaderT, StateT, OptionT, error handling stacks", lines: 879, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "network_flow", title: "Network Flow", desc: "Max-flow/min-cut — Ford-Fulkerson, Edmonds-Karp, bipartite matching", lines: 726, category: "algorithms", difficulty: "advanced", docPage: null },
+    { name: "neural_network", title: "Neural Network", desc: "Feedforward neural network with backpropagation — XOR, classification", lines: 555, category: "math", difficulty: "advanced", docPage: null },
+    { name: "optics", title: "Optics", desc: "Lenses, prisms, traversals — composable accessors for nested data", lines: 498, category: "functional", difficulty: "advanced", docPage: null },
+    { name: "parser", title: "Parser Combinators", desc: "Build parsers from small pieces — map, bind, choice, many, sep_by", lines: 555, category: "parsing", difficulty: "intermediate", docPage: "parser.html" },
+    { name: "peg", title: "PEG Parser", desc: "Parsing Expression Grammar engine — packrat parsing, memoization", lines: 1144, category: "parsing", difficulty: "advanced", docPage: null },
+    { name: "persistent_vector", title: "Persistent Vector", desc: "Clojure-style immutable array with structural sharing — O(log32 n) operations", lines: 641, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "probability", title: "Probability Monad", desc: "Probability distributions as monads — Monte Carlo simulation, Bayesian inference", lines: 843, category: "math", difficulty: "advanced", docPage: null },
+    { name: "queue", title: "Functional Queue", desc: "Banker's queue — purely functional O(1) amortized enqueue/dequeue", lines: 366, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "quickcheck", title: "QuickCheck", desc: "Property-based testing — random test generation, shrinking, counterexamples", lines: 659, category: "testing", difficulty: "intermediate", docPage: null },
+    { name: "raft", title: "Raft Consensus", desc: "Raft distributed consensus — leader election, log replication, safety", lines: 577, category: "concurrency", difficulty: "advanced", docPage: null },
+    { name: "random_access_list", title: "Random Access List", desc: "Okasaki's random access list — O(log n) indexing on persistent list", lines: 621, category: "data-structures", difficulty: "advanced", docPage: null },
+    { name: "raytracer", title: "Raytracer", desc: "Ray tracing renderer — spheres, planes, reflections, shadows, PPM output", lines: 523, category: "simulation", difficulty: "intermediate", docPage: null },
+    { name: "rbtree", title: "Red-Black Tree", desc: "Self-balancing BST — guaranteed O(log n) operations with color invariants", lines: 306, category: "data-structures", difficulty: "intermediate", docPage: "rbtree.html" },
+    { name: "regex", title: "Regex Engine", desc: "Regular expression engine — Thompson NFA construction, matching, captures", lines: 725, category: "parsing", difficulty: "advanced", docPage: "regex.html" },
+    { name: "relational", title: "Relational Algebra", desc: "Mini relational algebra engine — select, project, join, union, difference", lines: 811, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "rope", title: "Rope", desc: "Rope data structure — efficient string concatenation, split, index", lines: 353, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "sat_solver", title: "SAT Solver", desc: "DPLL algorithm — Boolean satisfiability with unit propagation and backtracking", lines: 389, category: "algorithms", difficulty: "advanced", docPage: null },
+    { name: "segment_tree", title: "Segment Tree", desc: "Efficient range queries (sum, min, max) and point updates in O(log n)", lines: 159, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "signal_processing", title: "Signal Processing", desc: "FFT, convolution, spectral analysis, windowing functions", lines: 496, category: "math", difficulty: "advanced", docPage: null },
+    { name: "skip_list", title: "Skip List", desc: "Probabilistic skip list — O(log n) search with random tower heights", lines: 300, category: "data-structures", difficulty: "intermediate", docPage: "skip-list.html" },
+    { name: "sorting", title: "Sorting Algorithms", desc: "Quicksort, insertion sort, selection sort — comparison and analysis", lines: 265, category: "algorithms", difficulty: "beginner", docPage: null },
+    { name: "spreadsheet", title: "Spreadsheet Engine", desc: "Spreadsheet with formulas, cell references, dependency graph, recalculation", lines: 1737, category: "systems", difficulty: "advanced", docPage: null },
+    { name: "stm", title: "Software Transactional Memory", desc: "STM with retry, orElse — composable atomic transactions", lines: 581, category: "concurrency", difficulty: "advanced", docPage: null },
+    { name: "stream", title: "Lazy Streams", desc: "Infinite lazy sequences — on-demand evaluation, memoized thunks", lines: 326, category: "functional", difficulty: "intermediate", docPage: null },
+    { name: "string_match", title: "String Matching", desc: "KMP, Rabin-Karp, Boyer-Moore — efficient pattern matching algorithms", lines: 961, category: "algorithms", difficulty: "advanced", docPage: null },
+    { name: "suffix_array", title: "Suffix Array", desc: "Suffix array with LCP — efficient string search and substring queries", lines: 246, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "tensor", title: "Tensor Operations", desc: "Multi-dimensional arrays — broadcasting, slicing, element-wise operations", lines: 1232, category: "math", difficulty: "advanced", docPage: null },
+    { name: "term_rewriting", title: "Term Rewriting", desc: "Term rewriting systems — pattern matching, substitution, normal forms", lines: 1099, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "theorem_prover", title: "Theorem Prover", desc: "Propositional theorem prover via natural deduction — automated reasoning", lines: 849, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "trie", title: "Trie", desc: "Prefix tree — efficient string storage, prefix search, autocomplete", lines: 282, category: "data-structures", difficulty: "intermediate", docPage: "trie.html" },
+    { name: "type_infer", title: "Type Inference", desc: "Hindley-Milner type inference engine — unification, generalization, let-polymorphism", lines: 476, category: "compilers", difficulty: "advanced", docPage: null },
+    { name: "union_find", title: "Union-Find", desc: "Persistent disjoint sets — path compression, union by rank", lines: 182, category: "data-structures", difficulty: "intermediate", docPage: null },
+    { name: "zipper", title: "Zipper", desc: "Functional zipper — navigate and modify trees with O(1) local updates", lines: 956, category: "functional", difficulty: "advanced", docPage: null },
+];
+
+const CATEGORIES = {
+    "all":             { label: "All",              icon: "📚" },
+    "basics":          { label: "Basics",           icon: "🖐" },
+    "data-structures": { label: "Data Structures",  icon: "🏗️" },
+    "algorithms":      { label: "Algorithms",       icon: "⚡" },
+    "functional":      { label: "Functional",       icon: "λ" },
+    "parsing":         { label: "Parsing",          icon: "🧩" },
+    "math":            { label: "Math & Science",   icon: "📐" },
+    "compilers":       { label: "Compilers & PL",   icon: "⚙️" },
+    "concurrency":     { label: "Concurrency",      icon: "🔄" },
+    "simulation":      { label: "Simulation",       icon: "🎮" },
+    "systems":         { label: "Systems",          icon: "🖥️" },
+    "testing":         { label: "Testing",          icon: "✅" },
+};
+
+const DIFF_ORDER = { beginner: 0, intermediate: 1, advanced: 2 };
+
+let activeCategory = "all";
+let expandedCard = null;
+
+function render() {
+    const query = document.getElementById("search").value.toLowerCase();
+    const sortBy = document.getElementById("sort-by").value;
+
+    let filtered = EXAMPLES.filter(ex => {
+        if (activeCategory !== "all" && ex.category !== activeCategory) return false;
+        if (query) {
+            return ex.name.includes(query) || ex.title.toLowerCase().includes(query) ||
+                   ex.desc.toLowerCase().includes(query) || ex.category.includes(query);
+        }
+        return true;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+        switch (sortBy) {
+            case "lines-asc": return a.lines - b.lines;
+            case "lines-desc": return b.lines - a.lines;
+            case "difficulty": return DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty] || a.name.localeCompare(b.name);
+            default: return a.title.localeCompare(b.title);
+        }
+    });
+
+    // Stats
+    const total = EXAMPLES.length;
+    const totalLines = EXAMPLES.reduce((s, e) => s + e.lines, 0);
+    const withDocs = EXAMPLES.filter(e => e.docPage).length;
+    document.getElementById("total-count").textContent = total;
+    document.getElementById("stats-bar").innerHTML =
+        `<span class="stat">Showing <strong>${filtered.length}</strong> of ${total}</span>` +
+        `<span class="stat">Total: <strong>${totalLines.toLocaleString()}</strong> lines</span>` +
+        `<span class="stat">Documented: <strong>${withDocs}</strong>/${total}</span>`;
+
+    // Grid
+    const grid = document.getElementById("grid");
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><h3>No examples found</h3><p>Try a different search or category.</p></div>';
+        return;
+    }
+
+    grid.innerHTML = filtered.map(ex => {
+        const badgeClass = `badge-${ex.difficulty}`;
+        const isExpanded = expandedCard === ex.name;
+        return `
+            <div class="example-card ${isExpanded ? 'expanded' : ''}" data-name="${ex.name}" onclick="toggleCard('${ex.name}')">
+                <div class="card-header">
+                    <span class="card-title">${ex.title}</span>
+                    <span class="card-badge ${badgeClass}">${ex.difficulty}</span>
+                </div>
+                <div class="card-desc">${ex.desc}</div>
+                <div class="card-meta">
+                    <span class="card-tag">${CATEGORIES[ex.category]?.icon || ""} ${CATEGORIES[ex.category]?.label || ex.category}</span>
+                    <span class="card-lines">${ex.lines} lines</span>
+                    ${ex.docPage ? `<a class="card-doc-link" href="${ex.docPage}" onclick="event.stopPropagation()">📖 Docs</a>` : ''}
+                </div>
+                <div class="code-preview ${isExpanded ? 'visible' : ''}" id="code-${ex.name}">
+                    <pre>${isExpanded ? '⏳ Loading...' : ''}</pre>
+                </div>
+            </div>`;
+    }).join("");
+}
+
+async function toggleCard(name) {
+    if (expandedCard === name) {
+        expandedCard = null;
+        render();
+        return;
+    }
+    expandedCard = name;
+    render();
+
+    // Fetch source code
+    const codeEl = document.getElementById(`code-${name}`);
+    if (!codeEl) return;
+    try {
+        const resp = await fetch(`../${name}.ml`);
+        if (!resp.ok) throw new Error(resp.statusText);
+        let text = await resp.text();
+        // Truncate very long files
+        const lines = text.split('\n');
+        if (lines.length > 80) {
+            text = lines.slice(0, 80).join('\n') + `\n\n... (${lines.length - 80} more lines — see ${name}.ml)`;
+        }
+        codeEl.querySelector('pre').textContent = text;
+    } catch (e) {
+        codeEl.querySelector('pre').textContent = `(Could not load ${name}.ml)`;
+    }
+}
+
+// Category filters
+function renderFilters() {
+    const container = document.getElementById("category-filters");
+    // Count per category
+    const counts = {};
+    EXAMPLES.forEach(ex => { counts[ex.category] = (counts[ex.category] || 0) + 1; });
+    counts.all = EXAMPLES.length;
+
+    container.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
+        `<button class="filter-btn ${activeCategory === key ? 'active' : ''}" onclick="setCategory('${key}')">${cat.icon} ${cat.label} (${counts[key] || 0})</button>`
+    ).join("");
+}
+
+function setCategory(cat) {
+    activeCategory = cat;
+    expandedCard = null;
+    renderFilters();
+    render();
+}
+
+// Event listeners
+document.getElementById("search").addEventListener("input", () => { expandedCard = null; render(); });
+document.getElementById("sort-by").addEventListener("change", render);
+
+// Boot
+renderFilters();
+render();
+</script>
+</body>
+</html>
