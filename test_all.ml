@@ -4892,7 +4892,7 @@ module SL = struct
   let max_level = 32
 
   type 'a node = {
-    key     : 'a;
+    key     : 'a option;
     forward : 'a node option array;
   }
 
@@ -4904,7 +4904,12 @@ module SL = struct
   }
 
   let make_node key lvl =
-    { key; forward = Array.make (lvl + 1) None }
+    { key = Some key; forward = Array.make (lvl + 1) None }
+
+  let key_exn node =
+    match node.key with
+    | Some k -> k
+    | None -> failwith "SkipList: accessed sentinel key"
 
   let random_level () =
     let rec go lvl =
@@ -4914,8 +4919,8 @@ module SL = struct
     in
     go 0
 
-  let create ?(compare = Stdlib.compare) ~dummy () =
-    let header = { key = dummy; forward = Array.make max_level None } in
+  let create ?(compare = Stdlib.compare) () =
+    let header = { key = None; forward = Array.make max_level None } in
     { header; level = 0; length = 0; compare }
 
   let size sl = sl.length
@@ -4928,12 +4933,12 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 -> x := next
+        | Some next when sl.compare (key_exn next) key < 0 -> x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n -> sl.compare n.key key = 0
+    | Some n -> sl.compare (key_exn n) key = 0
     | None   -> false
 
   let find key sl =
@@ -4942,12 +4947,12 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 -> x := next
+        | Some next when sl.compare (key_exn next) key < 0 -> x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key = 0 -> Some n.key
+    | Some n when sl.compare (key_exn n) key = 0 -> Some (key_exn n)
     | _ -> None
 
   let insert key sl =
@@ -4957,13 +4962,13 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 -> x := next
+        | Some next when sl.compare (key_exn next) key < 0 -> x := next
         | _ -> continue_ := false
       done;
       update.(i) <- !x
     done;
     let is_dup = match !x.forward.(0) with
-      | Some n -> sl.compare n.key key = 0
+      | Some n -> sl.compare (key_exn n) key = 0
       | None   -> false
     in
     if not is_dup then begin
@@ -4989,13 +4994,13 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 -> x := next
+        | Some next when sl.compare (key_exn next) key < 0 -> x := next
         | _ -> continue_ := false
       done;
       update.(i) <- !x
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key = 0 ->
+    | Some n when sl.compare (key_exn n) key = 0 ->
       for i = 0 to sl.level do
         match update.(i).forward.(i) with
         | Some fwd when fwd == n ->
@@ -5014,7 +5019,7 @@ module SL = struct
     let x = ref sl.header.forward.(0) in
     while !x <> None do
       (match !x with
-       | Some n -> acc := n.key :: !acc; x := n.forward.(0)
+       | Some n -> acc := (key_exn n) :: !acc; x := n.forward.(0)
        | None -> ())
     done;
     List.rev !acc
@@ -5023,7 +5028,7 @@ module SL = struct
     let x = ref sl.header.forward.(0) in
     while !x <> None do
       (match !x with
-       | Some n -> f n.key; x := n.forward.(0)
+       | Some n -> f (key_exn n); x := n.forward.(0)
        | None -> ())
     done
 
@@ -5032,14 +5037,14 @@ module SL = struct
     let x = ref sl.header.forward.(0) in
     while !x <> None do
       (match !x with
-       | Some n -> result := f !result n.key; x := n.forward.(0)
+       | Some n -> result := f !result (key_exn n); x := n.forward.(0)
        | None -> ())
     done;
     !result
 
   let min_elt sl =
     match sl.header.forward.(0) with
-    | Some n -> Some n.key
+    | Some n -> Some (key_exn n)
     | None   -> None
 
   let max_elt sl =
@@ -5054,7 +5059,7 @@ module SL = struct
           | None -> continue_ := false
         done
       done;
-      Some !x.key
+      Some (key_exn !x)
     end
 
   let range_query ~lo ~hi sl =
@@ -5065,7 +5070,7 @@ module SL = struct
         let continue_ = ref true in
         while !continue_ do
           match !x.forward.(i) with
-          | Some next when sl.compare next.key lo < 0 -> x := next
+          | Some next when sl.compare (key_exn next) lo < 0 -> x := next
           | _ -> continue_ := false
         done
       done;
@@ -5074,9 +5079,9 @@ module SL = struct
       let stop = ref false in
       while not !stop do
         match !cur with
-        | Some n when sl.compare n.key hi <= 0 ->
-          if sl.compare n.key lo >= 0 then
-            acc := n.key :: !acc;
+        | Some n when sl.compare (key_exn n) hi <= 0 ->
+          if sl.compare (key_exn n) lo >= 0 then
+            acc := (key_exn n) :: !acc;
           cur := n.forward.(0)
         | _ -> stop := true
       done;
@@ -5089,12 +5094,12 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key <= 0 -> x := next
+        | Some next when sl.compare (key_exn next) key <= 0 -> x := next
         | _ -> continue_ := false
       done
     done;
     if !x == sl.header then None
-    else Some !x.key
+    else Some (key_exn !x)
 
   let ceil key sl =
     let x = ref sl.header in
@@ -5102,21 +5107,18 @@ module SL = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 -> x := next
+        | Some next when sl.compare (key_exn next) key < 0 -> x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key >= 0 -> Some n.key
+    | Some n when sl.compare (key_exn n) key >= 0 -> Some (key_exn n)
     | _ -> None
 
   let of_list ?(compare = Stdlib.compare) lst =
-    match lst with
-    | [] -> invalid_arg "SkipList.of_list: empty list"
-    | hd :: _ ->
-      let sl = create ~compare ~dummy:hd () in
-      List.iter (fun k -> insert k sl) lst;
-      sl
+    let sl = create ~compare () in
+    List.iter (fun k -> insert k sl) lst;
+    sl
 end
 
 (* ===== Skip List tests ===== *)
@@ -5126,7 +5128,7 @@ let test_skip_list () =
   Printf.printf "Testing SkipList...\n";
 
   (* -- Empty skip list -- *)
-  let sl = SL.create ~dummy:0 () in
+  let sl = SL.create () in
   assert_true ~msg:"empty: is_empty" (SL.is_empty sl);
   assert_equal ~msg:"empty: size" "0" (string_of_int (SL.size sl));
   assert_equal ~msg:"empty: height" "0" (string_of_int (SL.height sl));
@@ -5201,7 +5203,7 @@ let test_skip_list () =
   assert_true ~msg:"remove all: height 0" (SL.height sl = 0);
 
   (* -- Range queries -- *)
-  let sl2 = SL.create ~dummy:0 () in
+  let sl2 = SL.create () in
   List.iter (fun x -> SL.insert x sl2) [5; 10; 15; 20; 25; 30; 35; 40];
   assert_true ~msg:"range [10,30]"
     (SL.range_query ~lo:10 ~hi:30 sl2 = [10; 15; 20; 25; 30]);
@@ -5258,7 +5260,7 @@ let test_skip_list () =
     (SL.to_list sl4 = [1; 3; 5]);
 
   (* -- Custom compare (reverse order) -- *)
-  let rev_sl = SL.create ~compare:(fun a b -> compare b a) ~dummy:0 () in
+  let rev_sl = SL.create ~compare:(fun a b -> compare b a) () in
   List.iter (fun x -> SL.insert x rev_sl) [10; 30; 20];
   assert_true ~msg:"reverse: to_list"
     (SL.to_list rev_sl = [30; 20; 10]);
@@ -5266,7 +5268,7 @@ let test_skip_list () =
   assert_true ~msg:"reverse: max_elt" (SL.max_elt rev_sl = Some 10);
 
   (* -- String skip list -- *)
-  let str_sl = SL.create ~compare:String.compare ~dummy:"" () in
+  let str_sl = SL.create ~compare:String.compare () in
   List.iter (fun s -> SL.insert s str_sl) ["cherry"; "apple"; "banana"; "date"];
   assert_equal ~msg:"string: size" "4" (string_of_int (SL.size str_sl));
   assert_true ~msg:"string: sorted"
@@ -5276,7 +5278,7 @@ let test_skip_list () =
   assert_true ~msg:"string: ceil 'c'" (SL.ceil "c" str_sl = Some "cherry");
 
   (* -- Stress test: insert + verify sorted + remove all -- *)
-  let stress_sl = SL.create ~dummy:0 () in
+  let stress_sl = SL.create () in
   let n = 500 in
   (* Shuffle: insert 0..499 in random order *)
   let arr = Array.init n (fun i -> i) in

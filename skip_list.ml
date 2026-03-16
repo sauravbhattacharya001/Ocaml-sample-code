@@ -14,7 +14,7 @@ module SkipList = struct
   let max_level = 32   (* maximum height of the skip list *)
 
   type 'a node = {
-    key     : 'a;
+    key     : 'a option;     (* None for sentinel, Some k for data nodes *)
     forward : 'a node option array;  (* forward[i] = next node at level i *)
   }
 
@@ -28,7 +28,7 @@ module SkipList = struct
   (* ---- Internal helpers ---- *)
 
   let make_node key lvl =
-    { key; forward = Array.make (lvl + 1) None }
+    { key = Some key; forward = Array.make (lvl + 1) None }
 
   let random_level () =
     let rec go lvl =
@@ -38,16 +38,19 @@ module SkipList = struct
     in
     go 0
 
+  (** Extract the key from a data node. Only call on non-sentinel nodes. *)
+  let key_exn node =
+    match node.key with
+    | Some k -> k
+    | None -> failwith "SkipList: accessed sentinel key"
+
   (* ---- Construction ---- *)
 
-  (** [create ~compare ~dummy ()] builds an empty skip list.
+  (** [create ~compare ()] builds an empty skip list.
       [compare] must define a total order (like [Stdlib.compare]).
-      [dummy] is a throw-away value used only for the sentinel node's
-      key field — it is never returned or compared. This replaces the
-      previous [Obj.magic] cast, which was type-unsafe and could cause
-      segfaults or undefined behavior with non-integer element types. *)
-  let create ?(compare = Stdlib.compare) ~dummy () =
-    let header = { key = dummy; forward = Array.make max_level None } in
+      The sentinel node uses [None] as its key, so no dummy value is needed. *)
+  let create ?(compare = Stdlib.compare) () =
+    let header = { key = None; forward = Array.make max_level None } in
     { header; level = 0; length = 0; compare }
 
   (** [size sl] returns the number of elements. *)
@@ -69,13 +72,13 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 ->
+        | Some next when sl.compare (key_exn next) key < 0 ->
           x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n -> sl.compare n.key key = 0
+    | Some n -> sl.compare (key_exn n) key = 0
     | None   -> false
 
   (** [find key sl] returns [Some value] if [key] exists, [None] otherwise. *)
@@ -85,13 +88,13 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 ->
+        | Some next when sl.compare (key_exn next) key < 0 ->
           x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key = 0 -> Some n.key
+    | Some n when sl.compare (key_exn n) key = 0 -> Some (key_exn n)
     | _ -> None
 
   (* ---- Insertion ---- *)
@@ -105,7 +108,7 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 ->
+        | Some next when sl.compare (key_exn next) key < 0 ->
           x := next
         | _ -> continue_ := false
       done;
@@ -113,7 +116,7 @@ module SkipList = struct
     done;
     (* Check for duplicate *)
     let is_dup = match !x.forward.(0) with
-      | Some n -> sl.compare n.key key = 0
+      | Some n -> sl.compare (key_exn n) key = 0
       | None   -> false
     in
     if not is_dup then begin
@@ -143,14 +146,14 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 ->
+        | Some next when sl.compare (key_exn next) key < 0 ->
           x := next
         | _ -> continue_ := false
       done;
       update.(i) <- !x
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key = 0 ->
+    | Some n when sl.compare (key_exn n) key = 0 ->
       for i = 0 to sl.level do
         match update.(i).forward.(i) with
         | Some fwd when fwd == n ->
@@ -174,7 +177,7 @@ module SkipList = struct
     while !x <> None do
       (match !x with
        | Some n ->
-         acc := n.key :: !acc;
+         acc := (key_exn n) :: !acc;
          x := n.forward.(0)
        | None -> ())
     done;
@@ -185,7 +188,7 @@ module SkipList = struct
     let x = ref sl.header.forward.(0) in
     while !x <> None do
       (match !x with
-       | Some n -> f n.key; x := n.forward.(0)
+       | Some n -> f (key_exn n); x := n.forward.(0)
        | None -> ())
     done
 
@@ -195,7 +198,7 @@ module SkipList = struct
     let x = ref sl.header.forward.(0) in
     while !x <> None do
       (match !x with
-       | Some n -> result := f !result n.key; x := n.forward.(0)
+       | Some n -> result := f !result (key_exn n); x := n.forward.(0)
        | None -> ())
     done;
     !result
@@ -203,7 +206,7 @@ module SkipList = struct
   (** [min_elt sl] returns the smallest element, or [None] if empty. *)
   let min_elt sl =
     match sl.header.forward.(0) with
-    | Some n -> Some n.key
+    | Some n -> Some (key_exn n)
     | None   -> None
 
   (** [max_elt sl] returns the largest element, or [None] if empty. *)
@@ -219,7 +222,7 @@ module SkipList = struct
           | None -> continue_ := false
         done
       done;
-      Some !x.key
+      Some (key_exn !x)
     end
 
   (* ---- Range queries ---- *)
@@ -235,7 +238,7 @@ module SkipList = struct
         let continue_ = ref true in
         while !continue_ do
           match !x.forward.(i) with
-          | Some next when sl.compare next.key lo < 0 ->
+          | Some next when sl.compare (key_exn next) lo < 0 ->
             x := next
           | _ -> continue_ := false
         done
@@ -246,9 +249,9 @@ module SkipList = struct
       let stop = ref false in
       while not !stop do
         match !cur with
-        | Some n when sl.compare n.key hi <= 0 ->
-          if sl.compare n.key lo >= 0 then
-            acc := n.key :: !acc;
+        | Some n when sl.compare (key_exn n) hi <= 0 ->
+          if sl.compare (key_exn n) lo >= 0 then
+            acc := (key_exn n) :: !acc;
           cur := n.forward.(0)
         | _ -> stop := true
       done;
@@ -262,13 +265,13 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key <= 0 ->
+        | Some next when sl.compare (key_exn next) key <= 0 ->
           x := next
         | _ -> continue_ := false
       done
     done;
     if !x == sl.header then None
-    else Some !x.key
+    else Some (key_exn !x)
 
   (** [ceil key sl] returns the smallest element [>= key], or [None]. *)
   let ceil key sl =
@@ -277,24 +280,20 @@ module SkipList = struct
       let continue_ = ref true in
       while !continue_ do
         match !x.forward.(i) with
-        | Some next when sl.compare next.key key < 0 ->
+        | Some next when sl.compare (key_exn next) key < 0 ->
           x := next
         | _ -> continue_ := false
       done
     done;
     match !x.forward.(0) with
-    | Some n when sl.compare n.key key >= 0 -> Some n.key
+    | Some n when sl.compare (key_exn n) key >= 0 -> Some (key_exn n)
     | _ -> None
 
   (** [of_list ~compare lst] builds a skip list from a list of elements.
-      Requires a non-empty list (the first element is used as the dummy
-      sentinel value). Raises [Invalid_argument] on an empty list. *)
+      Works with empty lists (returns an empty skip list). *)
   let of_list ?(compare = Stdlib.compare) lst =
-    match lst with
-    | [] -> invalid_arg "SkipList.of_list: empty list"
-    | hd :: _ ->
-      let sl = create ~compare ~dummy:hd () in
-      List.iter (fun k -> insert k sl) lst;
-      sl
+    let sl = create ~compare () in
+    List.iter (fun k -> insert k sl) lst;
+    sl
 
 end

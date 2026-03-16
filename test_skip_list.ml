@@ -37,82 +37,82 @@ let test name f =
 
 let test_empty () =
   test "empty: is_empty" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be empty" (SkipList.is_empty sl));
   test "empty: size" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_equal "size" "0" (string_of_int (SkipList.size sl)));
   test "empty: height" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_equal "height" "0" (string_of_int (SkipList.height sl)));
   test "empty: to_list" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be []" (SkipList.to_list sl = []));
   test "empty: min_elt" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be None" (SkipList.min_elt sl = None));
   test "empty: max_elt" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be None" (SkipList.max_elt sl = None));
   test "empty: mem" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should not find 42" (not (SkipList.mem 42 sl)));
   test "empty: find" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be None" (SkipList.find 42 sl = None));
   test "empty: remove" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should return false" (not (SkipList.remove 1 sl)));
   test "empty: floor" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be None" (SkipList.floor 5 sl = None));
   test "empty: ceil" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be None" (SkipList.ceil 5 sl = None));
   test "empty: range_query" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     assert_true "should be []" (SkipList.range_query ~lo:0 ~hi:10 sl = []))
 
 (* ===== Single Element ===== *)
 
 let test_single () =
   test "single: insert and mem" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "should find 42" (SkipList.mem 42 sl);
     assert_true "should not find 99" (not (SkipList.mem 99 sl)));
   test "single: size" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_equal "size" "1" (string_of_int (SkipList.size sl)));
   test "single: not empty" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "should not be empty" (not (SkipList.is_empty sl)));
   test "single: find" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "should find 42" (SkipList.find 42 sl = Some 42));
   test "single: to_list" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "should be [42]" (SkipList.to_list sl = [42]));
   test "single: min_elt" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "min should be 42" (SkipList.min_elt sl = Some 42));
   test "single: max_elt" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "max should be 42" (SkipList.max_elt sl = Some 42));
   test "single: remove" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "remove should return true" (SkipList.remove 42 sl);
     assert_true "should be empty after remove" (SkipList.is_empty sl);
     assert_true "should not find 42" (not (SkipList.mem 42 sl)));
   test "single: height >= 1" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 42 sl;
     assert_true "height >= 1" (SkipList.height sl >= 1))
 
@@ -120,7 +120,7 @@ let test_single () =
 
 let test_multiple () =
   let mk () =
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     List.iter (fun x -> SkipList.insert x sl) [5; 3; 8; 1; 7; 2; 9; 4; 6; 10];
     sl
   in
@@ -167,7 +167,7 @@ let test_multiple () =
 
 let test_duplicates () =
   test "dup: insert same element twice" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     SkipList.insert 5 sl;
     SkipList.insert 5 sl;
     assert_equal "size should be 1" "1" (string_of_int (SkipList.size sl));
@@ -180,7 +180,7 @@ let test_duplicates () =
 (* ===== Range Queries ===== *)
 
 let test_range () =
-  let sl = SkipList.create ~dummy:0 () in
+  let sl = SkipList.create () in
   List.iter (fun x -> SkipList.insert x sl) [5; 10; 15; 20; 25; 30; 35; 40];
   test "range: [10,30]" (fun () ->
     assert_true "[10,30]" (SkipList.range_query ~lo:10 ~hi:30 sl = [10;15;20;25;30]));
@@ -244,7 +244,7 @@ let test_fold_iter () =
 (* ===== Reverse Order ===== *)
 
 let test_reverse () =
-  let sl = SkipList.create ~compare:(fun a b -> compare b a) ~dummy:0 () in
+  let sl = SkipList.create ~compare:(fun a b -> compare b a) () in
   List.iter (fun x -> SkipList.insert x sl) [1; 5; 3; 2; 4];
   test "reverse: to_list descending" (fun () ->
     assert_true "descending" (SkipList.to_list sl = [5; 4; 3; 2; 1]));
@@ -256,7 +256,7 @@ let test_reverse () =
 (* ===== String Keys ===== *)
 
 let test_strings () =
-  let sl = SkipList.create ~compare:String.compare ~dummy:"" () in
+  let sl = SkipList.create ~compare:String.compare () in
   List.iter (fun s -> SkipList.insert s sl)
     ["banana"; "apple"; "cherry"; "date"; "elderberry"];
   test "string: sorted" (fun () ->
@@ -294,7 +294,7 @@ let test_of_list () =
 
 let test_stress () =
   test "stress: 1000 elements insert/remove" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     for i = 1 to 1000 do SkipList.insert i sl done;
     assert_equal "size 1000" "1000" (string_of_int (SkipList.size sl));
     assert_true "min 1" (SkipList.min_elt sl = Some 1);
@@ -319,7 +319,7 @@ let test_stress () =
 
 let test_remove_all () =
   test "remove_all: insert and remove all" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     for i = 1 to 20 do SkipList.insert i sl done;
     for i = 1 to 20 do ignore (SkipList.remove i sl) done;
     assert_true "empty after removing all" (SkipList.is_empty sl);
@@ -327,7 +327,7 @@ let test_remove_all () =
     assert_true "to_list []" (SkipList.to_list sl = []);
     assert_equal "height 0" "0" (string_of_int (SkipList.height sl)));
   test "remove_all: re-insert after clearing" (fun () ->
-    let sl = SkipList.create ~dummy:0 () in
+    let sl = SkipList.create () in
     for i = 1 to 5 do SkipList.insert i sl done;
     for i = 1 to 5 do ignore (SkipList.remove i sl) done;
     SkipList.insert 99 sl;
@@ -339,7 +339,7 @@ let test_remove_all () =
 let test_custom_compare () =
   test "custom: absolute value ordering" (fun () ->
     let abs_cmp a b = compare (abs a) (abs b) in
-    let sl = SkipList.create ~compare:abs_cmp ~dummy:0 () in
+    let sl = SkipList.create ~compare:abs_cmp () in
     List.iter (fun x -> SkipList.insert x sl) [3; -1; 4; -2; 5];
     let lst = SkipList.to_list sl in
     assert_equal "size" "5" (string_of_int (SkipList.size sl));
