@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Sample Code — Study Progress Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tracker-main { padding: 2rem; max-width: 1200px; }
+        .tracker-header h1 { font-size: 2rem; color: var(--accent2); margin-bottom: 0.5rem; }
+        .tracker-header p { color: var(--text-dim); margin-bottom: 1.5rem; }
+
+        /* Dashboard */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; text-align: center; }
+        .dash-card .big { font-size: 2rem; font-weight: 700; color: var(--accent2); }
+        .dash-card .label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.3rem; }
+        .dash-card.streak .big { color: #f7a825; }
+
+        /* Streak calendar */
+        .streak-row { display: flex; gap: 3px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .streak-day { width: 16px; height: 16px; border-radius: 3px; background: var(--surface); border: 1px solid var(--border); }
+        .streak-day.active { background: var(--accent3); border-color: var(--accent3); }
+        .streak-day.today { outline: 2px solid var(--accent2); outline-offset: 1px; }
+        .streak-label { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+
+        /* Category progress */
+        .cat-progress { margin-bottom: 2rem; }
+        .cat-progress h2 { font-size: 1.2rem; color: var(--text); margin-bottom: 1rem; }
+        .cat-bar-row { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.6rem; }
+        .cat-label { width: 140px; font-size: 0.85rem; color: var(--text-dim); white-space: nowrap; }
+        .cat-bar { flex: 1; height: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .cat-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent3)); border-radius: 10px; transition: width 0.3s; min-width: 0; }
+        .cat-pct { width: 50px; font-size: 0.8rem; color: var(--text-dim); text-align: right; }
+
+        /* Controls */
+        .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+        .search-box { flex: 1; min-width: 200px; padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 0.95rem; outline: none; }
+        .search-box:focus { border-color: var(--accent2); }
+        .search-box::placeholder { color: var(--text-dim); }
+        .filter-btn { padding: 0.4rem 0.8rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .filter-btn:hover { border-color: var(--accent2); color: var(--text); }
+        .filter-btn.active { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+
+        /* Example list */
+        .example-list { display: flex; flex-direction: column; gap: 0.6rem; }
+        .example-row { display: flex; align-items: center; gap: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1.2rem; transition: all 0.2s; }
+        .example-row:hover { border-color: var(--accent2); }
+        .example-row.completed { opacity: 0.7; }
+        .example-row.completed .ex-title { text-decoration: line-through; color: var(--text-dim); }
+
+        .ex-check { width: 22px; height: 22px; cursor: pointer; accent-color: var(--accent3); flex-shrink: 0; }
+        .ex-info { flex: 1; min-width: 0; }
+        .ex-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+        .ex-desc { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ex-meta { display: flex; gap: 0.6rem; align-items: center; flex-shrink: 0; }
+        .ex-badge { font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 12px; font-weight: 600; text-transform: uppercase; }
+        .badge-beginner { background: rgba(158,206,106,0.15); color: var(--accent3); }
+        .badge-intermediate { background: rgba(224,175,104,0.15); color: var(--accent4); }
+        .badge-advanced { background: rgba(247,118,142,0.15); color: var(--accent); }
+        .ex-cat { font-size: 0.7rem; color: var(--text-dim); }
+        .ex-lines { font-size: 0.7rem; color: var(--text-dim); }
+
+        .note-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
+        .note-btn:hover { border-color: var(--accent2); color: var(--text); }
+        .note-btn.has-note { color: var(--accent4); border-color: var(--accent4); }
+
+        /* Note modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.visible { display: flex; }
+        .modal { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; width: 90%; max-width: 500px; }
+        .modal h3 { font-size: 1.1rem; color: var(--accent2); margin-bottom: 1rem; }
+        .modal textarea { width: 100%; height: 120px; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.6rem; font-size: 0.9rem; resize: vertical; font-family: inherit; }
+        .modal textarea:focus { border-color: var(--accent2); outline: none; }
+        .modal-actions { display: flex; gap: 0.8rem; margin-top: 1rem; justify-content: flex-end; }
+        .modal-actions button { padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; }
+        .btn-save { background: var(--accent2); color: var(--bg); border-color: var(--accent2); }
+        .btn-cancel { background: var(--surface); color: var(--text); }
+        .btn-clear { background: var(--surface); color: var(--accent); border-color: var(--accent); }
+
+        /* Actions bar */
+        .actions-bar { display: flex; gap: 0.8rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .actions-bar button { padding: 0.5rem 1rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+        .actions-bar button:hover { border-color: var(--accent2); }
+
+        @media (max-width: 768px) {
+            .controls { flex-direction: column; }
+            .ex-meta { flex-direction: column; gap: 0.3rem; }
+            .cat-label { width: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Tools</div>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="concept-map.html" class="nav-link">🗺️ Concept Map</a>
+            <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+            <a href="progress.html" class="nav-link active">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="json.html" class="nav-link">📄 JSON Parser</a>
+            <a href="regex.html" class="nav-link">🔍 Regex Engine</a>
+            <a href="trie.html" class="nav-link">🔤 Trie</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="huffman.html" class="nav-link">📦 Huffman Coding</a>
+        </div>
+    </nav>
+
+    <main class="content tracker-main">
+        <div class="tracker-header">
+            <h1>📊 Study Progress Tracker</h1>
+            <p>Track which examples you've studied, add personal notes, and maintain your learning streak. All data is saved in your browser.</p>
+        </div>
+
+        <div id="dashboard" class="dashboard"></div>
+
+        <div class="streak-label">📅 Last 30 days study activity:</div>
+        <div id="streak-calendar" class="streak-row"></div>
+
+        <div id="cat-progress" class="cat-progress">
+            <h2>Category Progress</h2>
+            <div id="cat-bars"></div>
+        </div>
+
+        <div class="actions-bar">
+            <button onclick="exportProgress()">📥 Export Progress</button>
+            <button onclick="document.getElementById('import-file').click()">📤 Import Progress</button>
+            <button onclick="resetProgress()">🗑️ Reset All</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importProgress(event)">
+        </div>
+
+        <div class="controls">
+            <input type="text" class="search-box" id="search" placeholder="Search examples...">
+            <div id="status-filters"></div>
+        </div>
+        <div id="cat-filters" class="controls" style="margin-top:-0.5rem;"></div>
+
+        <div id="example-list" class="example-list"></div>
+    </main>
+
+    <!-- Note modal -->
+    <div class="modal-overlay" id="note-modal">
+        <div class="modal">
+            <h3 id="note-modal-title">Notes</h3>
+            <textarea id="note-textarea" placeholder="Add your study notes, observations, or questions..."></textarea>
+            <div class="modal-actions">
+                <button class="btn-clear" onclick="clearNote()">Clear</button>
+                <button class="btn-cancel" onclick="closeNoteModal()">Cancel</button>
+                <button class="btn-save" onclick="saveNote()">Save</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const EXAMPLES = [
+    { name: "abstract_interp", title: "Abstract Interpretation", desc: "Abstract interpretation with interval domain — static program analysis", lines: 1121, category: "compilers", difficulty: "advanced" },
+    { name: "actor", title: "Actor Model", desc: "Message-passing concurrency with actors, mailboxes, and supervision", lines: 837, category: "concurrency", difficulty: "advanced" },
+    { name: "autodiff", title: "Automatic Differentiation", desc: "Forward and reverse mode automatic differentiation for ML/optimization", lines: 1063, category: "math", difficulty: "advanced" },
+    { name: "automata", title: "Finite Automata Toolkit", desc: "NFA/DFA construction, Thompson's construction, subset construction, minimization", lines: 1030, category: "compilers", difficulty: "advanced" },
+    { name: "bloom_filter", title: "Bloom Filter", desc: "Probabilistic set membership — space-efficient data structure with tunable false positives", lines: 178, category: "data-structures", difficulty: "intermediate" },
+    { name: "bst", title: "Binary Search Tree", desc: "BST operations using algebraic data types — insert, search, delete, traversal", lines: 96, category: "data-structures", difficulty: "beginner" },
+    { name: "btree", title: "B-Tree", desc: "B-tree with configurable order — balanced multi-way search tree for databases", lines: 201, category: "data-structures", difficulty: "intermediate" },
+    { name: "bytecode_vm", title: "Bytecode VM", desc: "Stack-based virtual machine with bytecode compiler, garbage collector, closures", lines: 689, category: "compilers", difficulty: "advanced" },
+    { name: "calculus", title: "Symbolic Differentiation", desc: "Compute derivatives of mathematical expressions symbolically", lines: 403, category: "math", difficulty: "intermediate" },
+    { name: "cellular_automata", title: "Cellular Automata", desc: "Game of Life, Elementary (Rule 110), Langton's Ant, Wireworld", lines: 509, category: "simulation", difficulty: "intermediate" },
+    { name: "comonad", title: "Comonads", desc: "Comonad abstraction — Store, Env, Traced comonads with examples", lines: 592, category: "functional", difficulty: "advanced" },
+    { name: "constraint", title: "Constraint Solver", desc: "Constraint satisfaction problem solver with backtracking and arc consistency", lines: 542, category: "algorithms", difficulty: "advanced" },
+    { name: "crdt", title: "CRDTs", desc: "Conflict-free Replicated Data Types — G-Counter, PN-Counter, LWW-Register, OR-Set", lines: 837, category: "concurrency", difficulty: "advanced" },
+    { name: "crypto", title: "Classical Ciphers", desc: "Caesar, Vigenère, substitution ciphers — classical cryptography", lines: 330, category: "algorithms", difficulty: "intermediate" },
+    { name: "csp", title: "CSP Solver", desc: "Constraint Satisfaction Problem solver — Sudoku, N-Queens, map coloring", lines: 528, category: "algorithms", difficulty: "intermediate" },
+    { name: "csv", title: "CSV Parser", desc: "CSV parser with type inference and data analysis — handles quoted fields, stats", lines: 498, category: "parsing", difficulty: "intermediate" },
+    { name: "datalog", title: "Datalog Engine", desc: "Datalog query engine with semi-naive evaluation and stratified negation", lines: 1344, category: "compilers", difficulty: "advanced" },
+    { name: "delimited_cont", title: "Delimited Continuations", desc: "shift/reset for advanced control flow — coroutines, generators, nondeterminism", lines: 872, category: "functional", difficulty: "advanced" },
+    { name: "deque", title: "Deque", desc: "Purely functional double-ended queue with O(1) amortized operations", lines: 889, category: "data-structures", difficulty: "intermediate" },
+    { name: "diff", title: "Myers Diff", desc: "Myers diff algorithm — compute minimal edit scripts between sequences", lines: 1089, category: "algorithms", difficulty: "advanced" },
+    { name: "dijkstra", title: "Dijkstra's Algorithm", desc: "Weighted graph shortest path with priority queue", lines: 375, category: "algorithms", difficulty: "intermediate" },
+    { name: "earley", title: "Earley Parser", desc: "Earley parser for context-free grammars — handles ambiguous grammars", lines: 1069, category: "parsing", difficulty: "advanced" },
+    { name: "effects", title: "Algebraic Effects", desc: "Algebraic effects and handlers — structured side effects in OCaml 5", lines: 783, category: "functional", difficulty: "advanced" },
+    { name: "factor", title: "Prime Factorization", desc: "Prime factorization using recursive trial division", lines: 29, category: "math", difficulty: "beginner" },
+    { name: "fenwick_tree", title: "Fenwick Tree", desc: "Binary indexed tree — efficient prefix sums and point updates in O(log n)", lines: 296, category: "data-structures", difficulty: "intermediate" },
+    { name: "fibonacci", title: "Fibonacci", desc: "Fibonacci with memoization using a hash table", lines: 73, category: "math", difficulty: "beginner" },
+    { name: "finger_tree", title: "Finger Trees", desc: "2-3 finger trees (Hinze & Paterson) — general-purpose persistent sequence", lines: 796, category: "data-structures", difficulty: "advanced" },
+    { name: "free_monad", title: "Free Monads", desc: "Separating description from execution — interpreters, DSLs, testing", lines: 891, category: "functional", difficulty: "advanced" },
+    { name: "frp", title: "Functional Reactive Programming", desc: "Signals, behaviors, events — reactive data flow with automatic propagation", lines: 1124, category: "functional", difficulty: "advanced" },
+    { name: "fsm", title: "Finite State Machines", desc: "Deterministic and nondeterministic automata — regex matching, protocol validation", lines: 321, category: "algorithms", difficulty: "intermediate" },
+    { name: "gadts", title: "GADTs", desc: "Generalized Algebraic Data Types — type-safe heterogeneous lists, typed expressions", lines: 568, category: "functional", difficulty: "advanced" },
+    { name: "game_ai", title: "Game AI", desc: "Minimax with alpha-beta pruning — tic-tac-toe, connect-four AI", lines: 857, category: "algorithms", difficulty: "intermediate" },
+    { name: "gc_simulator", title: "GC Simulator", desc: "Garbage collector simulator — mark-sweep, copying, generational collection", lines: 1139, category: "systems", difficulty: "advanced" },
+    { name: "genetic", title: "Genetic Algorithm", desc: "Evolutionary optimization — selection, crossover, mutation, fitness landscapes", lines: 1176, category: "algorithms", difficulty: "intermediate" },
+    { name: "geometry", title: "Computational Geometry", desc: "Convex hull, line intersection, polygon area, point-in-polygon, Voronoi", lines: 588, category: "math", difficulty: "intermediate" },
+    { name: "graph_db", title: "Property Graph Engine", desc: "Graph database with Cypher-like queries, property storage, traversals", lines: 1005, category: "data-structures", difficulty: "advanced" },
+    { name: "graph", title: "Graph Algorithms", desc: "BFS, DFS, topological sort, cycle detection, connected components", lines: 329, category: "algorithms", difficulty: "intermediate" },
+    { name: "hamt", title: "HAMT", desc: "Hash Array Mapped Trie — persistent hash map with structural sharing", lines: 823, category: "data-structures", difficulty: "advanced" },
+    { name: "hashmap", title: "Hash Map", desc: "Persistent functional hash map with separate chaining", lines: 265, category: "data-structures", difficulty: "intermediate" },
+    { name: "heap", title: "Priority Queue", desc: "Leftist min-heap — efficient merge, insert, extract-min", lines: 317, category: "data-structures", difficulty: "intermediate" },
+    { name: "hello", title: "Hello OCaml", desc: "Variables, types, string formatting, pattern matching basics", lines: 42, category: "basics", difficulty: "beginner" },
+    { name: "huffman", title: "Huffman Coding", desc: "Lossless data compression — tree building, encoding, decoding", lines: 360, category: "algorithms", difficulty: "intermediate" },
+    { name: "incremental", title: "Incremental Computation", desc: "Self-adjusting computation — automatic change propagation, memoized recomputation", lines: 852, category: "functional", difficulty: "advanced" },
+    { name: "integration", title: "Symbolic Integration", desc: "Symbolic integration engine — pattern matching on mathematical expressions", lines: 1017, category: "math", difficulty: "advanced" },
+    { name: "interval_tree", title: "Interval Tree", desc: "Augmented AVL tree for efficient interval queries — overlap, containment", lines: 263, category: "data-structures", difficulty: "intermediate" },
+    { name: "json", title: "JSON Parser", desc: "Complete JSON parser built with parser combinators — recursive descent", lines: 613, category: "parsing", difficulty: "intermediate" },
+    { name: "kd_tree", title: "k-d Tree", desc: "k-dimensional binary search tree — spatial queries, nearest neighbor", lines: 808, category: "data-structures", difficulty: "advanced" },
+    { name: "lambda", title: "Lambda Calculus", desc: "Untyped lambda calculus interpreter — beta reduction, Church encodings", lines: 800, category: "compilers", difficulty: "advanced" },
+    { name: "list_last_elem", title: "Last Element", desc: "Find the last element of a list using pattern matching", lines: 17, category: "basics", difficulty: "beginner" },
+    { name: "lru_cache", title: "LRU Cache", desc: "Least Recently Used cache — O(1) get/put with doubly linked list + hash map", lines: 206, category: "data-structures", difficulty: "intermediate" },
+    { name: "lsystem", title: "L-Systems", desc: "Lindenmayer systems — fractal generation, turtle graphics, botanical modeling", lines: 728, category: "simulation", difficulty: "intermediate" },
+    { name: "matrix", title: "Matrix Operations", desc: "Linear algebra — multiply, transpose, determinant, inverse, LU decomposition", lines: 699, category: "math", difficulty: "intermediate" },
+    { name: "memoize", title: "Memoization", desc: "Memoization combinators — transparent caching for recursive functions", lines: 289, category: "functional", difficulty: "beginner" },
+    { name: "mergesort", title: "Merge Sort", desc: "Merge sort on lists — divide and conquer with stable ordering", lines: 45, category: "algorithms", difficulty: "beginner" },
+    { name: "minikanren", title: "miniKanren", desc: "Logic programming engine — unification, search, relational programming", lines: 492, category: "compilers", difficulty: "advanced" },
+    { name: "model_checker", title: "CTL Model Checker", desc: "Model checking for finite-state systems — CTL temporal logic formulas", lines: 802, category: "compilers", difficulty: "advanced" },
+    { name: "monad_transformers", title: "Monad Transformers", desc: "Composing monads — ReaderT, StateT, OptionT, error handling stacks", lines: 879, category: "functional", difficulty: "advanced" },
+    { name: "network_flow", title: "Network Flow", desc: "Max-flow/min-cut — Ford-Fulkerson, Edmonds-Karp, bipartite matching", lines: 726, category: "algorithms", difficulty: "advanced" },
+    { name: "neural_network", title: "Neural Network", desc: "Feedforward neural network with backpropagation — XOR, classification", lines: 555, category: "math", difficulty: "advanced" },
+    { name: "optics", title: "Optics", desc: "Lenses, prisms, traversals — composable accessors for nested data", lines: 498, category: "functional", difficulty: "advanced" },
+    { name: "parser", title: "Parser Combinators", desc: "Build parsers from small pieces — map, bind, choice, many, sep_by", lines: 555, category: "parsing", difficulty: "intermediate" },
+    { name: "peg", title: "PEG Parser", desc: "Parsing Expression Grammar engine — packrat parsing, memoization", lines: 1144, category: "parsing", difficulty: "advanced" },
+    { name: "persistent_vector", title: "Persistent Vector", desc: "Clojure-style immutable array with structural sharing — O(log32 n) operations", lines: 641, category: "data-structures", difficulty: "advanced" },
+    { name: "probability", title: "Probability Monad", desc: "Probability distributions as monads — Monte Carlo simulation, Bayesian inference", lines: 843, category: "math", difficulty: "advanced" },
+    { name: "queue", title: "Functional Queue", desc: "Banker's queue — purely functional O(1) amortized enqueue/dequeue", lines: 366, category: "data-structures", difficulty: "intermediate" },
+    { name: "quickcheck", title: "QuickCheck", desc: "Property-based testing — random test generation, shrinking, counterexamples", lines: 659, category: "testing", difficulty: "intermediate" },
+    { name: "raft", title: "Raft Consensus", desc: "Raft distributed consensus — leader election, log replication, safety", lines: 577, category: "concurrency", difficulty: "advanced" },
+    { name: "random_access_list", title: "Random Access List", desc: "Okasaki's random access list — O(log n) indexing on persistent list", lines: 621, category: "data-structures", difficulty: "advanced" },
+    { name: "raytracer", title: "Raytracer", desc: "Ray tracing renderer — spheres, planes, reflections, shadows, PPM output", lines: 523, category: "simulation", difficulty: "intermediate" },
+    { name: "rbtree", title: "Red-Black Tree", desc: "Self-balancing BST — guaranteed O(log n) operations with color invariants", lines: 306, category: "data-structures", difficulty: "intermediate" },
+    { name: "regex", title: "Regex Engine", desc: "Regular expression engine — Thompson NFA construction, matching, captures", lines: 725, category: "parsing", difficulty: "advanced" },
+    { name: "relational", title: "Relational Algebra", desc: "Mini relational algebra engine — select, project, join, union, difference", lines: 811, category: "compilers", difficulty: "advanced" },
+    { name: "rope", title: "Rope", desc: "Rope data structure — efficient string concatenation, split, index", lines: 353, category: "data-structures", difficulty: "intermediate" },
+    { name: "sat_solver", title: "SAT Solver", desc: "DPLL algorithm — Boolean satisfiability with unit propagation and backtracking", lines: 389, category: "algorithms", difficulty: "advanced" },
+    { name: "segment_tree", title: "Segment Tree", desc: "Efficient range queries (sum, min, max) and point updates in O(log n)", lines: 159, category: "data-structures", difficulty: "intermediate" },
+    { name: "signal_processing", title: "Signal Processing", desc: "FFT, convolution, spectral analysis, windowing functions", lines: 496, category: "math", difficulty: "advanced" },
+    { name: "skip_list", title: "Skip List", desc: "Probabilistic skip list — O(log n) search with random tower heights", lines: 300, category: "data-structures", difficulty: "intermediate" },
+    { name: "sorting", title: "Sorting Algorithms", desc: "Quicksort, insertion sort, selection sort — comparison and analysis", lines: 265, category: "algorithms", difficulty: "beginner" },
+    { name: "spreadsheet", title: "Spreadsheet Engine", desc: "Spreadsheet with formulas, cell references, dependency graph, recalculation", lines: 1737, category: "systems", difficulty: "advanced" },
+    { name: "stm", title: "Software Transactional Memory", desc: "STM with retry, orElse — composable atomic transactions", lines: 581, category: "concurrency", difficulty: "advanced" },
+    { name: "stream", title: "Lazy Streams", desc: "Infinite lazy sequences — on-demand evaluation, memoized thunks", lines: 326, category: "functional", difficulty: "intermediate" },
+    { name: "string_match", title: "String Matching", desc: "KMP, Rabin-Karp, Boyer-Moore — efficient pattern matching algorithms", lines: 961, category: "algorithms", difficulty: "advanced" },
+    { name: "suffix_array", title: "Suffix Array", desc: "Suffix array with LCP — efficient string search and substring queries", lines: 246, category: "data-structures", difficulty: "intermediate" },
+    { name: "tensor", title: "Tensor Operations", desc: "Multi-dimensional arrays — broadcasting, slicing, element-wise operations", lines: 1232, category: "math", difficulty: "advanced" },
+    { name: "term_rewriting", title: "Term Rewriting", desc: "Term rewriting systems — pattern matching, substitution, normal forms", lines: 1099, category: "compilers", difficulty: "advanced" },
+    { name: "theorem_prover", title: "Theorem Prover", desc: "Propositional theorem prover via natural deduction — automated reasoning", lines: 849, category: "compilers", difficulty: "advanced" },
+    { name: "trie", title: "Trie", desc: "Prefix tree — efficient string storage, prefix search, autocomplete", lines: 282, category: "data-structures", difficulty: "intermediate" },
+    { name: "type_infer", title: "Type Inference", desc: "Hindley-Milner type inference engine — unification, generalization, let-polymorphism", lines: 476, category: "compilers", difficulty: "advanced" },
+    { name: "union_find", title: "Union-Find", desc: "Persistent disjoint sets — path compression, union by rank", lines: 182, category: "data-structures", difficulty: "intermediate" },
+    { name: "zipper", title: "Zipper", desc: "Functional zipper — navigate and modify trees with O(1) local updates", lines: 956, category: "functional", difficulty: "advanced" },
+];
+
+const CATEGORIES = {
+    "all": { label: "All", icon: "📚" },
+    "basics": { label: "Basics", icon: "🖐" },
+    "data-structures": { label: "Data Structures", icon: "🏗️" },
+    "algorithms": { label: "Algorithms", icon: "⚡" },
+    "functional": { label: "Functional", icon: "λ" },
+    "parsing": { label: "Parsing", icon: "🧩" },
+    "math": { label: "Math & Science", icon: "📐" },
+    "compilers": { label: "Compilers & PL", icon: "⚙️" },
+    "concurrency": { label: "Concurrency", icon: "🔄" },
+    "simulation": { label: "Simulation", icon: "🎮" },
+    "systems": { label: "Systems", icon: "🖥️" },
+    "testing": { label: "Testing", icon: "✅" },
+};
+
+const STORAGE_KEY = 'ocaml-study-progress';
+
+function escapeHtml(s) {
+    if (typeof s !== 'string') return String(s);
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Progress data: { completed: { name: dateStr }, notes: { name: text }, studyDays: [dateStr...] }
+function loadProgress() {
+    try {
+        const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (d && typeof d === 'object') {
+            d.completed = d.completed || {};
+            d.notes = d.notes || {};
+            d.studyDays = d.studyDays || [];
+            return d;
+        }
+    } catch(_) {}
+    return { completed: {}, notes: {}, studyDays: [] };
+}
+
+function saveProgress(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(_) {}
+}
+
+let progress = loadProgress();
+let activeCategory = 'all';
+let statusFilter = 'all'; // all, completed, pending
+let currentNoteExample = null;
+
+function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function recordStudyDay() {
+    const today = todayStr();
+    if (!progress.studyDays.includes(today)) {
+        progress.studyDays.push(today);
+        saveProgress(progress);
+    }
+}
+
+function toggleComplete(name) {
+    if (progress.completed[name]) {
+        delete progress.completed[name];
+    } else {
+        progress.completed[name] = todayStr();
+        recordStudyDay();
+    }
+    saveProgress(progress);
+    renderAll();
+}
+
+function openNoteModal(name) {
+    currentNoteExample = name;
+    const ex = EXAMPLES.find(e => e.name === name);
+    document.getElementById('note-modal-title').textContent = `Notes — ${ex ? ex.title : name}`;
+    document.getElementById('note-textarea').value = progress.notes[name] || '';
+    document.getElementById('note-modal').classList.add('visible');
+    document.getElementById('note-textarea').focus();
+}
+
+function closeNoteModal() {
+    document.getElementById('note-modal').classList.remove('visible');
+    currentNoteExample = null;
+}
+
+function saveNote() {
+    if (!currentNoteExample) return;
+    const text = document.getElementById('note-textarea').value.trim();
+    if (text) {
+        progress.notes[currentNoteExample] = text;
+    } else {
+        delete progress.notes[currentNoteExample];
+    }
+    saveProgress(progress);
+    closeNoteModal();
+    renderAll();
+}
+
+function clearNote() {
+    document.getElementById('note-textarea').value = '';
+}
+
+function computeStreak() {
+    const days = [...progress.studyDays].sort().reverse();
+    if (days.length === 0) return 0;
+    let streak = 0;
+    let check = new Date();
+    // Allow today or yesterday as start
+    const todayS = todayStr();
+    const yesterdayS = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    if (!days.includes(todayS) && !days.includes(yesterdayS)) return 0;
+    
+    for (let i = 0; i < 365; i++) {
+        const ds = check.toISOString().slice(0, 10);
+        if (days.includes(ds)) {
+            streak++;
+        } else if (i > 0) {
+            break;
+        }
+        check = new Date(check.getTime() - 86400000);
+    }
+    return streak;
+}
+
+function renderDashboard() {
+    const total = EXAMPLES.length;
+    const done = Object.keys(progress.completed).length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const streak = computeStreak();
+    const noteCount = Object.keys(progress.notes).length;
+    const linesStudied = EXAMPLES.filter(e => progress.completed[e.name]).reduce((s, e) => s + e.lines, 0);
+
+    document.getElementById('dashboard').innerHTML = `
+        <div class="dash-card"><div class="big">${done}/${total}</div><div class="label">Examples Completed</div></div>
+        <div class="dash-card"><div class="big">${pct}%</div><div class="label">Overall Progress</div></div>
+        <div class="dash-card streak"><div class="big">🔥 ${streak}</div><div class="label">Day Streak</div></div>
+        <div class="dash-card"><div class="big">${linesStudied.toLocaleString()}</div><div class="label">Lines Studied</div></div>
+        <div class="dash-card"><div class="big">${noteCount}</div><div class="label">Notes Written</div></div>
+    `;
+}
+
+function renderStreakCalendar() {
+    const container = document.getElementById('streak-calendar');
+    const today = new Date();
+    let html = '';
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(today.getTime() - i * 86400000);
+        const ds = d.toISOString().slice(0, 10);
+        const isActive = progress.studyDays.includes(ds);
+        const isToday = i === 0;
+        html += `<div class="streak-day${isActive ? ' active' : ''}${isToday ? ' today' : ''}" title="${ds}${isActive ? ' ✓' : ''}"></div>`;
+    }
+    container.innerHTML = html;
+}
+
+function renderCategoryProgress() {
+    const cats = Object.entries(CATEGORIES).filter(([k]) => k !== 'all');
+    let html = '';
+    for (const [key, cat] of cats) {
+        const total = EXAMPLES.filter(e => e.category === key).length;
+        if (total === 0) continue;
+        const done = EXAMPLES.filter(e => e.category === key && progress.completed[e.name]).length;
+        const pct = Math.round((done / total) * 100);
+        html += `<div class="cat-bar-row">
+            <span class="cat-label">${cat.icon} ${escapeHtml(cat.label)}</span>
+            <div class="cat-bar"><div class="cat-fill" style="width:${pct}%"></div></div>
+            <span class="cat-pct">${done}/${total}</span>
+        </div>`;
+    }
+    document.getElementById('cat-bars').innerHTML = html;
+}
+
+function renderFilters() {
+    // Status filters
+    const sf = document.getElementById('status-filters');
+    sf.innerHTML = ['all', 'pending', 'completed'].map(s => 
+        `<button class="filter-btn${statusFilter === s ? ' active' : ''}" data-status="${s}">${s === 'all' ? '📚 All' : s === 'completed' ? '✅ Done' : '⏳ To Do'}</button>`
+    ).join('');
+
+    // Category filters
+    const cf = document.getElementById('cat-filters');
+    const counts = {};
+    EXAMPLES.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
+    counts.all = EXAMPLES.length;
+    cf.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) =>
+        `<button class="filter-btn${activeCategory === key ? ' active' : ''}" data-category="${escapeHtml(key)}">${cat.icon} ${escapeHtml(cat.label)} (${counts[key] || 0})</button>`
+    ).join('');
+}
+
+function renderExampleList() {
+    const query = document.getElementById('search').value.toLowerCase();
+    let filtered = EXAMPLES.filter(ex => {
+        if (activeCategory !== 'all' && ex.category !== activeCategory) return false;
+        if (statusFilter === 'completed' && !progress.completed[ex.name]) return false;
+        if (statusFilter === 'pending' && progress.completed[ex.name]) return false;
+        if (query) {
+            return ex.name.includes(query) || ex.title.toLowerCase().includes(query) ||
+                   ex.desc.toLowerCase().includes(query) || ex.category.includes(query);
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        document.getElementById('example-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-dim)">No examples match your filters.</div>';
+        return;
+    }
+
+    document.getElementById('example-list').innerHTML = filtered.map(ex => {
+        const isDone = !!progress.completed[ex.name];
+        const hasNote = !!progress.notes[ex.name];
+        const catInfo = CATEGORIES[ex.category] || { icon: '', label: ex.category };
+        return `<div class="example-row${isDone ? ' completed' : ''}">
+            <input type="checkbox" class="ex-check" ${isDone ? 'checked' : ''} data-name="${escapeHtml(ex.name)}" title="Mark as ${isDone ? 'not studied' : 'studied'}">
+            <div class="ex-info">
+                <div class="ex-title">${escapeHtml(ex.title)}</div>
+                <div class="ex-desc">${escapeHtml(ex.desc)}</div>
+            </div>
+            <div class="ex-meta">
+                <span class="ex-badge badge-${escapeHtml(ex.difficulty)}">${escapeHtml(ex.difficulty)}</span>
+                <span class="ex-cat">${catInfo.icon} ${escapeHtml(catInfo.label)}</span>
+                <span class="ex-lines">${ex.lines} LOC</span>
+                <button class="note-btn${hasNote ? ' has-note' : ''}" data-note="${escapeHtml(ex.name)}" title="${hasNote ? 'Edit note' : 'Add note'}">📝</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderAll() {
+    renderDashboard();
+    renderStreakCalendar();
+    renderCategoryProgress();
+    renderFilters();
+    renderExampleList();
+}
+
+function exportProgress() {
+    const blob = new Blob([JSON.stringify(progress, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ocaml-study-progress.json'; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importProgress(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data && typeof data === 'object') {
+                progress = { completed: data.completed || {}, notes: data.notes || {}, studyDays: data.studyDays || [] };
+                saveProgress(progress);
+                renderAll();
+            }
+        } catch(_) { alert('Invalid JSON file.'); }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+function resetProgress() {
+    if (!confirm('Reset all progress? This cannot be undone.')) return;
+    progress = { completed: {}, notes: {}, studyDays: [] };
+    saveProgress(progress);
+    renderAll();
+}
+
+// Event delegation
+document.getElementById('example-list').addEventListener('click', (e) => {
+    const check = e.target.closest('.ex-check');
+    if (check) { toggleComplete(check.dataset.name); return; }
+    const noteBtn = e.target.closest('.note-btn');
+    if (noteBtn) { openNoteModal(noteBtn.dataset.note); return; }
+});
+
+document.getElementById('example-list').addEventListener('change', (e) => {
+    const check = e.target.closest('.ex-check');
+    if (check) { toggleComplete(check.dataset.name); }
+});
+
+document.getElementById('status-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (btn) { statusFilter = btn.dataset.status; renderAll(); }
+});
+
+document.getElementById('cat-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (btn) { activeCategory = btn.dataset.category; renderAll(); }
+});
+
+document.getElementById('search').addEventListener('input', renderExampleList);
+
+document.getElementById('note-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('note-modal')) closeNoteModal();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNoteModal();
+});
+
+// Init
+renderAll();
+</script>
+</body>
+</html>
