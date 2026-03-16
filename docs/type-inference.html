@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type Inference Playground — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .playground { max-width: 720px; }
+
+        .score-bar {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding: 1rem 1.25rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .score-item { text-align: center; }
+        .score-item .label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+        .score-item .value { font-size: 1.6rem; font-weight: 700; color: var(--accent2); }
+        .score-item .value.correct { color: var(--accent3); }
+        .score-item .value.wrong { color: var(--accent); }
+
+        .difficulty-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .diff-tab {
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+        }
+        .diff-tab:hover { border-color: var(--accent2); color: var(--text); }
+        .diff-tab.active { background: var(--accent2); color: #1a1b26; border-color: var(--accent2); font-weight: 600; }
+
+        .challenge-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .challenge-num {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+        }
+        .challenge-code {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            margin-bottom: 1rem;
+            white-space: pre-wrap;
+        }
+        .challenge-prompt {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        .answer-input {
+            width: 100%;
+            padding: 0.6rem 0.85rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--code-bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.87rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .answer-input:focus { border-color: var(--accent2); }
+        .answer-input:disabled { opacity: 0.6; }
+
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .btn {
+            padding: 0.5rem 1.1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .btn-check { background: var(--accent2); color: #1a1b26; }
+        .btn-check:hover { filter: brightness(1.1); }
+        .btn-reveal { background: var(--surface-hover); color: var(--text-dim); border: 1px solid var(--border); }
+        .btn-reveal:hover { color: var(--text); border-color: var(--accent2); }
+        .btn-next { background: var(--accent3); color: #1a1b26; }
+        .btn-next:hover { filter: brightness(1.1); }
+
+        .feedback {
+            margin-top: 0.75rem;
+            padding: 0.6rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.87rem;
+            display: none;
+        }
+        .feedback.correct { display: block; background: rgba(158,206,106,0.12); border: 1px solid var(--accent3); color: var(--accent3); }
+        .feedback.wrong { display: block; background: rgba(247,118,142,0.12); border: 1px solid var(--accent); color: var(--accent); }
+        .feedback.revealed { display: block; background: rgba(224,175,104,0.12); border: 1px solid var(--accent4); color: var(--accent4); }
+
+        .hint-text {
+            margin-top: 0.5rem;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            font-style: italic;
+            display: none;
+        }
+        .hint-text.show { display: block; }
+
+        .progress-bar-outer {
+            height: 6px;
+            background: var(--surface-hover);
+            border-radius: 3px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent2), var(--accent3));
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .explanation {
+            margin-top: 0.5rem;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--accent3);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            display: none;
+        }
+        .summary-card h2 { color: var(--accent3); font-size: 1.5rem; margin-bottom: 1rem; }
+        .summary-grade { font-size: 3rem; font-weight: 700; margin: 0.5rem 0; }
+        .summary-detail { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Examples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Learning</div>
+            <a href="explorer.html" class="nav-link">📂 Explorer</a>
+            <a href="learning-path.html" class="nav-link">🗺️ Learning Path</a>
+            <a href="concepts.html" class="nav-link">📖 Concepts</a>
+            <a href="concept-map.html" class="nav-link">🕸️ Concept Map</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Practice</div>
+            <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+            <a href="quiz.html" class="nav-link">❓ Quiz</a>
+            <a href="type-inference.html" class="nav-link active">🔍 Type Inference</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="complexity.html" class="nav-link">⏱️ Complexity</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container playground">
+            <header>
+                <h1>🔍 Type Inference Playground</h1>
+                <p class="subtitle">Practice reading OCaml expressions and inferring their types. Can you think like the compiler?</p>
+            </header>
+
+            <div class="score-bar">
+                <div class="score-item"><div class="label">Question</div><div class="value" id="qNum">1</div></div>
+                <div class="score-item"><div class="label">Correct</div><div class="value correct" id="scoreCorrect">0</div></div>
+                <div class="score-item"><div class="label">Wrong</div><div class="value wrong" id="scoreWrong">0</div></div>
+                <div class="score-item"><div class="label">Streak</div><div class="value" id="streak">0</div></div>
+            </div>
+
+            <div class="difficulty-tabs">
+                <button class="diff-tab active" data-level="beginner">🌱 Beginner</button>
+                <button class="diff-tab" data-level="intermediate">🌿 Intermediate</button>
+                <button class="diff-tab" data-level="advanced">🌳 Advanced</button>
+                <button class="diff-tab" data-level="all">All</button>
+            </div>
+
+            <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div>
+
+            <div class="challenge-card" id="challengeCard">
+                <div class="challenge-num" id="challengeNum">Question 1 of 10</div>
+                <div class="challenge-code" id="challengeCode"></div>
+                <div class="challenge-prompt">What is the type of this expression?</div>
+                <input type="text" class="answer-input" id="answerInput" placeholder="e.g. int -> int -> int" autocomplete="off">
+                <div class="hint-text" id="hintText"></div>
+                <div class="btn-row">
+                    <button class="btn btn-check" id="btnCheck" onclick="checkAnswer()">Check</button>
+                    <button class="btn btn-reveal" id="btnHint" onclick="showHint()">Hint</button>
+                    <button class="btn btn-reveal" id="btnReveal" onclick="revealAnswer()">Reveal</button>
+                    <button class="btn btn-next" id="btnNext" onclick="nextQuestion()" style="display:none">Next →</button>
+                </div>
+                <div class="feedback" id="feedback"></div>
+                <div class="explanation" id="explanation"></div>
+            </div>
+
+            <div class="summary-card" id="summaryCard">
+                <h2>🎉 Round Complete!</h2>
+                <div class="summary-grade" id="summaryGrade"></div>
+                <div class="summary-detail" id="summaryDetail"></div>
+                <button class="btn btn-next" onclick="startNewRound()">Play Again</button>
+            </div>
+
+            <footer>
+                <p>Part of <a href="index.html">OCaml Sample Code</a> — learn by doing.</p>
+            </footer>
+        </div>
+    </main>
+
+<script>
+const CHALLENGES = [
+    // Beginner
+    { code: '42', answer: 'int', alts: ['int'], hint: 'Integer literals have a simple numeric type.', explanation: 'Integer literals in OCaml are always of type int.', level: 'beginner' },
+    { code: '3.14', answer: 'float', alts: ['float'], hint: 'Decimal point means a floating-point number.', explanation: 'Numbers with decimal points are float in OCaml.', level: 'beginner' },
+    { code: '"hello"', answer: 'string', alts: ['string'], hint: 'Quoted text is a string.', explanation: 'String literals are enclosed in double quotes.', level: 'beginner' },
+    { code: 'true', answer: 'bool', alts: ['bool'], hint: 'A logical value — true or false.', explanation: 'true and false are the two values of type bool.', level: 'beginner' },
+    { code: "'x'", answer: 'char', alts: ['char'], hint: "Single quotes delimit a single character.", explanation: "Single-character literals like 'x' have type char.", level: 'beginner' },
+    { code: '()', answer: 'unit', alts: ['unit'], hint: 'The "nothing" value in OCaml.', explanation: '() is the sole value of the unit type, used where no meaningful value is needed.', level: 'beginner' },
+    { code: '[1; 2; 3]', answer: 'int list', alts: ['int list'], hint: 'A list of integers.', explanation: 'All elements must have the same type. A list of ints is int list.', level: 'beginner' },
+    { code: '(1, "two")', answer: 'int * string', alts: ['int * string', '(int * string)'], hint: 'A pair of values of different types.', explanation: 'Tuples have product types. (int, string) → int * string.', level: 'beginner' },
+    { code: 'fun x -> x + 1', answer: 'int -> int', alts: ['int -> int'], hint: 'A function that takes an int and returns an int.', explanation: 'The + operator constrains x to int, and x + 1 is also int.', level: 'beginner' },
+    { code: 'fun x -> x', answer: "'a -> 'a", alts: ["'a -> 'a", "a -> a"], hint: 'The identity function — works on any type.', explanation: "No constraints on x, so it's polymorphic: 'a -> 'a.", level: 'beginner' },
+    { code: 'not', answer: 'bool -> bool', alts: ['bool -> bool'], hint: 'A built-in boolean function.', explanation: 'not negates a boolean value: bool -> bool.', level: 'beginner' },
+    { code: '1 + 2', answer: 'int', alts: ['int'], hint: 'Adding two integers.', explanation: 'The + operator works on ints and returns int.', level: 'beginner' },
+    { code: '1.0 +. 2.0', answer: 'float', alts: ['float'], hint: 'The +. operator is for floats.', explanation: '+. is the float addition operator, returning float.', level: 'beginner' },
+    { code: 'if true then 1 else 0', answer: 'int', alts: ['int'], hint: 'Both branches return integers.', explanation: 'if/then/else requires both branches to have the same type. Both are int.', level: 'beginner' },
+
+    // Intermediate
+    { code: 'fun x y -> x + y', answer: 'int -> int -> int', alts: ['int -> int -> int'], hint: 'A curried function adding two values.', explanation: 'Both x and y are constrained to int by +. The curried type is int -> int -> int.', level: 'intermediate' },
+    { code: 'fun f x -> f x', answer: "('a -> 'b) -> 'a -> 'b", alts: ["('a -> 'b) -> 'a -> 'b", "('a->'b)->'a->'b"], hint: 'f is a function, x is its argument.', explanation: "f must be a function 'a -> 'b, x must be 'a, result is 'b.", level: 'intermediate' },
+    { code: 'fun f g x -> f (g x)', answer: "('b -> 'c) -> ('a -> 'b) -> 'a -> 'c", alts: ["('b -> 'c) -> ('a -> 'b) -> 'a -> 'c", "('a -> 'b) -> ('c -> 'a) -> 'c -> 'b"], hint: 'Function composition: apply g, then f.', explanation: "g takes 'a → 'b, f takes 'b → 'c, so composed: 'a → 'c.", level: 'intermediate' },
+    { code: 'List.map', answer: "('a -> 'b) -> 'a list -> 'b list", alts: ["('a -> 'b) -> 'a list -> 'b list"], hint: 'Apply a function to every element of a list.', explanation: "List.map transforms each element with a function, changing 'a list to 'b list.", level: 'intermediate' },
+    { code: 'List.filter', answer: "('a -> bool) -> 'a list -> 'a list", alts: ["('a -> bool) -> 'a list -> 'a list"], hint: 'Keep elements that satisfy a predicate.', explanation: "filter takes a predicate ('a -> bool) and returns a sublist of the same type.", level: 'intermediate' },
+    { code: 'List.fold_left', answer: "('a -> 'b -> 'a) -> 'a -> 'b list -> 'a", alts: ["('a -> 'b -> 'a) -> 'a -> 'b list -> 'a", "('acc -> 'a -> 'acc) -> 'acc -> 'a list -> 'acc"], hint: 'Left fold: accumulate a value across a list.', explanation: "fold_left takes a reducer, initial accumulator, and list, producing the final accumulator.", level: 'intermediate' },
+    { code: 'fun (a, b) -> (b, a)', answer: "'a * 'b -> 'b * 'a", alts: ["'a * 'b -> 'b * 'a", "('a * 'b) -> ('b * 'a)"], hint: 'Swapping a pair.', explanation: "Takes a tuple of ('a, 'b) and returns ('b, 'a).", level: 'intermediate' },
+    { code: 'Some 42', answer: 'int option', alts: ['int option'], hint: 'Wrapping a value in an option.', explanation: 'Some wraps a value, so Some 42 : int option.', level: 'intermediate' },
+    { code: 'None', answer: "'a option", alts: ["'a option", "option"], hint: 'The empty option — polymorphic.', explanation: "None has no value to constrain its type, so it's 'a option.", level: 'intermediate' },
+    { code: 'ref 0', answer: 'int ref', alts: ['int ref'], hint: 'Creating a mutable reference.', explanation: 'ref 0 creates a reference cell holding an int.', level: 'intermediate' },
+    { code: 'fun x -> (x, x)', answer: "'a -> 'a * 'a", alts: ["'a -> 'a * 'a"], hint: 'Duplicating a value into a pair.', explanation: "x is unconstrained, so it's 'a. Result is 'a * 'a.", level: 'intermediate' },
+    { code: 'fun lst -> List.length lst > 0', answer: "'a list -> bool", alts: ["'a list -> bool"], hint: 'Checking if a list is non-empty.', explanation: "List.length works on any list, > returns bool.", level: 'intermediate' },
+    { code: 'Array.make', answer: "int -> 'a -> 'a array", alts: ["int -> 'a -> 'a array"], hint: 'Create an array of n copies.', explanation: "Array.make takes a length (int) and a fill value ('a), returning 'a array.", level: 'intermediate' },
+    { code: 'let f = fun x -> x in (f 1, f "hi")', answer: 'int * string', alts: ['int * string', '(int * string)'], hint: 'The identity function used at two types.', explanation: 'let-polymorphism allows f to be used as int->int and string->string. Result: int * string.', level: 'intermediate' },
+
+    // Advanced
+    { code: 'fun f -> f f', answer: 'type error', alts: ['type error', 'error', 'does not type', 'ill-typed'], hint: 'Can a function be applied to itself?', explanation: 'Self-application requires f : \'a -> \'b where \'a = \'a -> \'b — infinite type. This is a type error in OCaml.', level: 'advanced' },
+    { code: 'fun f x -> f (f x)', answer: "('a -> 'a) -> 'a -> 'a", alts: ["('a -> 'a) -> 'a -> 'a"], hint: 'f is applied twice — input and output types must unify.', explanation: "f x must have the same type as x for f (f x) to work, so f : 'a -> 'a.", level: 'advanced' },
+    { code: 'fun f g x -> (f x, g x)', answer: "('a -> 'b) -> ('a -> 'c) -> 'a -> 'b * 'c", alts: ["('a -> 'b) -> ('a -> 'c) -> 'a -> 'b * 'c"], hint: 'Apply two functions to the same argument.', explanation: "Both f and g take x:'a. f returns 'b, g returns 'c. Result: 'b * 'c.", level: 'advanced' },
+    { code: 'let rec fix f = f (fix f)', answer: "('a -> 'a) -> 'a", alts: ["('a -> 'a) -> 'a"], hint: 'A fixed-point combinator.', explanation: "fix f = f (fix f) means fix f : 'a and f : 'a -> 'a, so fix : ('a -> 'a) -> 'a.", level: 'advanced' },
+    { code: 'fun k -> k (fun x -> x)', answer: "(('a -> 'a) -> 'b) -> 'b", alts: ["(('a -> 'a) -> 'b) -> 'b"], hint: 'Passing the identity function to a continuation.', explanation: "k receives (fun x -> x) : 'a -> 'a, so k : ('a -> 'a) -> 'b, and the whole thing returns 'b.", level: 'advanced' },
+    { code: 'let id x = x in id id', answer: "'a -> 'a", alts: ["'a -> 'a"], hint: 'Identity applied to itself — but with let-polymorphism.', explanation: "With let-polymorphism, id has type 'a -> 'a. id id instantiates to ('b -> 'b) -> ('b -> 'b), yielding 'a -> 'a.", level: 'advanced' },
+    { code: 'List.map List.length', answer: "'a list list -> int list", alts: ["'a list list -> int list"], hint: 'Partial application of map with length.', explanation: "List.length : 'a list -> int. List.map with that gives 'a list list -> int list.", level: 'advanced' },
+    { code: 'fun x -> raise (Failure x)', answer: "string -> 'a", alts: ["string -> 'a"], hint: 'Raising an exception — what is the return type?', explanation: "Failure takes a string. raise never returns, so its type is exn -> 'a. Combined: string -> 'a.", level: 'advanced' },
+    { code: 'fun (type a) (x : a) -> x', answer: "'a -> 'a", alts: ["'a -> 'a", "a -> a"], hint: 'A locally abstract type annotation.', explanation: "Locally abstract types produce polymorphic functions. This is the identity: 'a -> 'a.", level: 'advanced' },
+    { code: 'let rec map f = function\n  | [] -> []\n  | x :: xs -> f x :: map f xs', answer: "('a -> 'b) -> 'a list -> 'b list", alts: ["('a -> 'b) -> 'a list -> 'b list"], hint: 'A hand-written map function.', explanation: "f transforms elements from 'a to 'b. The list changes from 'a list to 'b list.", level: 'advanced' },
+    { code: 'Hashtbl.create', answer: "int -> ('a, 'b) Hashtbl.t", alts: ["int -> ('a, 'b) Hashtbl.t", "int -> ('a,'b) Hashtbl.t"], hint: 'Creating an empty hash table with initial size.', explanation: "Hashtbl.create takes an int (initial size) and returns a polymorphic hash table.", level: 'advanced' },
+    { code: 'fun f -> List.map f [1;2;3]', answer: "(int -> 'a) -> 'a list", alts: ["(int -> 'a) -> 'a list"], hint: 'The list fixes the input type of f.', explanation: "The list is int list, so f : int -> 'a. Result is 'a list.", level: 'advanced' },
+];
+
+let currentLevel = 'beginner';
+let pool = [];
+let currentIndex = 0;
+let correct = 0, wrong = 0, streakVal = 0;
+let answered = false;
+
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function filterPool() {
+    const all = currentLevel === 'all' ? CHALLENGES : CHALLENGES.filter(c => c.level === currentLevel);
+    pool = shuffle(all).slice(0, Math.min(10, all.length));
+    currentIndex = 0;
+    correct = 0; wrong = 0; streakVal = 0;
+    updateScore();
+    document.getElementById('summaryCard').style.display = 'none';
+    document.getElementById('challengeCard').style.display = 'block';
+    showQuestion();
+}
+
+function showQuestion() {
+    if (currentIndex >= pool.length) { showSummary(); return; }
+    const q = pool[currentIndex];
+    document.getElementById('challengeNum').textContent = `Question ${currentIndex + 1} of ${pool.length} · ${q.level}`;
+    document.getElementById('challengeCode').textContent = q.code;
+    document.getElementById('answerInput').value = '';
+    document.getElementById('answerInput').disabled = false;
+    document.getElementById('answerInput').focus();
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('explanation').textContent = '';
+    document.getElementById('hintText').className = 'hint-text';
+    document.getElementById('hintText').textContent = '';
+    document.getElementById('btnCheck').style.display = '';
+    document.getElementById('btnHint').style.display = '';
+    document.getElementById('btnReveal').style.display = '';
+    document.getElementById('btnNext').style.display = 'none';
+    document.getElementById('progressBar').style.width = ((currentIndex / pool.length) * 100) + '%';
+    answered = false;
+}
+
+function normalize(s) {
+    return s.replace(/\s+/g, ' ').trim().toLowerCase().replace(/[()]/g, '');
+}
+
+function checkAnswer() {
+    if (answered) return;
+    const q = pool[currentIndex];
+    const userAns = document.getElementById('answerInput').value.trim();
+    if (!userAns) return;
+    const norm = normalize(userAns);
+    const match = [q.answer, ...q.alts].some(a => normalize(a) === norm);
+
+    answered = true;
+    document.getElementById('answerInput').disabled = true;
+    const fb = document.getElementById('feedback');
+    if (match) {
+        correct++;
+        streakVal++;
+        fb.className = 'feedback correct';
+        fb.textContent = '✅ Correct!';
+    } else {
+        wrong++;
+        streakVal = 0;
+        fb.className = 'feedback wrong';
+        fb.textContent = `❌ The answer is: ${q.answer}`;
+    }
+    document.getElementById('explanation').textContent = q.explanation;
+    document.getElementById('btnCheck').style.display = 'none';
+    document.getElementById('btnHint').style.display = 'none';
+    document.getElementById('btnReveal').style.display = 'none';
+    document.getElementById('btnNext').style.display = '';
+    updateScore();
+}
+
+function showHint() {
+    const q = pool[currentIndex];
+    const h = document.getElementById('hintText');
+    h.textContent = '💡 ' + q.hint;
+    h.className = 'hint-text show';
+}
+
+function revealAnswer() {
+    if (answered) return;
+    answered = true;
+    const q = pool[currentIndex];
+    wrong++;
+    streakVal = 0;
+    document.getElementById('answerInput').disabled = true;
+    const fb = document.getElementById('feedback');
+    fb.className = 'feedback revealed';
+    fb.textContent = `Answer: ${q.answer}`;
+    document.getElementById('explanation').textContent = q.explanation;
+    document.getElementById('btnCheck').style.display = 'none';
+    document.getElementById('btnHint').style.display = 'none';
+    document.getElementById('btnReveal').style.display = 'none';
+    document.getElementById('btnNext').style.display = '';
+    updateScore();
+}
+
+function nextQuestion() {
+    currentIndex++;
+    showQuestion();
+}
+
+function updateScore() {
+    document.getElementById('qNum').textContent = currentIndex + 1;
+    document.getElementById('scoreCorrect').textContent = correct;
+    document.getElementById('scoreWrong').textContent = wrong;
+    document.getElementById('streak').textContent = streakVal;
+}
+
+function showSummary() {
+    document.getElementById('challengeCard').style.display = 'none';
+    document.getElementById('progressBar').style.width = '100%';
+    const pct = pool.length > 0 ? Math.round((correct / pool.length) * 100) : 0;
+    let grade = pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F';
+    let emoji = pct >= 90 ? '🏆' : pct >= 70 ? '👍' : '📚';
+    document.getElementById('summaryGrade').textContent = `${emoji} ${pct}%`;
+    document.getElementById('summaryGrade').style.color = pct >= 70 ? 'var(--accent3)' : 'var(--accent)';
+    document.getElementById('summaryDetail').textContent = `${correct}/${pool.length} correct — Grade ${grade}`;
+    document.getElementById('summaryCard').style.display = 'block';
+}
+
+function startNewRound() { filterPool(); }
+
+// Difficulty tabs
+document.querySelectorAll('.diff-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.diff-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentLevel = tab.dataset.level;
+        filterPool();
+    });
+});
+
+// Enter key to check
+document.getElementById('answerInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        if (answered) nextQuestion();
+        else checkAnswer();
+    }
+});
+
+// Init
+filterPool();
+</script>
+</body>
+</html>
