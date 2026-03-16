@@ -3,353 +3,501 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Complexity Cheat Sheet — OCaml Sample Code</title>
-<link rel="stylesheet" href="style.css">
+<title>OCaml Algorithm &amp; Data Structure Complexity Reference</title>
 <style>
-/* Cheat sheet specific styles */
-.controls {
-    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-}
-.controls input, .controls select {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem;
-}
-.controls input { flex: 1; min-width: 200px; }
-.controls select { min-width: 140px; }
-.controls input:focus, .controls select:focus { outline: none; border-color: var(--accent2); }
-
-.complexity-table {
-    width: 100%; border-collapse: collapse; font-size: 0.85rem;
-}
-.complexity-table th {
-    text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid var(--border);
-    color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase;
-    letter-spacing: 0.05em; cursor: pointer; user-select: none; white-space: nowrap;
-}
-.complexity-table th:hover { color: var(--accent2); }
-.complexity-table th .arrow { margin-left: 4px; font-size: 0.7rem; }
-.complexity-table td {
-    padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border);
-}
-.complexity-table tr:hover td { background: var(--surface-hover); }
-.complexity-table td a { color: var(--accent2); text-decoration: none; }
-.complexity-table td a:hover { text-decoration: underline; }
-
-.big-o { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem; font-weight: 600; }
-.o-1 { color: var(--accent3); }
-.o-logn { color: #73daca; }
-.o-n { color: var(--accent2); }
-.o-nlogn { color: var(--accent4); }
-.o-n2 { color: var(--accent); }
-.o-n3 { color: #ff5370; }
-.o-2n { color: #ff5370; }
-.o-nk { color: var(--accent); }
-
-.cat-badge {
-    font-size: 0.7rem; padding: 2px 8px; border-radius: 999px;
-    border: 1px solid var(--border); display: inline-block; white-space: nowrap;
-}
-.cat-data-structure { color: var(--accent2); border-color: rgba(122,162,247,0.3); }
-.cat-sorting { color: var(--accent3); border-color: rgba(158,206,106,0.3); }
-.cat-graph { color: var(--accent4); border-color: rgba(224,175,104,0.3); }
-.cat-search { color: #73daca; border-color: rgba(115,218,202,0.3); }
-.cat-tree { color: #bb9af7; border-color: rgba(187,154,247,0.3); }
-.cat-string { color: #7dcfff; border-color: rgba(125,207,255,0.3); }
-.cat-math { color: var(--accent); border-color: rgba(247,118,142,0.3); }
-.cat-ai-ml { color: #ff9e64; border-color: rgba(255,158,100,0.3); }
-.cat-parsing { color: #c0caf5; border-color: rgba(192,202,245,0.3); }
-.cat-concurrency { color: #e0af68; border-color: rgba(224,175,104,0.3); }
-.cat-functional { color: #9ece6a; border-color: rgba(158,206,106,0.3); }
-
-.stats-row {
-    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;
-}
-.stat-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 1rem 1.25rem; flex: 1; min-width: 120px; text-align: center;
-}
-.stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent2); }
-.stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem; }
-
-.legend {
-    display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-    padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px;
-    border: 1px solid var(--border); font-size: 0.8rem;
-}
-.legend-item { display: flex; align-items: center; gap: 0.35rem; }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-.match-count { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem; }
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;--text2:#8b949e;--accent:#58a6ff;--green:#3fb950;--yellow:#d29922;--orange:#db6d28;--red:#f85149;--purple:#bc8cff}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:20px}
+h1{text-align:center;font-size:1.8em;margin-bottom:4px;color:#fff}
+.subtitle{text-align:center;color:var(--text2);margin-bottom:24px;font-size:.95em}
+.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;align-items:center}
+.controls input{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:.9em;width:280px}
+.controls select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:.9em}
+.stats{text-align:center;color:var(--text2);font-size:.85em;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;max-width:1400px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color .2s}
+.card:hover{border-color:var(--accent)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.card-title{font-weight:600;font-size:1.05em;color:#fff}
+.card-file{font-size:.75em;color:var(--text2);font-family:monospace}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7em;font-weight:600;text-transform:uppercase}
+.cat-ds{background:#1f3a2a;color:var(--green)}
+.cat-algo{background:#2a1f1f;color:var(--orange)}
+.cat-math{background:#2a2a1f;color:var(--yellow)}
+.cat-lang{background:#1f1f3a;color:var(--purple)}
+.cat-sys{background:#1f2a3a;color:var(--accent)}
+.cat-ai{background:#3a1f2a;color:var(--red)}
+.complexity-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.cx{font-size:.78em;padding:3px 8px;border-radius:4px;font-family:'SF Mono',Monaco,monospace}
+.cx-best{background:#1a3a1a;color:var(--green)}
+.cx-avg{background:#3a3a1a;color:var(--yellow)}
+.cx-worst{background:#3a1a1a;color:var(--red)}
+.cx-space{background:#1a2a3a;color:var(--accent)}
+.ops{margin-top:8px;font-size:.82em;color:var(--text2)}
+.ops strong{color:var(--text);font-weight:500}
+.desc{font-size:.82em;color:var(--text2);margin-top:6px;line-height:1.5}
+.legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;font-size:.8em;color:var(--text2)}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.sort-label{color:var(--text2);font-size:.85em}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.controls{flex-direction:column;align-items:stretch}.controls input{width:100%}}
 </style>
 </head>
 <body>
-<nav class="sidebar">
-    <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Examples</a></div>
-    <div class="nav-section">
-        <div class="nav-title">Reference</div>
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="explorer.html" class="nav-link">Explorer</a>
-        <a href="complexity.html" class="nav-link active">Complexity</a>
-        <a href="learning-path.html" class="nav-link">Learning Path</a>
-        <a href="concepts.html" class="nav-link">Concepts</a>
-        <a href="setup.html" class="nav-link">Setup</a>
-    </div>
-</nav>
-<div class="content">
-<div class="container">
-
-<header>
-    <h1>⚡ Complexity Cheat Sheet</h1>
-    <p class="subtitle">Big-O time & space complexity for every algorithm and data structure in this collection</p>
-</header>
-
-<div class="stats-row" id="stats"></div>
+<h1>🔬 Algorithm &amp; Data Structure Complexity Reference</h1>
+<p class="subtitle">Big-O complexities for all implementations in this repository</p>
 
 <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div> O(1)</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#73daca"></div> O(log n)</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div> O(n)</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent4)"></div> O(n log n)</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> O(n²)+</div>
+<span><span class="dot" style="background:var(--green)"></span> Best Case</span>
+<span><span class="dot" style="background:var(--yellow)"></span> Average</span>
+<span><span class="dot" style="background:var(--red)"></span> Worst Case</span>
+<span><span class="dot" style="background:var(--accent)"></span> Space</span>
 </div>
 
 <div class="controls">
-    <input type="text" id="search" placeholder="Search algorithms, operations, categories…">
-    <select id="catFilter"><option value="">All Categories</option></select>
-    <select id="complexityFilter">
-        <option value="">All Complexities</option>
-        <option value="O(1)">O(1)</option>
-        <option value="O(log n)">O(log n)</option>
-        <option value="O(n)">O(n)</option>
-        <option value="O(n log n)">O(n log n)</option>
-        <option value="O(n²)">O(n²)+</option>
-    </select>
-    <select id="sortBy">
-        <option value="name">Sort: Name</option>
-        <option value="best">Sort: Best→Worst</option>
-        <option value="worst">Sort: Worst→Best</option>
-        <option value="category">Sort: Category</option>
-    </select>
+<input type="text" id="search" placeholder="🔍 Search algorithms, operations..." autocomplete="off">
+<select id="catFilter"><option value="">All Categories</option></select>
+<select id="cxFilter">
+<option value="">All Complexities</option>
+<option value="O(1)">O(1)</option>
+<option value="O(log n)">O(log n)</option>
+<option value="O(n)">O(n)</option>
+<option value="O(n log n)">O(n log n)</option>
+<option value="O(n²)">O(n²)</option>
+<option value="O(2ⁿ)">O(2ⁿ)</option>
+</select>
+<span class="sort-label">Sort:</span>
+<select id="sortBy">
+<option value="name">Name</option>
+<option value="complexity">Complexity (best→worst)</option>
+<option value="category">Category</option>
+</select>
 </div>
-
-<div class="match-count" id="matchCount"></div>
-
-<table class="complexity-table">
-<thead>
-<tr>
-    <th>Algorithm / Structure</th>
-    <th>Category</th>
-    <th>Operation</th>
-    <th>Time (Avg)</th>
-    <th>Time (Worst)</th>
-    <th>Space</th>
-    <th>File</th>
-</tr>
-</thead>
-<tbody id="tableBody"></tbody>
-</table>
-
-<footer><p>Part of <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">OCaml Sample Code</a></p></footer>
-</div></div>
+<div class="stats" id="stats"></div>
+<div class="grid" id="grid"></div>
 
 <script>
 const DATA = [
   // Data Structures
-  { name:"Hash Map", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"hashmap.ml" },
-  { name:"Binary Search Tree", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log n)", worst:"O(n)", space:"O(n)", file:"bst.ml" },
-  { name:"Red-Black Tree", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"rbtree.ml" },
-  { name:"B-Tree", cat:"Data Structure", op:"insert / search / delete", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"btree.ml" },
-  { name:"Heap (Binary)", cat:"Data Structure", op:"insert / extract-min", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"heap.ml" },
-  { name:"Queue (Functional)", cat:"Data Structure", op:"enqueue / dequeue", avg:"O(1)*", worst:"O(n)", space:"O(n)", file:"queue.ml" },
-  { name:"Deque", cat:"Data Structure", op:"push / pop (both ends)", avg:"O(1)*", worst:"O(n)", space:"O(n)", file:"deque.ml" },
-  { name:"Trie", cat:"Data Structure", op:"insert / lookup", avg:"O(k)", worst:"O(k)", space:"O(n·k)", file:"trie.ml" },
-  { name:"Skip List", cat:"Data Structure", op:"insert / search / delete", avg:"O(log n)", worst:"O(n)", space:"O(n log n)", file:"skip_list.ml" },
-  { name:"Bloom Filter", cat:"Data Structure", op:"add / query", avg:"O(k)", worst:"O(k)", space:"O(m)", file:"bloom_filter.ml" },
-  { name:"LRU Cache", cat:"Data Structure", op:"get / put", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"lru_cache.ml" },
-  { name:"Rope", cat:"Data Structure", op:"concat / index / split", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"rope.ml" },
-  { name:"Finger Tree", cat:"Data Structure", op:"push / concat / split", avg:"O(1)* / O(log n)", worst:"O(log n)", space:"O(n)", file:"finger_tree.ml" },
-  { name:"Persistent Vector", cat:"Data Structure", op:"get / set / append", avg:"O(log₃₂ n)", worst:"O(log₃₂ n)", space:"O(n)", file:"persistent_vector.ml" },
-  { name:"HAMT", cat:"Data Structure", op:"insert / lookup / delete", avg:"O(log₃₂ n)", worst:"O(log₃₂ n)", space:"O(n)", file:"hamt.ml" },
-  { name:"Random Access List", cat:"Data Structure", op:"cons / head / lookup", avg:"O(1) / O(log n)", worst:"O(log n)", space:"O(n)", file:"random_access_list.ml" },
-  { name:"Union-Find", cat:"Data Structure", op:"find / union", avg:"O(α(n))", worst:"O(α(n))", space:"O(n)", file:"union_find.ml" },
-  { name:"Segment Tree", cat:"Tree", op:"query / update", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"segment_tree.ml" },
-  { name:"Interval Tree", cat:"Tree", op:"insert / query", avg:"O(log n)", worst:"O(n + k)", space:"O(n)", file:"interval_tree.ml" },
-  { name:"Fenwick Tree (BIT)", cat:"Tree", op:"update / prefix sum", avg:"O(log n)", worst:"O(log n)", space:"O(n)", file:"fenwick_tree.ml" },
-  { name:"KD-Tree", cat:"Tree", op:"insert / nearest neighbor", avg:"O(log n)", worst:"O(n)", space:"O(n)", file:"kd_tree.ml" },
-  { name:"Zipper", cat:"Data Structure", op:"navigate / modify", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"zipper.ml" },
+  {name:"Binary Search Tree",file:"bst.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(n)",space:"O(n)",
+   ops:"insert, search, delete, in-order traversal",
+   desc:"Classic BST with recursive insert/search. Degrades to O(n) on sorted input."},
+  {name:"Red-Black Tree",file:"rbtree.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"insert, search, delete, rebalance",
+   desc:"Self-balancing BST with color invariants guaranteeing O(log n) operations."},
+  {name:"B-Tree",file:"btree.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"insert, search, split, merge",
+   desc:"Multi-way balanced tree for disk-oriented storage. Configurable order."},
+  {name:"Trie",file:"trie.ml",cat:"ds",
+   best:"O(k)",avg:"O(k)",worst:"O(k)",space:"O(n·k)",
+   ops:"insert, search, prefix search, delete, autocomplete",
+   desc:"Prefix tree for string operations. k = key length. O(k) per operation."},
+  {name:"Skip List",file:"skip_list.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(n)",space:"O(n log n)",
+   ops:"insert, search, delete, range query",
+   desc:"Probabilistic multi-level linked list. Expected O(log n) via random levels."},
+  {name:"Heap",file:"heap.ml",cat:"ds",
+   best:"O(1) find-min",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"insert, extract-min, merge, heapify",
+   desc:"Binary heap with O(1) peek-min and O(log n) insert/extract."},
+  {name:"Hash Map",file:"hashmap.ml",cat:"ds",
+   best:"O(1)",avg:"O(1)",worst:"O(n)",space:"O(n)",
+   ops:"get, put, delete, resize",
+   desc:"Open-addressing hash table. Amortized O(1) with good hash function."},
+  {name:"LRU Cache",file:"lru_cache.ml",cat:"ds",
+   best:"O(1)",avg:"O(1)",worst:"O(1)",space:"O(n)",
+   ops:"get, put, evict",
+   desc:"Least-recently-used cache with O(1) access via hash + doubly-linked list."},
+  {name:"Bloom Filter",file:"bloom_filter.ml",cat:"ds",
+   best:"O(k)",avg:"O(k)",worst:"O(k)",space:"O(m)",
+   ops:"add, probably_member, false positive rate",
+   desc:"Probabilistic set membership. k = hash functions, m = bit array size. No false negatives."},
+  {name:"Queue",file:"queue.ml",cat:"ds",
+   best:"O(1)",avg:"O(1) amortized",worst:"O(n)",space:"O(n)",
+   ops:"enqueue, dequeue, peek, is_empty",
+   desc:"Functional queue using two-list amortization. O(1) amortized per operation."},
+  {name:"Deque",file:"deque.ml",cat:"ds",
+   best:"O(1)",avg:"O(1) amortized",worst:"O(n)",space:"O(n)",
+   ops:"push_front, push_back, pop_front, pop_back, peek",
+   desc:"Double-ended queue with amortized constant-time operations at both ends."},
+  {name:"Finger Tree",file:"finger_tree.ml",cat:"ds",
+   best:"O(1)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"push, pop, concat, split, measure",
+   desc:"Versatile structure supporting O(1) access at ends, O(log n) split/concat. Supports monoidal annotations."},
+  {name:"Persistent Vector",file:"persistent_vector.ml",cat:"ds",
+   best:"O(1)",avg:"O(log₃₂ n)",worst:"O(log₃₂ n)",space:"O(n)",
+   ops:"get, set, push, pop, slice",
+   desc:"Immutable vector with 32-wide branching trie. Effectively O(1) for practical sizes."},
+  {name:"Rope",file:"rope.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"concat, split, index, insert, delete, substring",
+   desc:"Balanced binary tree for efficient string manipulation. O(log n) concat/split."},
+  {name:"HAMT",file:"hamt.ml",cat:"ds",
+   best:"O(1)",avg:"O(log₃₂ n)",worst:"O(log₃₂ n)",space:"O(n)",
+   ops:"get, put, delete, merge",
+   desc:"Hash Array Mapped Trie — persistent hash map with structural sharing."},
+  {name:"Segment Tree",file:"segment_tree.ml",cat:"ds",
+   best:"O(1)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"build, query, update, range operations",
+   desc:"Supports range queries (sum/min/max) and point updates in O(log n)."},
+  {name:"Fenwick Tree",file:"fenwick_tree.ml",cat:"ds",
+   best:"O(1)",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"update, prefix_sum, range_sum",
+   desc:"Binary Indexed Tree for prefix sums. O(log n) update and query."},
+  {name:"Interval Tree",file:"interval_tree.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n + k)",worst:"O(n + k)",space:"O(n)",
+   ops:"insert, delete, query_point, query_overlap",
+   desc:"Augmented BST for interval queries. k = number of overlapping intervals."},
+  {name:"Suffix Array",file:"suffix_array.ml",cat:"ds",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n log² n)",space:"O(n)",
+   ops:"build, search, LCP array",
+   desc:"Sorted array of all suffixes. Enables fast substring search."},
+  {name:"Union-Find",file:"union_find.ml",cat:"ds",
+   best:"O(α(n))",avg:"O(α(n))",worst:"O(α(n))",space:"O(n)",
+   ops:"find, union, connected",
+   desc:"Disjoint set with path compression + union by rank. α = inverse Ackermann ≈ O(1)."},
+  {name:"Random Access List",file:"random_access_list.ml",cat:"ds",
+   best:"O(1) cons",avg:"O(log n)",worst:"O(log n)",space:"O(n)",
+   ops:"cons, head, tail, lookup, update",
+   desc:"Okasaki's skew binary random access list. O(1) cons, O(log n) index."},
+  {name:"Zipper",file:"zipper.ml",cat:"ds",
+   best:"O(1)",avg:"O(1)",worst:"O(n)",space:"O(n)",
+   ops:"move_left, move_right, insert, delete, focus",
+   desc:"Cursor-based navigation structure. O(1) local movements."},
+  {name:"Stream",file:"stream.ml",cat:"ds",
+   best:"O(1)",avg:"O(1) per element",worst:"O(1) per element",space:"O(1) per step",
+   ops:"head, tail, take, map, filter, zip",
+   desc:"Lazy infinite sequences with memoized thunks."},
+  {name:"CRDT",file:"crdt.ml",cat:"ds",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"update, merge, query, compare",
+   desc:"Conflict-free Replicated Data Types — G-Counter, PN-Counter, OR-Set, LWW-Register."},
+  {name:"K-D Tree",file:"kd_tree.ml",cat:"ds",
+   best:"O(log n)",avg:"O(log n)",worst:"O(n)",space:"O(n)",
+   ops:"insert, nearest_neighbor, range_search, knn",
+   desc:"Space-partitioning tree for multi-dimensional search. O(log n) expected NN query."},
 
-  // Sorting
-  { name:"Merge Sort", cat:"Sorting", op:"sort", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"mergesort.ml" },
-  { name:"Sorting (collection)", cat:"Sorting", op:"sort (multiple algs)", avg:"O(n log n)", worst:"O(n²)", space:"O(n)", file:"sorting.ml" },
+  // Sorting & Searching Algorithms
+  {name:"Merge Sort",file:"mergesort.ml",cat:"algo",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n log n)",space:"O(n)",
+   ops:"sort, merge",
+   desc:"Stable divide-and-conquer sort. Guaranteed O(n log n) in all cases."},
+  {name:"Sorting Collection",file:"sorting.ml",cat:"algo",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n²)",space:"O(log n)–O(n)",
+   ops:"quicksort, mergesort, heapsort, insertion sort",
+   desc:"Multiple sorting algorithms compared — quicksort O(n²) worst, heapsort O(n log n) guaranteed."},
+  {name:"Dijkstra's Algorithm",file:"dijkstra.ml",cat:"algo",
+   best:"O((V+E) log V)",avg:"O((V+E) log V)",worst:"O((V+E) log V)",space:"O(V)",
+   ops:"shortest_path, distances",
+   desc:"Single-source shortest path for non-negative weights using priority queue."},
+  {name:"Graph Algorithms",file:"graph.ml",cat:"algo",
+   best:"O(V+E)",avg:"O(V+E)",worst:"O(V+E)",space:"O(V)",
+   ops:"BFS, DFS, topological sort, connected components",
+   desc:"Standard graph traversals and analysis on adjacency-list representation."},
+  {name:"Network Flow",file:"network_flow.ml",cat:"algo",
+   best:"O(VE²)",avg:"O(VE²)",worst:"O(VE²)",space:"O(V²)",
+   ops:"max_flow, min_cut, Ford-Fulkerson, Edmonds-Karp",
+   desc:"Maximum flow / minimum cut algorithms on flow networks."},
+  {name:"String Matching",file:"string_match.ml",cat:"algo",
+   best:"O(n)",avg:"O(n+m)",worst:"O(nm)",space:"O(m)",
+   ops:"KMP, Boyer-Moore, Rabin-Karp, naive",
+   desc:"Multiple string matching algorithms. KMP/BM achieve O(n+m) with preprocessing."},
+  {name:"Huffman Coding",file:"huffman.ml",cat:"algo",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n log n)",space:"O(n)",
+   ops:"encode, decode, build_tree, frequencies",
+   desc:"Optimal prefix-free compression using greedy frequency-based tree construction."},
+  {name:"Diff Algorithm",file:"diff.ml",cat:"algo",
+   best:"O(n)",avg:"O(nd)",worst:"O(n²)",space:"O(n)",
+   ops:"diff, patch, edit_distance, LCS",
+   desc:"Myers diff algorithm. d = edit distance. Linear for similar sequences."},
+  {name:"Fibonacci",file:"fibonacci.ml",cat:"algo",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(1)–O(n)",
+   ops:"recursive, memoized, iterative, matrix",
+   desc:"Multiple Fibonacci implementations from naive O(2ⁿ) to matrix O(log n)."},
+  {name:"Factorization",file:"factor.ml",cat:"algo",
+   best:"O(√n)",avg:"O(√n)",worst:"O(√n)",space:"O(log n)",
+   ops:"factor, is_prime, prime_factors",
+   desc:"Trial division factorization up to √n."},
 
-  // Graph
-  { name:"Dijkstra's Algorithm", cat:"Graph", op:"shortest path", avg:"O((V+E) log V)", worst:"O((V+E) log V)", space:"O(V)", file:"dijkstra.ml" },
-  { name:"Graph (BFS/DFS/Topo)", cat:"Graph", op:"traversal / topo sort", avg:"O(V + E)", worst:"O(V + E)", space:"O(V)", file:"graph.ml" },
-  { name:"Network Flow", cat:"Graph", op:"max flow (Edmonds-Karp)", avg:"O(V·E²)", worst:"O(V·E²)", space:"O(V²)", file:"network_flow.ml" },
-  { name:"Graph Database", cat:"Graph", op:"add / query / path", avg:"O(1) / O(V+E)", worst:"O(V+E)", space:"O(V+E)", file:"graph_db.ml" },
+  // Parsers & Language
+  {name:"Parser Combinators",file:"parser.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"parse, map, bind, choice, many, seq",
+   desc:"Monadic parser combinators for recursive-descent parsing."},
+  {name:"PEG Parser",file:"peg.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n²)",
+   ops:"parse, packrat, memoize, left_recursion",
+   desc:"Parsing Expression Grammar with packrat memoization for O(n) guaranteed."},
+  {name:"Earley Parser",file:"earley.ml",cat:"lang",
+   best:"O(n)",avg:"O(n²)",worst:"O(n³)",space:"O(n²)",
+   ops:"parse, predict, scan, complete",
+   desc:"General CFG parser. O(n) for LR grammars, O(n³) for ambiguous."},
+  {name:"Lambda Calculus",file:"lambda.ml",cat:"lang",
+   best:"O(n)",avg:"varies",worst:"non-terminating",space:"O(n)",
+   ops:"eval, substitute, alpha_convert, beta_reduce, church_encode",
+   desc:"Untyped lambda calculus interpreter with multiple reduction strategies."},
+  {name:"Type Inference",file:"type_infer.ml",cat:"lang",
+   best:"O(n)",avg:"O(n·α(n))",worst:"O(2^n) theoretical",space:"O(n)",
+   ops:"infer, unify, generalize, instantiate",
+   desc:"Hindley-Milner type inference with Algorithm W. Near-linear in practice."},
+  {name:"Regex Engine",file:"regex.ml",cat:"lang",
+   best:"O(n)",avg:"O(nm)",worst:"O(2ⁿ)",space:"O(m)–O(2ᵐ)",
+   ops:"compile, match, search, NFA, DFA",
+   desc:"NFA-based regex. Thompson construction guarantees O(nm). DFA can be O(n) but O(2ᵐ) space."},
+  {name:"JSON Parser",file:"json.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"parse, serialize, pretty_print, query",
+   desc:"Recursive descent JSON parser/serializer. Linear in input size."},
+  {name:"CSV Parser",file:"csv.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"parse, serialize, filter, transform",
+   desc:"RFC 4180 compliant CSV parser with quoting and escaping."},
+  {name:"SAT Solver",file:"sat_solver.ml",cat:"lang",
+   best:"O(n)",avg:"O(2ⁿ)",worst:"O(2ⁿ)",space:"O(n)",
+   ops:"solve, unit_propagation, DPLL, backtrack",
+   desc:"DPLL-based Boolean satisfiability solver. NP-complete worst case."},
+  {name:"Datalog Engine",file:"datalog.ml",cat:"lang",
+   best:"O(n)",avg:"O(n²)",worst:"O(n³)",space:"O(n²)",
+   ops:"query, assert, retract, stratify, fixpoint",
+   desc:"Bottom-up Datalog evaluator with stratified negation."},
+  {name:"MiniKanren",file:"minikanren.ml",cat:"lang",
+   best:"O(n)",avg:"varies",worst:"non-terminating",space:"O(n)",
+   ops:"run, unify, fresh, conde, appendo",
+   desc:"Relational/logic programming engine. Search-based, potentially infinite."},
+  {name:"Term Rewriting",file:"term_rewriting.ml",cat:"lang",
+   best:"O(n)",avg:"varies",worst:"non-terminating",space:"O(n)",
+   ops:"rewrite, normalize, match, confluence_check",
+   desc:"Term rewriting system with pattern matching and normalization strategies."},
+  {name:"Theorem Prover",file:"theorem_prover.ml",cat:"lang",
+   best:"O(n)",avg:"O(2ⁿ)",worst:"undecidable",space:"O(n)",
+   ops:"prove, assume, derive, tactics",
+   desc:"Proof search engine for first-order logic. Semi-decidable for FOL."},
+  {name:"Bytecode VM",file:"bytecode_vm.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"varies",space:"O(n)",
+   ops:"compile, execute, push, pop, call, return",
+   desc:"Stack-based virtual machine with bytecode compiler. Linear in instruction count."},
+  {name:"Spreadsheet Engine",file:"spreadsheet.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"eval_cell, parse_formula, topological_sort, detect_cycles",
+   desc:"Dependency-tracking formula evaluator with cycle detection."},
+  {name:"Model Checker",file:"model_checker.ml",cat:"lang",
+   best:"O(n)",avg:"O(n·2^k)",worst:"O(n·2^k)",space:"O(2^k)",
+   ops:"check, CTL, LTL, state_space, counterexample",
+   desc:"Temporal logic model checker. Exponential in formula/state-space size."},
+  {name:"Relational Algebra",file:"relational.ml",cat:"lang",
+   best:"O(n)",avg:"O(n log n)",worst:"O(n²)",space:"O(n)",
+   ops:"select, project, join, union, difference, rename",
+   desc:"Relational algebra engine with SQL-like query operations."},
 
-  // String
-  { name:"Regex Engine", cat:"String", op:"match", avg:"O(n·m)", worst:"O(2ⁿ) backtrack", space:"O(m)", file:"regex.ml" },
-  { name:"String Matching", cat:"String", op:"KMP / Rabin-Karp", avg:"O(n + m)", worst:"O(n + m) / O(n·m)", space:"O(m)", file:"string_match.ml" },
-  { name:"Suffix Array", cat:"String", op:"build / search", avg:"O(n log n) / O(m log n)", worst:"O(n log²n)", space:"O(n)", file:"suffix_array.ml" },
-  { name:"Diff (Myers)", cat:"String", op:"edit distance / diff", avg:"O(n·d)", worst:"O(n²)", space:"O(n)", file:"diff.ml" },
+  // Math & Science
+  {name:"Matrix Operations",file:"matrix.ml",cat:"math",
+   best:"O(n²)",avg:"O(n³)",worst:"O(n³)",space:"O(n²)",
+   ops:"multiply, transpose, determinant, inverse, LU decomposition",
+   desc:"Dense matrix operations. Naive multiply O(n³)."},
+  {name:"Calculus",file:"calculus.ml",cat:"math",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"differentiate, integrate, symbolic_simplify",
+   desc:"Symbolic differentiation and numerical integration (Simpson's, trapezoidal)."},
+  {name:"Geometry",file:"geometry.ml",cat:"math",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n²)",space:"O(n)",
+   ops:"convex_hull, line_intersection, point_in_polygon, Voronoi",
+   desc:"Computational geometry primitives. Convex hull via Graham scan."},
+  {name:"Signal Processing",file:"signal_processing.ml",cat:"math",
+   best:"O(n log n)",avg:"O(n log n)",worst:"O(n log n)",space:"O(n)",
+   ops:"FFT, IFFT, convolution, filter, spectral_analysis",
+   desc:"Fast Fourier Transform and signal analysis. FFT in O(n log n)."},
+  {name:"Probability",file:"probability.ml",cat:"math",
+   best:"O(1)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"distributions, bayes, markov_chain, monte_carlo",
+   desc:"Probability distributions, Bayesian inference, and stochastic simulation."},
+  {name:"Numerical Integration",file:"integration.ml",cat:"math",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"trapezoid, simpson, adaptive, gauss_quadrature",
+   desc:"Multiple numerical integration methods with adaptive refinement."},
+  {name:"Tensor Operations",file:"tensor.ml",cat:"math",
+   best:"O(n)",avg:"O(n^k)",worst:"O(n^k)",space:"O(n^k)",
+   ops:"create, reshape, slice, matmul, broadcast, einsum",
+   desc:"N-dimensional tensor algebra. k = number of dimensions."},
+  {name:"Automatic Differentiation",file:"autodiff.ml",cat:"math",
+   best:"O(n)",avg:"O(n)",worst:"O(n·m)",space:"O(n)",
+   ops:"forward_mode, reverse_mode, gradient, jacobian",
+   desc:"Forward and reverse mode autodiff. Reverse mode O(n) for scalar output."},
+  {name:"L-Systems",file:"lsystem.ml",cat:"math",
+   best:"O(n)",avg:"O(k^d)",worst:"O(k^d)",space:"O(k^d)",
+   ops:"iterate, render, turtle_graphics",
+   desc:"Lindenmayer systems for fractal generation. Exponential growth in iterations d."},
+  {name:"Cryptography",file:"crypto.ml",cat:"math",
+   best:"O(n)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"hash, encrypt, decrypt, sign, verify",
+   desc:"Basic cryptographic primitives — hashing, symmetric encryption."},
+  {name:"Abstract Interpretation",file:"abstract_interp.ml",cat:"math",
+   best:"O(n)",avg:"O(n·h)",worst:"O(n·h)",space:"O(n)",
+   ops:"analyze, widen, narrow, fixpoint",
+   desc:"Static analysis via abstract domains. h = lattice height."},
 
-  // Search / Optimization
-  { name:"SAT Solver", cat:"Search", op:"DPLL satisfiability", avg:"varies", worst:"O(2ⁿ)", space:"O(n)", file:"sat_solver.ml" },
-  { name:"Constraint Solver", cat:"Search", op:"backtracking + propagation", avg:"varies", worst:"O(dⁿ)", space:"O(n·d)", file:"constraint.ml" },
-  { name:"MiniKanren", cat:"Search", op:"relational query", avg:"varies", worst:"O(∞)", space:"O(n)", file:"minikanren.ml" },
-  { name:"Datalog", cat:"Search", op:"query evaluation", avg:"O(n^k)", worst:"O(n^k)", space:"O(n^k)", file:"datalog.ml" },
+  // Systems & Concurrency
+  {name:"FSM",file:"fsm.ml",cat:"sys",
+   best:"O(n)",avg:"O(n)",worst:"O(n)",space:"O(s)",
+   ops:"transition, accept, minimize, complement",
+   desc:"Finite state machine simulator. O(n) per input, s = number of states."},
+  {name:"Automata",file:"automata.ml",cat:"sys",
+   best:"O(n)",avg:"O(n)",worst:"O(n·s)",space:"O(s²)",
+   ops:"NFA, DFA, convert, minimize, product",
+   desc:"NFA/DFA construction, subset construction, minimization."},
+  {name:"Raft Consensus",file:"raft.ml",cat:"sys",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"append_entries, request_vote, heartbeat, commit",
+   desc:"Raft distributed consensus protocol. n = cluster size."},
+  {name:"CSP",file:"csp.ml",cat:"sys",
+   best:"O(n)",avg:"O(n)",worst:"deadlock",space:"O(n)",
+   ops:"send, receive, select, parallel, sequential",
+   desc:"Communicating Sequential Processes — channel-based concurrency."},
+  {name:"STM",file:"stm.ml",cat:"sys",
+   best:"O(1)",avg:"O(k)",worst:"O(∞) retry",space:"O(k)",
+   ops:"atomically, read_tvar, write_tvar, retry, or_else",
+   desc:"Software Transactional Memory. k = read/write set size. May retry on conflict."},
+  {name:"Actor Model",file:"actor.ml",cat:"sys",
+   best:"O(1) send",avg:"O(1) per message",worst:"O(n) mailbox",space:"O(n)",
+   ops:"spawn, send, receive, become, supervise",
+   desc:"Actor-based concurrency. Asynchronous message passing."},
+  {name:"Effects System",file:"effects.ml",cat:"sys",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"perform, handle, continue, resume",
+   desc:"Algebraic effects and handlers for composable side effects."},
+  {name:"Incremental Computation",file:"incremental.ml",cat:"sys",
+   best:"O(1) unchanged",avg:"O(k)",worst:"O(n)",space:"O(n)",
+   ops:"observe, stabilize, map, bind, watch",
+   desc:"Self-adjusting computation. k = number of changed dependencies."},
+  {name:"Delimited Continuations",file:"delimited_cont.ml",cat:"sys",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"reset, shift, control, prompt",
+   desc:"First-class delimited continuations for advanced control flow."},
+  {name:"GC Simulator",file:"gc_simulator.ml",cat:"sys",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"mark, sweep, compact, generational, concurrent",
+   desc:"Garbage collection algorithm simulator — mark-sweep, copying, generational."},
 
-  // Math / Numeric
-  { name:"Fibonacci", cat:"Math", op:"nth Fibonacci", avg:"O(n) / O(log n)", worst:"O(n)", space:"O(1)", file:"fibonacci.ml" },
-  { name:"Factor", cat:"Math", op:"prime factorization", avg:"O(√n)", worst:"O(√n)", space:"O(log n)", file:"factor.ml" },
-  { name:"Matrix Operations", cat:"Math", op:"multiply / determinant", avg:"O(n³)", worst:"O(n³)", space:"O(n²)", file:"matrix.ml" },
-  { name:"Calculus (Symbolic)", cat:"Math", op:"differentiate / simplify", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"calculus.ml" },
-  { name:"Integration (Numeric)", cat:"Math", op:"Simpson's / Gauss", avg:"O(n)", worst:"O(n)", space:"O(1)", file:"integration.ml" },
-  { name:"Autodiff", cat:"Math", op:"forward/reverse AD", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"autodiff.ml" },
-  { name:"Probability", cat:"Math", op:"distributions / Bayes", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"probability.ml" },
-  { name:"Tensor", cat:"Math", op:"elementwise / matmul", avg:"O(n) / O(n³)", worst:"O(n³)", space:"O(n)", file:"tensor.ml" },
-  { name:"Huffman Coding", cat:"Math", op:"encode / decode", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"huffman.ml" },
-  { name:"Cryptography", cat:"Math", op:"hash / cipher", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"crypto.ml" },
-  { name:"Signal Processing", cat:"Math", op:"FFT / filter", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"signal_processing.ml" },
+  // AI & ML
+  {name:"Neural Network",file:"neural_network.ml",cat:"ai",
+   best:"O(n·w)",avg:"O(n·w·e)",worst:"O(n·w·e)",space:"O(w)",
+   ops:"forward, backward, train, predict",
+   desc:"Feedforward neural network with backpropagation. w = weights, e = epochs."},
+  {name:"Genetic Algorithm",file:"genetic.ml",cat:"ai",
+   best:"O(p·g)",avg:"O(p·g·n)",worst:"O(p·g·n)",space:"O(p·n)",
+   ops:"evolve, crossover, mutate, select, evaluate",
+   desc:"Evolutionary optimization. p = population, g = generations, n = genome size."},
+  {name:"Game AI",file:"game_ai.ml",cat:"ai",
+   best:"O(b^d) with pruning",avg:"O(b^(d/2))",worst:"O(b^d)",space:"O(d)",
+   ops:"minimax, alpha_beta, mcts, evaluate",
+   desc:"Game tree search with alpha-beta pruning and Monte Carlo Tree Search."},
+  {name:"QuickCheck",file:"quickcheck.ml",cat:"ai",
+   best:"O(t)",avg:"O(t·n)",worst:"O(t·n·s)",space:"O(n)",
+   ops:"generate, test, shrink, for_all",
+   desc:"Property-based testing. t = test count, n = input size, s = shrink steps."},
+  {name:"Constraint Solver",file:"constraint.ml",cat:"ai",
+   best:"O(n)",avg:"O(n·d)",worst:"O(d^n)",space:"O(n·d)",
+   ops:"propagate, backtrack, arc_consistency, solve",
+   desc:"Constraint satisfaction with arc consistency and backtracking. d = domain size."},
+  {name:"Raytracer",file:"raytracer.ml",cat:"ai",
+   best:"O(w·h)",avg:"O(w·h·o)",worst:"O(w·h·o·r)",space:"O(o)",
+   ops:"trace, intersect, shade, reflect, refract",
+   desc:"Ray tracing renderer. w×h pixels, o = objects, r = recursion depth."},
 
-  // AI / ML
-  { name:"Neural Network", cat:"AI/ML", op:"forward / backward pass", avg:"O(n·w)", worst:"O(n·w)", space:"O(w)", file:"neural_network.ml" },
-  { name:"Genetic Algorithm", cat:"AI/ML", op:"evolve generation", avg:"O(p·g·f)", worst:"O(p·g·f)", space:"O(p)", file:"genetic.ml" },
-  { name:"Game AI (Minimax)", cat:"AI/ML", op:"minimax + α-β pruning", avg:"O(b^(d/2))", worst:"O(bᵈ)", space:"O(d)", file:"game_ai.ml" },
-  { name:"Raft Consensus", cat:"AI/ML", op:"leader election / replication", avg:"O(n)", worst:"O(n)", space:"O(n·log)", file:"raft.ml" },
-  { name:"Model Checker", cat:"AI/ML", op:"state space exploration", avg:"O(|S|·|T|)", worst:"O(|S|·|T|)", space:"O(|S|)", file:"model_checker.ml" },
-
-  // Parsing
-  { name:"Parser Combinator", cat:"Parsing", op:"parse", avg:"O(n)", worst:"O(n²)", space:"O(n)", file:"parser.ml" },
-  { name:"PEG Parser", cat:"Parsing", op:"parse (packrat)", avg:"O(n)", worst:"O(n)", space:"O(n·g)", file:"peg.ml" },
-  { name:"Earley Parser", cat:"Parsing", op:"parse (general CFG)", avg:"O(n³)", worst:"O(n³)", space:"O(n²)", file:"earley.ml" },
-  { name:"JSON Parser", cat:"Parsing", op:"parse / serialize", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"json.ml" },
-  { name:"CSV Parser", cat:"Parsing", op:"parse / write", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"csv.ml" },
-  { name:"Lambda Calculus", cat:"Parsing", op:"eval (β-reduction)", avg:"varies", worst:"O(∞)", space:"O(n)", file:"lambda.ml" },
-  { name:"Type Inference", cat:"Parsing", op:"infer (Algorithm W)", avg:"O(n)", worst:"O(2ⁿ)", space:"O(n)", file:"type_infer.ml" },
-  { name:"Theorem Prover", cat:"Parsing", op:"prove / refute", avg:"varies", worst:"O(∞)", space:"O(n)", file:"theorem_prover.ml" },
-  { name:"Term Rewriting", cat:"Parsing", op:"rewrite / normalize", avg:"varies", worst:"O(∞)", space:"O(n)", file:"term_rewriting.ml" },
-
-  // Concurrency
-  { name:"CSP (Channels)", cat:"Concurrency", op:"send / receive / select", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"csp.ml" },
-  { name:"STM", cat:"Concurrency", op:"atomic transaction", avg:"O(1)*", worst:"O(n) retries", space:"O(n)", file:"stm.ml" },
-  { name:"Actor Model", cat:"Concurrency", op:"send / receive", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"actor.ml" },
-
-  // Functional
-  { name:"Free Monad", cat:"Functional", op:"bind / interpret", avg:"O(n)", worst:"O(n²)", space:"O(n)", file:"free_monad.ml" },
-  { name:"Monad Transformers", cat:"Functional", op:"lift / bind", avg:"O(1) per layer", worst:"O(k) layers", space:"O(k)", file:"monad_transformers.ml" },
-  { name:"Optics (Lenses)", cat:"Functional", op:"get / set / over", avg:"O(1)", worst:"O(1)", space:"O(1)", file:"optics.ml" },
-  { name:"Comonad", cat:"Functional", op:"extract / extend", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"comonad.ml" },
-  { name:"Stream (Lazy)", cat:"Functional", op:"head / tail / take", avg:"O(1) / O(k)", worst:"O(k)", space:"O(k)", file:"stream.ml" },
-  { name:"FRP (Signals)", cat:"Functional", op:"map / merge / fold", avg:"O(1) per event", worst:"O(n)", space:"O(n)", file:"frp.ml" },
-  { name:"Delimited Continuations", cat:"Functional", op:"shift / reset", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"delimited_cont.ml" },
-  { name:"Effects (Algebraic)", cat:"Functional", op:"perform / handle", avg:"O(1)", worst:"O(n)", space:"O(n)", file:"effects.ml" },
-  { name:"GADTs", cat:"Functional", op:"construct / match", avg:"O(1)", worst:"O(1)", space:"O(n)", file:"gadts.ml" },
-  { name:"QuickCheck", cat:"Functional", op:"generate / shrink / test", avg:"O(t·n)", worst:"O(t·n·s)", space:"O(n)", file:"quickcheck.ml" },
-  { name:"Memoize", cat:"Functional", op:"memoized call", avg:"O(1) cached", worst:"O(f(n)) miss", space:"O(n)", file:"memoize.ml" },
-  { name:"Spreadsheet", cat:"Functional", op:"eval / topo-sort deps", avg:"O(V+E)", worst:"O(V+E)", space:"O(V)", file:"spreadsheet.ml" },
-
-  // Simulation
-  { name:"Cellular Automata", cat:"AI/ML", op:"step / evolve", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"cellular_automata.ml" },
-  { name:"L-System", cat:"AI/ML", op:"iterate / render", avg:"O(|output|)", worst:"O(kⁿ)", space:"O(|output|)", file:"lsystem.ml" },
-  { name:"Raytracer", cat:"Math", op:"render pixel", avg:"O(w·h·obj)", worst:"O(w·h·obj·bounces)", space:"O(obj)", file:"raytracer.ml" },
-  { name:"GC Simulator", cat:"AI/ML", op:"mark-sweep / compact", avg:"O(n)", worst:"O(n)", space:"O(n)", file:"gc_simulator.ml" },
-  { name:"Bytecode VM", cat:"AI/ML", op:"execute instruction", avg:"O(1) per insn", worst:"O(n)", space:"O(n)", file:"bytecode_vm.ml" },
-  { name:"FSM", cat:"AI/ML", op:"transition / accept", avg:"O(n)", worst:"O(n)", space:"O(|states|)", file:"fsm.ml" },
-  { name:"Automata (NFA→DFA)", cat:"AI/ML", op:"subset construction", avg:"O(2^|Q|·|Σ|)", worst:"O(2^|Q|·|Σ|)", space:"O(2^|Q|)", file:"automata.ml" },
-  { name:"Abstract Interpretation", cat:"AI/ML", op:"analyze program", avg:"O(n·h)", worst:"O(n·h)", space:"O(n)", file:"abstract_interp.ml" },
-  { name:"CRDT", cat:"Concurrency", op:"merge / update", avg:"O(1) / O(n)", worst:"O(n)", space:"O(n)", file:"crdt.ml" },
-  { name:"Relational Algebra", cat:"Search", op:"select / join / project", avg:"O(n) / O(n·m)", worst:"O(n·m)", space:"O(n+m)", file:"relational.ml" },
-  { name:"Geometry (Convex Hull)", cat:"Math", op:"Graham scan", avg:"O(n log n)", worst:"O(n log n)", space:"O(n)", file:"geometry.ml" },
+  // FP Concepts
+  {name:"Free Monad",file:"free_monad.ml",cat:"lang",
+   best:"O(n)",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"pure, lift, bind, interpret, fold",
+   desc:"Free monad for building DSLs. O(n²) naive left-associated binds; use Codensity."},
+  {name:"Monad Transformers",file:"monad_transformers.ml",cat:"lang",
+   best:"O(1) per layer",avg:"O(k)",worst:"O(k)",space:"O(k)",
+   ops:"lift, run, StateT, ReaderT, ExceptT, WriterT",
+   desc:"Monad transformer stack for composing effects. k = stack depth."},
+  {name:"Optics",file:"optics.ml",cat:"lang",
+   best:"O(1)",avg:"O(1)",worst:"O(n)",space:"O(1)",
+   ops:"view, set, over, lens, prism, traversal",
+   desc:"Functional lenses and prisms for immutable data access/update."},
+  {name:"Comonads",file:"comonad.ml",cat:"lang",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"extract, extend, duplicate, coflatMap",
+   desc:"Comonadic computations — Store, Env, Traced, Stream comonads."},
+  {name:"GADTs",file:"gadts.ml",cat:"lang",
+   best:"O(1)",avg:"O(n)",worst:"O(n)",space:"O(n)",
+   ops:"type-safe eval, match, construct",
+   desc:"Generalized Algebraic Data Types for type-safe embedded DSLs."},
+  {name:"FRP",file:"frp.ml",cat:"lang",
+   best:"O(1) per event",avg:"O(n)",worst:"O(n²)",space:"O(n)",
+   ops:"signal, event, map, merge, sample, switch",
+   desc:"Functional Reactive Programming — signals, events, behaviors."},
+  {name:"Memoization",file:"memoize.ml",cat:"algo",
+   best:"O(1) cached",avg:"O(1) cached",worst:"O(f(n)) first call",space:"O(n)",
+   ops:"memoize, fix, cache, invalidate",
+   desc:"Function result caching. First call costs O(f(n)), subsequent O(1) lookup."},
+  {name:"Cellular Automata",file:"cellular_automata.ml",cat:"math",
+   best:"O(n)",avg:"O(n·g)",worst:"O(n·g)",space:"O(n)",
+   ops:"step, evolve, render, rule",
+   desc:"1D/2D cellular automata (Rule 110, Game of Life). n = cells, g = generations."},
+  {name:"Graph Database",file:"graph_db.ml",cat:"sys",
+   best:"O(1)",avg:"O(V+E)",worst:"O(V·E)",space:"O(V+E)",
+   ops:"add_node, add_edge, query, pattern_match, path_find",
+   desc:"Property graph database with pattern matching and traversal queries."},
 ];
 
-const COMPLEXITY_ORDER = {"O(1)":1,"O(1)*":1,"O(α(n))":1.5,"O(k)":2,"O(1) / O(log n)":2.5,"O(log n)":3,"O(log₃₂ n)":3,
-  "O(1)* / O(log n)":3,"O(n)":5,"O(1) cached":1,"O(n + m)":5.5,"O(n·d)":6,"O(n log n)":7,"O(n³)":10,
-  "O(n²)":9,"O(V + E)":5,"O(V+E)":5,"O((V+E) log V)":7,"O(V·E²)":11,"O(n·w)":8,"O(b^(d/2))":12,
-  "O(bᵈ)":13,"O(2ⁿ)":14,"O(∞)":15,"varies":8,"O(√n)":4,"O(n·m)":9,"O(t·n)":8,"O(t·n·s)":9,
-  "O(|S|·|T|)":10,"O(|output|)":8,"O(kⁿ)":14,"O(2^|Q|·|Σ|)":14,"O(n·h)":8,"O(dⁿ)":14,
-  "O(n^k)":12,"O(p·g·f)":8,"O(m log n)":7,"O(n log²n)":7.5,"O(w·h·obj)":10,"O(w·h·obj·bounces)":11,
-  "O(1) per layer":1,"O(k) layers":2,"O(1) per event":1,"O(1) per insn":1,"O(f(n)) miss":8,
-  "O(n) retries":5,"O(n) / O(n³)":8,"O(n) / O(log n)":4,"O(2ⁿ) backtrack":14,"O(n·m) / O(n + m)":6};
+const CX_ORDER={"O(1)":1,"O(α(n))":1.5,"O(k)":2,"O(log n)":3,"O(log₃₂ n)":3,"O(n)":4,"O(n·α(n))":4.5,"O(n log n)":5,"O(n²)":6,"O(n³)":7,"O(2ⁿ)":8,"O(n!)":9,"varies":7,"non-terminating":10,"undecidable":10};
+function cxRank(s){for(let k in CX_ORDER)if(s&&s.includes(k))return CX_ORDER[k];return 5;}
 
-function getOrder(c) { return COMPLEXITY_ORDER[c] || 8; }
-
-function colorClass(c) {
-    const o = getOrder(c);
-    if (o <= 1.5) return 'o-1';
-    if (o <= 3.5) return 'o-logn';
-    if (o <= 5.5) return 'o-n';
-    if (o <= 7.5) return 'o-nlogn';
-    if (o <= 9.5) return 'o-n2';
-    return 'o-2n';
-}
-
-function catClass(c) { return 'cat-' + c.toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-'); }
-
-// Prevent XSS — escape data before interpolating into innerHTML
-function escapeHtml(s) {
-    if (typeof s !== 'string') return String(s);
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+const CAT_LABELS={ds:"Data Structure",algo:"Algorithm",math:"Math & Science",lang:"Language & FP",sys:"Systems & Concurrency",ai:"AI & ML"};
+const CAT_CLASS={ds:"cat-ds",algo:"cat-algo",math:"cat-math",lang:"cat-lang",sys:"cat-sys",ai:"cat-ai"};
 
 // Populate category filter
-const cats = [...new Set(DATA.map(d => d.cat))].sort();
-const catSel = document.getElementById('catFilter');
-cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+const cats=new Set(DATA.map(d=>d.cat));
+const catSel=document.getElementById('catFilter');
+[...cats].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=CAT_LABELS[c]||c;catSel.appendChild(o);});
 
-function render() {
-    const q = document.getElementById('search').value.toLowerCase();
-    const cat = catSel.value;
-    const comp = document.getElementById('complexityFilter').value;
-    const sort = document.getElementById('sortBy').value;
+function render(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const cat=catSel.value;
+  const cx=document.getElementById('cxFilter').value;
+  const sort=document.getElementById('sortBy').value;
 
-    let filtered = DATA.filter(d => {
-        if (cat && d.cat !== cat) return false;
-        if (q && !(d.name.toLowerCase().includes(q) || d.cat.toLowerCase().includes(q) || d.op.toLowerCase().includes(q) || d.file.toLowerCase().includes(q))) return false;
-        if (comp) {
-            if (comp === 'O(n²)') { if (getOrder(d.avg) < 9 && getOrder(d.worst) < 9) return false; }
-            else { if (!d.avg.includes(comp) && !d.worst.includes(comp)) return false; }
-        }
-        return true;
-    });
+  let items=DATA.filter(d=>{
+    if(cat&&d.cat!==cat)return false;
+    if(cx){const all=[d.best,d.avg,d.worst,d.space].join(' ');if(!all.includes(cx))return false;}
+    if(q){const hay=(d.name+' '+d.ops+' '+d.desc+' '+d.file).toLowerCase();if(!hay.includes(q))return false;}
+    return true;
+  });
 
-    if (sort === 'best') filtered.sort((a,b) => getOrder(a.avg) - getOrder(b.avg));
-    else if (sort === 'worst') filtered.sort((a,b) => getOrder(b.worst) - getOrder(a.worst));
-    else if (sort === 'category') filtered.sort((a,b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name));
-    else filtered.sort((a,b) => a.name.localeCompare(b.name));
+  if(sort==='complexity')items.sort((a,b)=>cxRank(a.avg)-cxRank(b.avg));
+  else if(sort==='category')items.sort((a,b)=>a.cat.localeCompare(b.cat)||a.name.localeCompare(b.name));
+  else items.sort((a,b)=>a.name.localeCompare(b.name));
 
-    document.getElementById('matchCount').textContent = `Showing ${filtered.length} of ${DATA.length} entries`;
+  document.getElementById('stats').textContent=`Showing ${items.length} of ${DATA.length} entries`;
 
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = filtered.map(d => `<tr>
-        <td><strong>${escapeHtml(d.name)}</strong></td>
-        <td><span class="cat-badge ${catClass(d.cat)}">${escapeHtml(d.cat)}</span></td>
-        <td style="color:var(--text-dim);font-size:0.82rem">${escapeHtml(d.op)}</td>
-        <td><span class="big-o ${colorClass(d.avg)}">${escapeHtml(d.avg)}</span></td>
-        <td><span class="big-o ${colorClass(d.worst)}">${escapeHtml(d.worst)}</span></td>
-        <td><span class="big-o ${colorClass(d.space)}">${escapeHtml(d.space)}</span></td>
-        <td><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/${encodeURI(d.file)}">${escapeHtml(d.file)}</a></td>
-    </tr>`).join('');
-
-    // Stats
-    const catCounts = {};
-    filtered.forEach(d => { catCounts[d.cat] = (catCounts[d.cat]||0)+1; });
-    const topCat = Object.entries(catCounts).sort((a,b)=>b[1]-a[1])[0];
-    const o1Count = filtered.filter(d => getOrder(d.avg) <= 1.5).length;
-    document.getElementById('stats').innerHTML = `
-        <div class="stat-card"><div class="stat-num">${filtered.length}</div><div class="stat-label">Algorithms</div></div>
-        <div class="stat-card"><div class="stat-num">${Object.keys(catCounts).length}</div><div class="stat-label">Categories</div></div>
-        <div class="stat-card"><div class="stat-num">${o1Count}</div><div class="stat-label">O(1) Average</div></div>
-        <div class="stat-card"><div class="stat-num">${topCat ? escapeHtml(topCat[0]) : '—'}</div><div class="stat-label">Most Entries</div></div>
-    `;
+  const grid=document.getElementById('grid');
+  grid.innerHTML=items.map(d=>`
+    <div class="card">
+      <div class="card-header">
+        <div><span class="card-title">${d.name}</span><br><span class="card-file">${d.file}</span></div>
+        <span class="badge ${CAT_CLASS[d.cat]}">${CAT_LABELS[d.cat]}</span>
+      </div>
+      <div class="complexity-row">
+        <span class="cx cx-best" title="Best case">⚡ ${d.best}</span>
+        <span class="cx cx-avg" title="Average">📊 ${d.avg}</span>
+        <span class="cx cx-worst" title="Worst case">🔥 ${d.worst}</span>
+        <span class="cx cx-space" title="Space">💾 ${d.space}</span>
+      </div>
+      <div class="ops"><strong>Operations:</strong> ${d.ops}</div>
+      <div class="desc">${d.desc}</div>
+    </div>
+  `).join('');
 }
 
-document.getElementById('search').addEventListener('input', render);
-document.getElementById('catFilter').addEventListener('change', render);
-document.getElementById('complexityFilter').addEventListener('change', render);
-document.getElementById('sortBy').addEventListener('change', render);
+document.getElementById('search').addEventListener('input',render);
+catSel.addEventListener('change',render);
+document.getElementById('cxFilter').addEventListener('change',render);
+document.getElementById('sortBy').addEventListener('change',render);
 render();
 </script>
 </body>
