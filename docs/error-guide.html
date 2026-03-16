@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCaml Error Guide — Common Compiler Errors Explained</title>
+<style>
+:root {
+    --bg: #1a1b26;
+    --surface: #24283b;
+    --surface-hover: #2a2f45;
+    --border: #414868;
+    --text: #c0caf5;
+    --text-dim: #565f89;
+    --accent: #f7768e;
+    --accent2: #7aa2f7;
+    --accent3: #9ece6a;
+    --accent4: #e0af68;
+    --code-bg: #1a1b26;
+    --error: #f7768e;
+    --warning: #e0af68;
+    --info: #7aa2f7;
+    --success: #9ece6a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+.header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.header h1 {
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+.header h1 span { color: var(--text-dim); font-weight: 400; font-size: 1rem; margin-left: 8px; }
+.controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.search-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    width: 260px;
+}
+.search-box:focus { outline: none; border-color: var(--accent2); }
+.filter-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+.filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(122,162,247,0.1);
+}
+.stats-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 32px;
+    display: flex;
+    gap: 24px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+.stats-bar .stat-val { color: var(--accent2); font-weight: 600; }
+.container { max-width: 1000px; margin: 0 auto; padding: 24px 32px; }
+.error-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.error-card:hover { border-color: var(--accent2); }
+.error-header {
+    padding: 16px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+}
+.error-header:hover { background: var(--surface-hover); }
+.severity-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.severity-error .severity-dot { background: var(--error); }
+.severity-warning .severity-dot { background: var(--warning); }
+.severity-info .severity-dot { background: var(--info); }
+.error-title {
+    flex: 1;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    color: var(--accent);
+}
+.error-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(122,162,247,0.15);
+    color: var(--accent2);
+}
+.tag.beginner { background: rgba(158,206,106,0.15); color: var(--accent3); }
+.tag.intermediate { background: rgba(224,175,104,0.15); color: var(--accent4); }
+.tag.advanced { background: rgba(247,118,142,0.15); color: var(--accent); }
+.chevron {
+    color: var(--text-dim);
+    transition: transform 0.2s;
+    font-size: 0.8rem;
+}
+.error-card.open .chevron { transform: rotate(90deg); }
+.error-body {
+    display: none;
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--border);
+}
+.error-card.open .error-body { display: block; padding-top: 16px; }
+.section-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 16px 0 6px;
+}
+.section-label:first-child { margin-top: 0; }
+.explanation { color: var(--text); font-size: 0.9rem; line-height: 1.7; }
+pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin: 6px 0;
+}
+.code-bad { border-left: 3px solid var(--error); }
+.code-good { border-left: 3px solid var(--success); }
+.code-output { border-left: 3px solid var(--warning); }
+.tip-box {
+    background: rgba(158,206,106,0.08);
+    border: 1px solid rgba(158,206,106,0.25);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 0.85rem;
+}
+.tip-box strong { color: var(--accent3); }
+.no-results {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+}
+@media (max-width: 700px) {
+    .header { padding: 16px; }
+    .container { padding: 16px; }
+    .search-box { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🔴 OCaml Error Guide <span>— Common Compiler Errors Explained</span></h1>
+    <div class="controls">
+        <input class="search-box" type="text" id="search" placeholder="Search errors, messages, keywords..." autocomplete="off">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="error">Errors</button>
+        <button class="filter-btn" data-filter="warning">Warnings</button>
+        <button class="filter-btn" data-filter="beginner">Beginner</button>
+        <button class="filter-btn" data-filter="intermediate">Intermediate</button>
+        <button class="filter-btn" data-filter="advanced">Advanced</button>
+    </div>
+</div>
+<div class="stats-bar">
+    <span>Showing <span class="stat-val" id="shown-count">0</span> errors</span>
+    <span>Categories: <span class="stat-val" id="cat-count">0</span></span>
+    <span id="expand-all-btn" style="cursor:pointer;color:var(--accent2)">▸ Expand All</span>
+</div>
+
+<div class="container" id="container"></div>
+
+<script>
+const ERRORS = [
+  {
+    title: "This expression has type X but an expression of type Y was expected",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "mismatch"],
+    explanation: "OCaml's type checker found a type mismatch. The expression you wrote produces one type, but the surrounding context requires a different type. This is the most common OCaml error.",
+    bad: `(* Error: int vs string *)
+let x : string = 42`,
+    good: `let x : string = "42"
+(* or *)
+let x : int = 42`,
+    output: `Error: This expression has type int but an expression of type string was expected`,
+    tip: "Read both types carefully. The first type is what you wrote; the second is what OCaml expected. Work backwards from the expected type."
+  },
+  {
+    title: "Unbound value x",
+    severity: "error",
+    level: "beginner",
+    tags: ["scope", "typo"],
+    explanation: "You're using a name that hasn't been defined in the current scope. Common causes: typos, forgetting to open a module, or using a variable before defining it.",
+    bad: `let result = calculte 5  (* typo! *)`,
+    good: `let calculate x = x * 2
+let result = calculate 5`,
+    output: `Error: Unbound value calculte`,
+    tip: "Check spelling first! Also check if you need to 'open' a module or if the binding is in a different scope."
+  },
+  {
+    title: "Unbound module M",
+    severity: "error",
+    level: "beginner",
+    tags: ["modules", "build"],
+    explanation: "The module you're referencing isn't available. Either it hasn't been compiled, isn't listed in your build dependencies, or is misspelled.",
+    bad: `open Strng  (* typo *)
+let _ = String.length "hello"`,
+    good: `open String
+let _ = String.length "hello"`,
+    output: `Error: Unbound module Strng`,
+    tip: "Check your dune file or Makefile for missing library dependencies. Module names are capitalized in OCaml."
+  },
+  {
+    title: "This function should have type unit -> 'a",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "unit"],
+    explanation: "You're passing arguments to a function that expects unit, or the function's body returns a value in a context where unit is expected (like after a semicolon).",
+    bad: `let _ =
+  print_string "hello";
+  42  (* warning: should be unit *)`,
+    good: `let _ =
+  print_string "hello";
+  print_int 42`,
+    output: `Warning 10: this expression should have type unit`,
+    tip: "Use 'ignore' to explicitly discard non-unit values: ignore (some_function x)"
+  },
+  {
+    title: "This expression has type X -> Y but is here used with type X",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "partial-application"],
+    explanation: "You likely forgot to pass an argument. The expression is a function (it still expects more arguments), but you're using it where a plain value is expected.",
+    bad: `let add x y = x + y
+let result = add 3  (* missing second arg! *)
+let _ = result + 1`,
+    good: `let add x y = x + y
+let result = add 3 4
+let _ = result + 1`,
+    output: `Error: This expression has type int -> int but an expression of type int was expected`,
+    tip: "Count your arguments! If a function takes 2 parameters, make sure you pass both."
+  },
+  {
+    title: "This pattern matches values of type X but a pattern was expected which matches values of type Y",
+    severity: "error",
+    level: "intermediate",
+    tags: ["pattern-matching", "types"],
+    explanation: "In a match expression, one of your patterns has the wrong type. All patterns in a match must match the same type as the scrutinee.",
+    bad: `let describe x = match x with
+  | 0 -> "zero"
+  | "one" -> "one"  (* mixing int and string patterns *)`,
+    good: `let describe x = match x with
+  | 0 -> "zero"
+  | 1 -> "one"
+  | _ -> "other"`,
+    output: `Error: This pattern matches values of type string but a pattern was expected which matches values of type int`,
+    tip: "All branches of a match must have consistent types — both in patterns and in result expressions."
+  },
+  {
+    title: "This match case is unused",
+    severity: "warning",
+    level: "beginner",
+    tags: ["pattern-matching", "dead-code"],
+    explanation: "A previous pattern already catches everything this pattern would match. The branch can never be reached.",
+    bad: `let f x = match x with
+  | _ -> "anything"
+  | 0 -> "zero"  (* unreachable! *)`,
+    good: `let f x = match x with
+  | 0 -> "zero"
+  | _ -> "anything"`,
+    output: `Warning 11: this match case is unused`,
+    tip: "Put specific patterns before catch-all patterns. Order matters in match expressions!"
+  },
+  {
+    title: "This pattern-matching is not exhaustive",
+    severity: "warning",
+    level: "beginner",
+    tags: ["pattern-matching", "exhaustiveness"],
+    explanation: "Your match expression doesn't cover all possible values. OCaml will warn you because an unmatched value would cause a runtime exception.",
+    bad: `type color = Red | Green | Blue
+let name c = match c with
+  | Red -> "red"
+  | Green -> "green"
+  (* Blue is missing! *)`,
+    good: `type color = Red | Green | Blue
+let name c = match c with
+  | Red -> "red"
+  | Green -> "green"
+  | Blue -> "blue"`,
+    output: `Warning 8: this pattern-matching is not exhaustive. Here is an example of a case that is not matched: Blue`,
+    tip: "Always aim for exhaustive matches. OCaml tells you exactly which case you missed — read the warning carefully."
+  },
+  {
+    title: "The type variable 'a occurs inside X",
+    severity: "error",
+    level: "advanced",
+    tags: ["types", "occurs-check", "recursion"],
+    explanation: "The occurs check prevents infinite types. You're trying to unify a type variable with a type that contains itself, which would create an infinite type like 'a = 'a -> 'b.",
+    bad: `(* Trying to apply a function to itself *)
+let f x = x x`,
+    good: `(* Use explicit recursive types or restructure *)
+type 'a fix = Fix of ('a fix -> 'a)
+let f (Fix g) = g (Fix g)`,
+    output: `Error: This expression has type 'a -> 'b but an expression of type 'a was expected. The type variable 'a occurs inside 'a -> 'b`,
+    tip: "This usually means your logic has a circularity. Rethink the approach — you might need explicit recursive types or a different design."
+  },
+  {
+    title: "Syntax error",
+    severity: "error",
+    level: "beginner",
+    tags: ["syntax"],
+    explanation: "The parser couldn't understand your code. Common causes: missing 'in' after 'let', missing ';;' in the toplevel, mismatched parentheses, or using keywords as identifiers.",
+    bad: `let x = 5
+let y = x + 1  (* missing 'in' for local let *)
+y * 2`,
+    good: `let x = 5 in
+let y = x + 1 in
+y * 2`,
+    output: `Error: Syntax error`,
+    tip: "Remember: 'let...in' for local bindings, 'let...=' (no 'in') for top-level definitions. Check for missing 'in', 'done', 'end', or closing delimiters."
+  },
+  {
+    title: "The constructor X expects N argument(s), but is applied here to M argument(s)",
+    severity: "error",
+    level: "intermediate",
+    tags: ["types", "constructors", "variants"],
+    explanation: "You're passing the wrong number of arguments to a variant constructor. Unlike functions, constructors have a fixed arity.",
+    bad: `type shape = Circle of float | Rect of float * float
+let s = Circle (3.0, 4.0)  (* Circle takes 1 arg *)`,
+    good: `type shape = Circle of float | Rect of float * float
+let s = Circle 3.0
+let r = Rect (3.0, 4.0)`,
+    output: `Error: The constructor Circle expects 1 argument(s), but is applied here to 2 argument(s)`,
+    tip: "Check the type definition. 'X of float * float' is a single tuple argument. 'X of float * float' ≠ 'X of (float * float)' in OCaml 4 (but they behave similarly)."
+  },
+  {
+    title: "This record expression is expected to have type X",
+    severity: "error",
+    level: "intermediate",
+    tags: ["types", "records"],
+    explanation: "The field names in your record literal don't match any known record type, or they match a different record type than expected.",
+    bad: `type point = { x: float; y: float }
+type vec = { dx: float; dy: float }
+let p : point = { dx = 1.0; dy = 2.0 }`,
+    good: `type point = { x: float; y: float }
+let p : point = { x = 1.0; y = 2.0 }`,
+    output: `Error: This record expression is expected to have type point. The field dx does not belong to type point`,
+    tip: "Record field names must exactly match the type definition. If you have similarly-named fields across types, use type annotations or module prefixes."
+  },
+  {
+    title: "Unbound record field X",
+    severity: "error",
+    level: "beginner",
+    tags: ["records", "scope"],
+    explanation: "You're using a record field name that doesn't exist in any record type in scope.",
+    bad: `type person = { name: string; age: int }
+let p = { name = "Alice"; agee = 30 }  (* typo *)`,
+    good: `type person = { name: string; age: int }
+let p = { name = "Alice"; age = 30 }`,
+    output: `Error: Unbound record field agee`,
+    tip: "Check for typos in field names. Also make sure the record type is defined or its module is opened."
+  },
+  {
+    title: "This expression is not a function; it cannot be applied",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "application"],
+    explanation: "You're trying to call something that isn't a function. Often caused by missing operators or extra arguments.",
+    bad: `let x = 5
+let y = x 3  (* x is an int, not a function *)`,
+    good: `let x = 5
+let y = x + 3`,
+    output: `Error: This expression is not a function; it cannot be applied`,
+    tip: "Check if you accidentally omitted an operator between two values, or if you're passing too many arguments to a function."
+  },
+  {
+    title: "Variable X is bound several times in this matching",
+    severity: "error",
+    level: "intermediate",
+    tags: ["pattern-matching"],
+    explanation: "You used the same variable name more than once in a single pattern. OCaml doesn't allow this because each variable in a pattern must be unique.",
+    bad: `let is_equal pair = match pair with
+  | (x, x) -> true   (* can't bind x twice *)
+  | _ -> false`,
+    good: `let is_equal pair = match pair with
+  | (x, y) when x = y -> true
+  | _ -> false`,
+    output: `Error: Variable x is bound several times in this matching`,
+    tip: "Use a 'when' guard to test equality between matched components instead of repeating variable names."
+  },
+  {
+    title: "The type of this module, sig ... end, is not a subtype of ...",
+    severity: "error",
+    level: "advanced",
+    tags: ["modules", "signatures"],
+    explanation: "The module you're providing doesn't satisfy the required signature. It's missing a value, type, or has one with the wrong type.",
+    bad: `module type S = sig
+  val add : int -> int -> int
+  val sub : int -> int -> int
+end
+
+module M : S = struct
+  let add x y = x + y
+  (* sub is missing *)
+end`,
+    good: `module M : S = struct
+  let add x y = x + y
+  let sub x y = x - y
+end`,
+    output: `Error: Signature mismatch: The value sub is required but not provided`,
+    tip: "Read the error carefully — it tells you exactly which value or type is missing or has the wrong signature."
+  },
+  {
+    title: "This kind of expression is not allowed as right-hand side of 'let rec'",
+    severity: "error",
+    level: "intermediate",
+    tags: ["recursion", "let-rec"],
+    explanation: "In 'let rec', the right-hand side must be a \"statically constructive\" expression — typically a function (fun ...) or a constructor. You can't recursively define a plain value that needs to evaluate itself immediately.",
+    bad: `let rec ones = 1 :: ones  (* may or may not work depending on version *)
+let rec x = x + 1  (* definitely wrong: immediate self-reference *)`,
+    good: `let rec ones () = 1 :: ones ()  (* thunked *)
+(* or use lazy: *)
+type 'a stream = Cons of 'a * 'a stream Lazy.t
+let rec ones = Cons (1, lazy ones)`,
+    output: `Error: This kind of expression is not allowed as right-hand side of 'let rec'`,
+    tip: "Wrap the value in a function (thunk) or use lazy evaluation for recursive data definitions."
+  },
+  {
+    title: "The value X is not an instance of type Y",
+    severity: "error",
+    level: "advanced",
+    tags: ["types", "polymorphism", "value-restriction"],
+    explanation: "The value restriction prevents OCaml from generalizing the type of a non-syntactic value. If the right-hand side isn't a 'syntactic value' (like a function or constant), OCaml won't give it a polymorphic type.",
+    bad: `let id_list = List.map (fun x -> x) []
+(* id_list has type '_weak1 list, not 'a list *)
+let _ = 1 :: id_list
+let _ = "a" :: id_list  (* fails! *)`,
+    good: `(* Add a type annotation or eta-expand *)
+let id_list : 'a list = []
+(* or *)
+let id_list () = List.map (fun x -> x) []`,
+    output: `Error: This expression has type string but an expression of type int was expected`,
+    tip: "If you see '_weakN types, you've hit the value restriction. Eta-expand (add a parameter) or provide a type annotation."
+  },
+  {
+    title: "Multiple definition of the type name X",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "scope"],
+    explanation: "You defined the same type name twice in the same scope. Each type name must be unique within a module/file.",
+    bad: `type t = A | B
+type t = C | D  (* redefining t! *)`,
+    good: `type t = A | B | C | D
+(* or use different names *)
+type t1 = A | B
+type t2 = C | D`,
+    output: `Error: Multiple definition of the type name t`,
+    tip: "Combine variants into one type, or use distinct names, or separate into different modules."
+  },
+  {
+    title: "Signature mismatch: type X is abstract in the signature but concrete in the structure",
+    severity: "error",
+    level: "advanced",
+    tags: ["modules", "abstract-types"],
+    explanation: "Your module signature declares a type as abstract (just 'type t') but the module tries to expose a concrete definition that conflicts with the abstraction boundary.",
+    bad: `module type S = sig type t end
+module M : S = struct
+  type t = int
+end
+let x : M.t = 42  (* can't do this — t is abstract *)`,
+    good: `module type S = sig
+  type t
+  val create : int -> t
+  val to_int : t -> int
+end
+module M : S = struct
+  type t = int
+  let create x = x
+  let to_int x = x
+end`,
+    output: `Error: This expression has type int but an expression of type M.t was expected`,
+    tip: "Abstract types hide implementation. Provide conversion functions in the signature (create, of_int, to_string, etc.)."
+  },
+  {
+    title: "Unused variable X",
+    severity: "warning",
+    level: "beginner",
+    tags: ["warnings", "dead-code"],
+    explanation: "You bound a variable but never used it. While not an error, it might indicate a bug — perhaps you meant to use a different name.",
+    bad: `let process x y =
+  x + 1  (* y is unused *)`,
+    good: `let process x _y =
+  x + 1  (* prefix with _ to indicate intentionally unused *)
+(* or just use _ *)
+let process x _ = x + 1`,
+    output: `Warning 27: unused variable y`,
+    tip: "Prefix unused variables with underscore (_y) to tell OCaml you intentionally ignore them."
+  },
+  {
+    title: "Error: Integer literal exceeds the range of representable integers",
+    severity: "error",
+    level: "beginner",
+    tags: ["types", "literals"],
+    explanation: "The integer constant you wrote is too large for OCaml's native int type (63-bit on 64-bit systems, 31-bit on 32-bit).",
+    bad: `let big = 99999999999999999999999`,
+    good: `(* Use Int64 or Zarith for big numbers *)
+let big = Int64.of_string "9999999999999999"`,
+    output: `Error: Integer literal exceeds the range of representable integers of type int`,
+    tip: "OCaml's int is 63 bits (on 64-bit). For larger numbers, use Int32, Int64, or the Zarith library."
+  },
+  {
+    title: "This expression should have type unit",
+    severity: "warning",
+    level: "beginner",
+    tags: ["types", "unit", "semicolons"],
+    explanation: "An expression before a semicolon (;) should have type unit. If it doesn't, you're silently discarding a value, which is probably a bug.",
+    bad: `let _ =
+  1 + 2;  (* result is discarded *)
+  print_string "done"`,
+    good: `let _ =
+  ignore (1 + 2);
+  print_string "done"
+(* or use the result *)
+let _ =
+  let sum = 1 + 2 in
+  print_int sum`,
+    output: `Warning 10: this expression should have type unit`,
+    tip: "Use 'ignore' to explicitly discard values, or bind them with 'let _ =' or 'let _x ='."
+  },
+  {
+    title: "Cannot safely evaluate the definition of the following cycle of recursively-defined modules",
+    severity: "error",
+    level: "advanced",
+    tags: ["modules", "recursion"],
+    explanation: "Recursive modules have strict restrictions. The compiler can't guarantee safe initialization for your recursive module definitions.",
+    bad: `module rec A : sig val x : int end = struct
+  let x = B.y + 1
+end
+and B : sig val y : int end = struct
+  let y = A.x + 1  (* circular value dependency *)
+end`,
+    good: `(* Use lazy or thunks to break the cycle *)
+module rec A : sig val x : unit -> int end = struct
+  let x () = B.y () + 1
+end
+and B : sig val y : unit -> int end = struct
+  let y () = 1  (* base case *)
+end`,
+    output: `Error: Cannot safely evaluate the definition of the recursively-defined module A`,
+    tip: "Recursive modules work best with function values. Avoid immediate value-level recursion between modules."
+  },
+  {
+    title: "This let-binding is not a polymorphic local abstract type",
+    severity: "error",
+    level: "advanced",
+    tags: ["types", "polymorphism", "GADTs"],
+    explanation: "When working with GADTs, you often need locally abstract types to maintain polymorphism inside a match branch. Without them, the type checker can't track the type equalities.",
+    bad: `type _ expr =
+  | Int : int -> int expr
+  | Bool : bool -> bool expr
+
+let eval (e : 'a expr) : 'a = match e with
+  | Int n -> n
+  | Bool b -> b`,
+    good: `let eval : type a. a expr -> a = function
+  | Int n -> n
+  | Bool b -> b`,
+    output: `Error: This expression has type int but an expression of type a was expected`,
+    tip: "Use 'type a.' (locally abstract type) in the function signature when pattern matching on GADTs."
+  },
+  {
+    title: "Mutable field X is not mutable in type Y",
+    severity: "error",
+    level: "intermediate",
+    tags: ["records", "mutation"],
+    explanation: "You're trying to mutate a record field that isn't declared as mutable.",
+    bad: `type point = { x: float; y: float }
+let p = { x = 0.; y = 0. }
+let () = p.x <- 1.0  (* x is not mutable *)`,
+    good: `type point = { mutable x: float; mutable y: float }
+let p = { x = 0.; y = 0. }
+let () = p.x <- 1.0`,
+    output: `Error: The record field x is not mutable`,
+    tip: "Add 'mutable' keyword before fields you want to mutate. But prefer immutable records when possible — it's the OCaml way."
+  },
+  {
+    title: "Some record fields are undefined: X",
+    severity: "error",
+    level: "beginner",
+    tags: ["records"],
+    explanation: "Your record literal is missing required fields. Unlike some languages, OCaml requires all fields to be specified when creating a record.",
+    bad: `type person = { name: string; age: int; email: string }
+let p = { name = "Alice"; age = 30 }  (* email missing *)`,
+    good: `let p = { name = "Alice"; age = 30; email = "alice@example.com" }
+(* or use functional update from an existing record *)
+let p2 = { p with name = "Bob" }`,
+    output: `Error: Some record fields are undefined: email`,
+    tip: "All record fields must be initialized. Use { existing_record with field = new_value } for partial updates."
+  },
+  {
+    title: "Error: Recursive types are not allowed in this context (use -rectypes)",
+    severity: "error",
+    level: "advanced",
+    tags: ["types", "recursion"],
+    explanation: "OCaml prevents equi-recursive types by default. You've written something that would create a recursive type equation (like 'a = 'a -> 'b). You can enable this with -rectypes, but it's generally discouraged as it masks real errors.",
+    bad: `(* Without -rectypes: *)
+let omega x = x x  (* would need type 'a = 'a -> 'b *)`,
+    good: `(* Explicit recursive type wrapper *)
+type 'a self = Self of ('a self -> 'a)
+let omega (Self f) = f (Self f)`,
+    output: `Error: This expression has type 'a -> 'b but an expression of type 'a was expected (use -rectypes)`,
+    tip: "Don't use -rectypes unless you really know what you're doing. Instead, introduce explicit wrapper types to break the recursion."
+  },
+  {
+    title: "Labels X and Y are not compatible",
+    severity: "error",
+    level: "intermediate",
+    tags: ["labels", "types"],
+    explanation: "You're using labeled arguments (~label:value) but the labels don't match what the function expects.",
+    bad: `let greet ~name ~greeting = greeting ^ ", " ^ name
+let _ = greet ~greeting:"Hi" ~nme:"Alice"  (* typo in label *)`,
+    good: `let _ = greet ~greeting:"Hi" ~name:"Alice"`,
+    output: `Error: This function should have type ~nme:'a -> 'b but its first argument is labelled ~name`,
+    tip: "Label names must match exactly. Note that labeled arguments can be passed in any order in OCaml."
+  },
+  {
+    title: "Exception Failure(\"hd\")",
+    severity: "error",
+    level: "beginner",
+    tags: ["runtime", "exceptions", "lists"],
+    explanation: "This runtime error occurs when calling List.hd or List.tl on an empty list. Unlike compiler errors, this crashes your program at runtime.",
+    bad: `let first = List.hd []  (* runtime crash! *)`,
+    good: `let first_safe lst = match lst with
+  | [] -> None
+  | x :: _ -> Some x`,
+    output: `Exception: Failure "hd"`,
+    tip: "Avoid List.hd and List.tl — use pattern matching instead. It's safer and more idiomatic. Similarly, avoid List.nth for the same reason."
+  }
+];
+
+const container = document.getElementById('container');
+const searchInput = document.getElementById('search');
+const shownCount = document.getElementById('shown-count');
+const catCount = document.getElementById('cat-count');
+const expandAllBtn = document.getElementById('expand-all-btn');
+let activeFilter = 'all';
+let allExpanded = false;
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderCards() {
+  const query = searchInput.value.toLowerCase().trim();
+  const filtered = ERRORS.filter(e => {
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'error' && e.severity !== 'error') return false;
+      if (activeFilter === 'warning' && e.severity !== 'warning') return false;
+      if (['beginner','intermediate','advanced'].includes(activeFilter) && e.level !== activeFilter) return false;
+    }
+    if (query) {
+      const text = (e.title + ' ' + e.explanation + ' ' + e.tags.join(' ') + ' ' + e.bad + ' ' + e.good + ' ' + (e.output||'')).toLowerCase();
+      return text.includes(query);
+    }
+    return true;
+  });
+
+  const cats = new Set(filtered.map(e => e.tags[0]));
+  shownCount.textContent = filtered.length;
+  catCount.textContent = cats.size;
+
+  container.innerHTML = filtered.length === 0
+    ? '<div class="no-results">No errors match your search. Try different keywords.</div>'
+    : filtered.map((e, i) => `
+    <div class="error-card severity-${e.severity}" data-idx="${i}">
+      <div class="error-header" onclick="toggleCard(this)">
+        <span class="severity-dot"></span>
+        <span class="error-title">${escapeHtml(e.title)}</span>
+        <span class="error-tags">
+          <span class="tag ${e.level}">${e.level}</span>
+          ${e.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+        </span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="error-body">
+        <div class="section-label">Why This Happens</div>
+        <div class="explanation">${e.explanation}</div>
+
+        ${e.output ? `<div class="section-label">Compiler Output</div>
+        <pre class="code-output">${escapeHtml(e.output)}</pre>` : ''}
+
+        <div class="section-label">❌ Problematic Code</div>
+        <pre class="code-bad">${escapeHtml(e.bad)}</pre>
+
+        <div class="section-label">✅ Fixed Code</div>
+        <pre class="code-good">${escapeHtml(e.good)}</pre>
+
+        ${e.tip ? `<div class="tip-box"><strong>💡 Tip:</strong> ${e.tip}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCard(header) {
+  header.parentElement.classList.toggle('open');
+}
+
+expandAllBtn.addEventListener('click', () => {
+  allExpanded = !allExpanded;
+  document.querySelectorAll('.error-card').forEach(c => {
+    if (allExpanded) c.classList.add('open');
+    else c.classList.remove('open');
+  });
+  expandAllBtn.textContent = allExpanded ? '▾ Collapse All' : '▸ Expand All';
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderCards();
+  });
+});
+
+searchInput.addEventListener('input', renderCards);
+renderCards();
+</script>
+</body>
+</html>
