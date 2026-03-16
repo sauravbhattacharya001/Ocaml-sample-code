@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Flashcards — Spaced Repetition</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .fc-controls { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem; align-items:center; }
+        .fc-btn { padding:.4rem 1rem; border-radius:999px; border:1px solid var(--border);
+            background:var(--surface); color:var(--text-dim); font-size:.85rem; cursor:pointer;
+            transition:all .15s; }
+        .fc-btn:hover { border-color:var(--accent2); color:var(--text); }
+        .fc-btn.active { background:var(--accent2); color:var(--bg);
+            border-color:var(--accent2); font-weight:600; }
+        .fc-btn.primary { background:var(--accent); color:var(--bg);
+            border-color:var(--accent); font-weight:600; }
+        .fc-btn.primary:hover { opacity:.9; }
+        .fc-btn.danger { background:#e74c3c; color:#fff; border-color:#e74c3c; }
+
+        .fc-stats { display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+        .fc-stat { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+            padding:1rem 1.5rem; text-align:center; flex:1; min-width:120px; }
+        .fc-stat .num { font-size:1.8rem; font-weight:700; color:var(--accent); }
+        .fc-stat .lbl { font-size:.75rem; color:var(--text-dim); text-transform:uppercase;
+            letter-spacing:.05em; margin-top:.25rem; }
+
+        .card-container { perspective:1000px; margin-bottom:1.5rem; }
+        .card { position:relative; width:100%; min-height:280px; cursor:pointer;
+            transform-style:preserve-3d; transition:transform .5s ease; }
+        .card.flipped { transform:rotateY(180deg); }
+        .card-face { position:absolute; width:100%; min-height:280px; backface-visibility:hidden;
+            background:var(--surface); border:1px solid var(--border); border-radius:16px;
+            padding:2rem; display:flex; flex-direction:column; justify-content:center;
+            align-items:center; box-sizing:border-box; }
+        .card-back { transform:rotateY(180deg); }
+        .card-category { font-size:.7rem; padding:2px 10px; border-radius:999px;
+            border:1px solid var(--border); color:var(--accent2); margin-bottom:1rem;
+            text-transform:uppercase; letter-spacing:.08em; }
+        .card-difficulty { font-size:.65rem; padding:2px 8px; border-radius:999px;
+            margin-left:.5rem; }
+        .card-difficulty.beginner { background:#27ae6020; color:#27ae60; border:1px solid #27ae6040; }
+        .card-difficulty.intermediate { background:#f39c1220; color:#f39c12; border:1px solid #f39c1240; }
+        .card-difficulty.advanced { background:#e74c3c20; color:#e74c3c; border:1px solid #e74c3c40; }
+        .card-question { font-size:1.2rem; color:var(--text); text-align:center; line-height:1.6; }
+        .card-answer { font-size:1rem; color:var(--text); text-align:center; line-height:1.7; }
+        .card-answer code { background:var(--bg); padding:2px 6px; border-radius:4px;
+            font-family:'JetBrains Mono',monospace; font-size:.9em; }
+        .card-answer pre { background:var(--bg); padding:1rem; border-radius:8px;
+            text-align:left; overflow-x:auto; width:100%; font-size:.85rem; margin:.75rem 0; }
+        .card-hint { font-size:.8rem; color:var(--text-dim); margin-top:.75rem; font-style:italic; }
+        .flip-hint { font-size:.75rem; color:var(--text-dim); margin-top:1rem; opacity:.6; }
+
+        .rating-buttons { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
+        .rate-btn { padding:.6rem 1.5rem; border-radius:12px; border:none; cursor:pointer;
+            font-size:.9rem; font-weight:600; transition:all .15s; }
+        .rate-btn:hover { transform:translateY(-2px); }
+        .rate-btn.again { background:#e74c3c; color:#fff; }
+        .rate-btn.hard { background:#e67e22; color:#fff; }
+        .rate-btn.good { background:#27ae60; color:#fff; }
+        .rate-btn.easy { background:#3498db; color:#fff; }
+        .rate-label { font-size:.65rem; display:block; opacity:.8; margin-top:2px; }
+
+        .progress-ring { margin-bottom:1.5rem; text-align:center; }
+        .progress-ring svg { transform:rotate(-90deg); }
+
+        .deck-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+            gap:1rem; margin-bottom:1.5rem; }
+        .deck-card { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+            padding:1.25rem; cursor:pointer; transition:all .15s; text-align:center; }
+        .deck-card:hover { border-color:var(--accent2); transform:translateY(-2px); }
+        .deck-card.selected { border-color:var(--accent); background:var(--accent)10; }
+        .deck-card .deck-name { font-weight:600; color:var(--text); margin-bottom:.5rem; }
+        .deck-card .deck-count { font-size:.8rem; color:var(--text-dim); }
+        .deck-card .deck-due { font-size:.75rem; color:var(--accent); margin-top:.25rem; }
+
+        .empty-state { text-align:center; padding:3rem; color:var(--text-dim); }
+        .empty-state .emoji { font-size:3rem; margin-bottom:1rem; }
+
+        .streak-badge { display:inline-flex; align-items:center; gap:.35rem; padding:.3rem .8rem;
+            border-radius:999px; background:#f39c1220; color:#f39c12; font-size:.8rem;
+            font-weight:600; border:1px solid #f39c1240; }
+
+        .history-chart { background:var(--surface); border:1px solid var(--border);
+            border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+        .heatmap { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+        .heatmap-cell { aspect-ratio:1; border-radius:3px; position:relative; }
+        .heatmap-cell:hover::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 4px);
+            left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg);
+            padding:2px 6px; border-radius:4px; font-size:.65rem; white-space:nowrap; z-index:10; }
+
+        @media(max-width:600px) {
+            .card-face { padding:1.25rem; min-height:220px; }
+            .card-question { font-size:1rem; }
+            .fc-stats { gap:.75rem; }
+            .fc-stat { padding:.75rem; min-width:80px; }
+            .fc-stat .num { font-size:1.3rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header style="margin-bottom:2rem;">
+        <h1>🧠 OCaml Flashcards</h1>
+        <p class="subtitle">Learn OCaml with spaced repetition — concepts stick when you review at the right time</p>
+    </header>
+
+    <nav class="fc-controls" id="nav">
+        <button class="fc-btn active" onclick="showView('study')">📚 Study</button>
+        <button class="fc-btn" onclick="showView('decks')">🗂️ Decks</button>
+        <button class="fc-btn" onclick="showView('progress')">📊 Progress</button>
+        <button class="fc-btn" onclick="showView('browse')">🔍 Browse All</button>
+        <span id="streakBadge" class="streak-badge" style="display:none;margin-left:auto;">🔥 <span id="streakNum">0</span> day streak</span>
+    </nav>
+
+    <!-- Study View -->
+    <div id="view-study">
+        <div class="fc-stats" id="sessionStats">
+            <div class="fc-stat"><div class="num" id="dueCount">0</div><div class="lbl">Due Today</div></div>
+            <div class="fc-stat"><div class="num" id="newCount">0</div><div class="lbl">New</div></div>
+            <div class="fc-stat"><div class="num" id="reviewedCount">0</div><div class="lbl">Reviewed</div></div>
+            <div class="fc-stat"><div class="num" id="masteredCount">0</div><div class="lbl">Mastered</div></div>
+        </div>
+
+        <div id="cardArea"></div>
+    </div>
+
+    <!-- Decks View -->
+    <div id="view-decks" style="display:none;">
+        <h2 style="margin-bottom:1rem;">Select Decks to Study</h2>
+        <div class="fc-controls">
+            <button class="fc-btn primary" onclick="selectAllDecks()">Select All</button>
+            <button class="fc-btn" onclick="deselectAllDecks()">Deselect All</button>
+        </div>
+        <div class="deck-grid" id="deckGrid"></div>
+    </div>
+
+    <!-- Progress View -->
+    <div id="view-progress" style="display:none;">
+        <h2 style="margin-bottom:1rem;">Learning Progress</h2>
+        <div class="fc-stats" id="totalStats"></div>
+        <div class="history-chart">
+            <h3 style="margin-bottom:.75rem;font-size:.9rem;color:var(--text-dim);">Review Activity (last 8 weeks)</h3>
+            <div class="heatmap" id="heatmap"></div>
+            <div style="display:flex;justify-content:flex-end;align-items:center;gap:.35rem;margin-top:.5rem;font-size:.65rem;color:var(--text-dim);">
+                Less <div style="width:12px;height:12px;border-radius:2px;background:var(--surface);border:1px solid var(--border);"></div>
+                <div style="width:12px;height:12px;border-radius:2px;background:var(--accent);opacity:.25;"></div>
+                <div style="width:12px;height:12px;border-radius:2px;background:var(--accent);opacity:.5;"></div>
+                <div style="width:12px;height:12px;border-radius:2px;background:var(--accent);opacity:.75;"></div>
+                <div style="width:12px;height:12px;border-radius:2px;background:var(--accent);"></div> More
+            </div>
+        </div>
+        <div style="text-align:center;margin-top:1rem;">
+            <button class="fc-btn danger" onclick="resetProgress()">🗑️ Reset All Progress</button>
+        </div>
+    </div>
+
+    <!-- Browse View -->
+    <div id="view-browse" style="display:none;">
+        <h2 style="margin-bottom:1rem;">All Flashcards</h2>
+        <input type="text" id="browseSearch" placeholder="Search cards..." oninput="renderBrowse()"
+            style="width:100%;padding:.6rem 1rem;border-radius:8px;border:1px solid var(--border);
+            background:var(--surface);color:var(--text);margin-bottom:1rem;font-size:.9rem;">
+        <div id="browseList"></div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// FLASHCARD DATA — 80 cards across 10 categories
+// ═══════════════════════════════════════
+const CARDS = [
+// ── Basics ──
+{id:1,cat:"Basics",diff:"beginner",q:"What does <code>let x = 5 in x + 3</code> evaluate to?",a:"<code>8</code> — <code>let...in</code> creates a local binding. <code>x</code> is bound to 5, then <code>x + 3</code> is evaluated.",hint:"Think of let...in as a local scope."},
+{id:2,cat:"Basics",diff:"beginner",q:"What is the type of <code>fun x -> x</code>?",a:"<code>'a -> 'a</code> — the identity function. It's polymorphic: works for any type.",hint:"What goes in, comes out unchanged."},
+{id:3,cat:"Basics",diff:"beginner",q:"How do you define a recursive function in OCaml?",a:"Use <code>let rec</code>:<pre>let rec fact n =\n  if n <= 1 then 1\n  else n * fact (n - 1)</pre>",hint:"A keyword is needed to allow self-reference."},
+{id:4,cat:"Basics",diff:"beginner",q:"What does <code>ref</code> do in OCaml?",a:"Creates a mutable reference cell.<pre>let x = ref 0 in\nx := !x + 1;  (* x is now 1 *)</pre><code>!</code> dereferences, <code>:=</code> assigns.",hint:"OCaml is immutable by default. This is the escape hatch."},
+{id:5,cat:"Basics",diff:"beginner",q:"What is the difference between <code>=</code> and <code>==</code> in OCaml?",a:"<code>=</code> is structural equality (compares values).<br><code>==</code> is physical equality (compares memory addresses).<br>Almost always use <code>=</code>.",hint:"One checks content, one checks identity."},
+{id:6,cat:"Basics",diff:"beginner",q:"What does <code>unit</code> mean in OCaml?",a:"<code>unit</code> is the type with a single value <code>()</code>. Used for functions with side effects that return nothing meaningful, like <code>print_string : string -> unit</code>.",hint:"Similar to void in C/Java."},
+{id:7,cat:"Basics",diff:"intermediate",q:"What is a <em>value restriction</em> in OCaml?",a:"Polymorphic types are only generalized for syntactic values (not arbitrary expressions). This prevents unsound mutation:<pre>let r = ref []  (* 'a list ref — NOT polymorphic *)</pre>",hint:"It's about when the type system generalizes."},
+{id:8,cat:"Basics",diff:"beginner",q:"How do you write a tuple and access its elements?",a:"<pre>let pair = (1, \"hello\")\nlet (a, b) = pair\n(* a = 1, b = \"hello\" *)</pre>Use pattern matching to destructure.",hint:"Parentheses and commas."},
+
+// ── Pattern Matching ──
+{id:10,cat:"Pattern Matching",diff:"beginner",q:"What does the <code>_</code> pattern match?",a:"It's the <em>wildcard</em> — matches anything but doesn't bind a name.<pre>match x with\n| Some v -> v\n| _ -> 0  (* catches everything else *)</pre>",hint:"The 'I don't care' pattern."},
+{id:11,cat:"Pattern Matching",diff:"intermediate",q:"What is an <em>or-pattern</em> in OCaml?",a:"Combine alternatives with <code>|</code>:<pre>match c with\n| 'a' | 'e' | 'i' | 'o' | 'u' -> true\n| _ -> false</pre>All branches must bind the same variables.",hint:"Like logical OR for patterns."},
+{id:12,cat:"Pattern Matching",diff:"intermediate",q:"What does <code>when</code> do in a match expression?",a:"Adds a guard condition:<pre>match x with\n| n when n > 0 -> \"positive\"\n| n when n < 0 -> \"negative\"\n| _ -> \"zero\"</pre>The guard is checked after the pattern matches.",hint:"Extra condition beyond structure."},
+{id:13,cat:"Pattern Matching",diff:"advanced",q:"What is an <em>as-pattern</em> and when would you use it?",a:"Bind a name to a matched sub-structure:<pre>match lst with\n| (x :: _ as whole) -> (x, whole)\n| [] -> failwith \"empty\"</pre>Useful when you need both the parts and the whole.",hint:"Name the whole while destructuring parts."},
+{id:14,cat:"Pattern Matching",diff:"beginner",q:"How do you match on a list's first element?",a:"<pre>match lst with\n| [] -> \"empty\"\n| x :: _ -> \"first is \" ^ string_of_int x</pre><code>::</code> destructures head from tail.",hint:"The cons operator works in patterns too."},
+{id:15,cat:"Pattern Matching",diff:"intermediate",q:"What happens if a match is non-exhaustive?",a:"OCaml issues a <em>warning</em> (Warning 8). The code compiles but may raise <code>Match_failure</code> at runtime if no pattern matches.",hint:"The compiler tries to help you cover all cases."},
+
+// ── Types & Data ──
+{id:20,cat:"Types",diff:"beginner",q:"What is a <em>variant type</em> (sum type) in OCaml?",a:"A type with multiple named constructors:<pre>type shape =\n  | Circle of float\n  | Rect of float * float\n  | Point</pre>Each constructor can carry different data.",hint:"Like enums with data attached."},
+{id:21,cat:"Types",diff:"intermediate",q:"What is a <em>polymorphic variant</em> and how does it differ from a regular variant?",a:"Polymorphic variants use backtick syntax and don't need prior declaration:<pre>let f = function\n  | `Circle r -> r *. r\n  | `Rect (w,h) -> w *. h</pre>More flexible but less safe than declared variants.",hint:"Backtick variants, open type system."},
+{id:22,cat:"Types",diff:"intermediate",q:"What are <em>GADTs</em> in OCaml?",a:"Generalized Algebraic Data Types let constructors constrain the type parameter:<pre>type _ expr =\n  | Int : int -> int expr\n  | Bool : bool -> bool expr\n  | Add : int expr * int expr -> int expr</pre>Enables type-safe evaluators.",hint:"Constructors that refine the return type."},
+{id:23,cat:"Types",diff:"beginner",q:"What is a <em>record type</em> in OCaml?",a:"A product type with named fields:<pre>type person = {\n  name: string;\n  age: int;\n  mutable email: string;\n}</pre>Fields are accessed with dot notation: <code>p.name</code>.",hint:"Named fields, like structs."},
+{id:24,cat:"Types",diff:"intermediate",q:"What does <code>type 'a t</code> mean?",a:"A parameterized (generic) type. <code>'a</code> is a type variable:<pre>type 'a option =\n  | None\n  | Some of 'a</pre><code>int option</code>, <code>string option</code> are concrete instantiations.",hint:"The single-quote prefix means 'any type'."},
+{id:25,cat:"Types",diff:"advanced",q:"What is a <em>phantom type</em>?",a:"A type parameter that appears in the type definition but not in the data representation. Used for compile-time safety:<pre>type 'a file_handle = { fd: int }\ntype read_mode\ntype write_mode\n(* read : read_mode file_handle -> ... *)</pre>",hint:"The type parameter carries information but no runtime data."},
+
+// ── Modules ──
+{id:30,cat:"Modules",diff:"intermediate",q:"What is a <em>functor</em> in OCaml?",a:"A function from modules to modules:<pre>module Make(Ord: OrderedType) = struct\n  type t = Ord.t list\n  let add x l = ...\nend</pre>Parameterizes a module over another module's signature.",hint:"Think 'module-level function'."},
+{id:31,cat:"Modules",diff:"beginner",q:"What is the difference between <code>.ml</code> and <code>.mli</code> files?",a:"<code>.ml</code> = implementation (the code).<br><code>.mli</code> = interface (the types, what's exposed).<br>The <code>.mli</code> file acts as a module signature, hiding internal details.",hint:"One is the contract, one is the implementation."},
+{id:32,cat:"Modules",diff:"intermediate",q:"What does <code>include</code> do in a module?",a:"Copies all definitions from another module into the current one:<pre>module Extended_list = struct\n  include List\n  let hd_opt = function\n    | [] -> None | x::_ -> Some x\nend</pre>Useful for extending existing modules.",hint:"Like 'inherit everything'."},
+{id:33,cat:"Modules",diff:"advanced",q:"What is a <em>first-class module</em>?",a:"A module value that can be passed around at runtime:<pre>let m = (module Int : Comparable)\nlet compare x y =\n  let module M = (val m : Comparable) in\n  M.compare x y</pre>Packs/unpacks modules as values.",hint:"Modules as runtime values."},
+{id:34,cat:"Modules",diff:"intermediate",q:"What does <code>open</code> vs <code>let open ... in</code> do?",a:"<code>open M</code> at module level imports all names globally.<br><code>let open M in ...</code> limits the scope:<pre>let open List in\nmap succ [1;2;3]  (* List.map *)</pre>Prefer local opens to avoid namespace pollution.",hint:"Global vs. scoped import."},
+
+// ── Higher-Order Functions ──
+{id:40,cat:"Higher-Order",diff:"beginner",q:"What does <code>List.map</code> do?",a:"Applies a function to every element:<pre>List.map (fun x -> x * 2) [1;2;3]\n(* = [2; 4; 6] *)</pre>Type: <code>('a -> 'b) -> 'a list -> 'b list</code>",hint:"Transform each element."},
+{id:41,cat:"Higher-Order",diff:"beginner",q:"What does <code>List.fold_left</code> do?",a:"Accumulates a result by processing elements left-to-right:<pre>List.fold_left (+) 0 [1;2;3;4]\n(* = 10 *)</pre>Type: <code>('acc -> 'a -> 'acc) -> 'acc -> 'a list -> 'acc</code>",hint:"Reduce a list to a single value."},
+{id:42,cat:"Higher-Order",diff:"intermediate",q:"What is <em>currying</em> in OCaml?",a:"All functions take one argument. Multi-arg functions are chains:<pre>let add x y = x + y\n(* add : int -> int -> int *)\nlet add5 = add 5\n(* add5 : int -> int *)</pre>Partial application creates new functions.",hint:"One argument at a time."},
+{id:43,cat:"Higher-Order",diff:"intermediate",q:"What is the <code>|></code> (pipe) operator?",a:"Passes the left side as the last argument to the right side:<pre>[1;2;3]\n|> List.map (fun x -> x * 2)\n|> List.filter (fun x -> x > 2)\n(* = [4; 6] *)</pre>Reads top-to-bottom like a pipeline.",hint:"Data flows left to right."},
+{id:44,cat:"Higher-Order",diff:"intermediate",q:"What does <code>@@</code> do?",a:"Function application with low precedence (avoids parentheses):<pre>print_endline @@ string_of_int @@ 1 + 2\n(* same as: print_endline (string_of_int (1 + 2)) *)</pre>",hint:"Apply without parens, right-to-left."},
+{id:45,cat:"Higher-Order",diff:"advanced",q:"What is <em>eta-expansion</em> and when do you need it?",a:"Wrapping a function in a lambda: <code>fun x -> f x</code> instead of just <code>f</code>. Needed for the value restriction or to delay side effects:<pre>let r = ref []\nlet push x = r := x :: !r  (* eta-expanded *)</pre>",hint:"Adding explicit parameters to a function expression."},
+
+// ── Data Structures ──
+{id:50,cat:"Data Structures",diff:"beginner",q:"How are lists implemented in OCaml?",a:"As singly-linked immutable cons cells:<pre>type 'a list =\n  | []\n  | (::) of 'a * 'a list</pre>Prepend is O(1), access by index is O(n).",hint:"Linked, not arrayed."},
+{id:51,cat:"Data Structures",diff:"intermediate",q:"What is a <em>zipper</em> data structure?",a:"A way to navigate and edit immutable structures efficiently. Stores the focused element plus a context (the 'hole'):<pre>type 'a zipper = {\n  left: 'a list;\n  focus: 'a;\n  right: 'a list;\n}</pre>Moving left/right is O(1).",hint:"A cursor into a data structure."},
+{id:52,cat:"Data Structures",diff:"intermediate",q:"What is a <em>persistent</em> data structure?",a:"One where old versions remain accessible after modifications. OCaml's standard <code>Map</code>, <code>Set</code>, and <code>list</code> are all persistent — updates create new versions sharing structure with the old.",hint:"Immutable + structural sharing."},
+{id:53,cat:"Data Structures",diff:"advanced",q:"What is a <em>finger tree</em>?",a:"A general-purpose persistent data structure with O(1) amortized access to both ends and O(log n) concatenation/splitting. Can implement sequences, priority queues, and interval trees.",hint:"Fast at the edges, logarithmic in the middle."},
+{id:54,cat:"Data Structures",diff:"intermediate",q:"What is a <em>HAMT</em>?",a:"Hash Array Mapped Trie — a persistent hash map using a trie indexed by hash bits. Provides near O(1) lookup/insert with structural sharing. Used in Clojure's maps.",hint:"Trie + hashing = fast persistent map."},
+{id:55,cat:"Data Structures",diff:"intermediate",q:"How does OCaml's <code>Map</code> module work internally?",a:"Balanced binary search trees (AVL trees). Lookup, insert, and delete are O(log n). The module is a functor requiring an <code>OrderedType</code> signature.",hint:"Balanced BST behind a functor."},
+
+// ── Functional Patterns ──
+{id:60,cat:"Functional Patterns",diff:"intermediate",q:"What is a <em>monad</em> in OCaml terms?",a:"A type <code>'a t</code> with:<pre>val return : 'a -> 'a t\nval bind : 'a t -> ('a -> 'b t) -> 'b t</pre>Must satisfy left/right identity and associativity. <code>Option</code> and <code>Result</code> are common monads.",hint:"return + bind + laws."},
+{id:61,cat:"Functional Patterns",diff:"advanced",q:"What is a <em>free monad</em>?",a:"A monad built from a functor that represents a DSL as data. Programs are ASTs that can be interpreted differently:<pre>type 'a free =\n  | Pure of 'a\n  | Free of ('a free) f</pre>Separates description from execution.",hint:"Programs as data structures."},
+{id:62,cat:"Functional Patterns",diff:"intermediate",q:"What are <em>optics</em> (lenses/prisms)?",a:"Composable accessors for nested immutable data. A lens focuses on a field:<pre>let name_lens = {\n  get = (fun p -> p.name);\n  set = (fun v p -> {p with name=v});\n}</pre>Compose lenses for deep access.",hint:"Getters and setters for immutable data."},
+{id:63,cat:"Functional Patterns",diff:"advanced",q:"What is <em>tagless final</em> style?",a:"Encoding a DSL using module signatures instead of data types:<pre>module type Expr = sig\n  type 'a t\n  val int : int -> int t\n  val add : int t -> int t -> int t\nend</pre>Each 'interpreter' is a module implementing the signature.",hint:"DSL via signatures, not constructors."},
+{id:64,cat:"Functional Patterns",diff:"intermediate",q:"What is the <code>Result</code> type used for?",a:"Error handling without exceptions:<pre>type ('a, 'e) result =\n  | Ok of 'a\n  | Error of 'e</pre>Chain with <code>bind</code>:<pre>let (>>=) r f = match r with\n  | Ok v -> f v | Error e -> Error e</pre>",hint:"Explicit success or failure."},
+
+// ── Concurrency ──
+{id:70,cat:"Concurrency",diff:"intermediate",q:"What is OCaml 5's <em>effect handlers</em> feature?",a:"A mechanism for structured concurrency and algebraic effects:<pre>effect Yield : unit\nlet run f = match f () with\n  | v -> v\n  | effect Yield k -> continue k ()</pre>Effects can be caught and resumed, enabling coroutines, async I/O, etc.",hint:"Like exceptions you can resume from."},
+{id:71,cat:"Concurrency",diff:"intermediate",q:"What is <em>STM</em> (Software Transactional Memory)?",a:"Concurrent memory access via composable transactions. Read/write shared variables atomically:<pre>atomically (fun () ->\n  let v = read_tvar account in\n  write_tvar account (v - 100))</pre>Retries on conflict.",hint:"Database transactions for memory."},
+{id:72,cat:"Concurrency",diff:"advanced",q:"What is the <em>Raft</em> consensus algorithm?",a:"A distributed consensus protocol with leader election and log replication. Nodes are Followers, Candidates, or Leaders. Ensures agreement across a cluster even if some nodes fail.",hint:"Leader-based consensus for distributed systems."},
+{id:73,cat:"Concurrency",diff:"intermediate",q:"What is a <em>CRDT</em>?",a:"Conflict-free Replicated Data Type — a data structure that can be replicated and updated independently, with automatic conflict resolution. Examples: G-Counter, OR-Set, LWW-Register.",hint:"Merge without coordination."},
+
+// ── Algorithms ──
+{id:80,cat:"Algorithms",diff:"beginner",q:"How do you implement Fibonacci functionally?",a:"<pre>let rec fib = function\n  | 0 -> 0 | 1 -> 1\n  | n -> fib (n-1) + fib (n-2)</pre>Efficient version with tail recursion:<pre>let fib n =\n  let rec aux a b = function\n    | 0 -> a\n    | n -> aux b (a+b) (n-1)\n  in aux 0 1 n</pre>",hint:"Naive vs. tail-recursive."},
+{id:81,cat:"Algorithms",diff:"intermediate",q:"How does <em>Dijkstra's algorithm</em> work in OCaml?",a:"Use a priority queue (min-heap) to always process the nearest unvisited node. Functional approach uses a Map for distances and a Set as the priority queue.",hint:"Greedy shortest path with a priority queue."},
+{id:82,cat:"Algorithms",diff:"intermediate",q:"What is <em>memoization</em> in OCaml?",a:"Caching function results using a hash table:<pre>let memo f =\n  let cache = Hashtbl.create 16 in\n  fun x ->\n    try Hashtbl.find cache x\n    with Not_found ->\n      let r = f x in\n      Hashtbl.add cache x r; r</pre>",hint:"Remember computed results."},
+{id:83,cat:"Algorithms",diff:"advanced",q:"What is <em>Earley parsing</em>?",a:"A general parsing algorithm that handles any context-free grammar (including ambiguous ones) in O(n³) worst case, O(n²) for unambiguous, and O(n) for most practical grammars. Uses prediction, scanning, and completion steps.",hint:"Parse anything context-free."},
+{id:84,cat:"Algorithms",diff:"intermediate",q:"How does <em>Huffman coding</em> work?",a:"Build a binary tree where frequent characters have short codes:<ol><li>Count frequencies</li><li>Build priority queue of leaves</li><li>Merge two smallest into a node</li><li>Repeat until one tree</li></ol>Left=0, Right=1 gives prefix-free codes.",hint:"Frequent = short, rare = long."},
+{id:85,cat:"Algorithms",diff:"intermediate",q:"What is a <em>SAT solver</em>?",a:"Determines if a Boolean formula in CNF can be satisfied. DPLL algorithm: unit propagation + pure literal elimination + backtracking search. NP-complete in general but practical solvers handle millions of variables.",hint:"Can this logical formula be made true?"},
+
+// ── Parsing & Compilation ──
+{id:90,cat:"Parsing",diff:"intermediate",q:"What is a <em>parser combinator</em>?",a:"Small parsers composed into larger ones using higher-order functions:<pre>let p_digit = satisfy is_digit\nlet p_number = many1 p_digit |> map int_of_chars\nlet p_expr = p_number <*> (char '+' *> p_number)</pre>",hint:"Build parsers by combining small pieces."},
+{id:91,cat:"Parsing",diff:"intermediate",q:"What is a <em>PEG</em> (Parsing Expression Grammar)?",a:"Unambiguous grammar formalism where <code>/</code> is ordered choice (tries alternatives in order). Never ambiguous — first match wins. Supports unlimited lookahead with memoization (packrat parsing).",hint:"Ordered choice, no ambiguity."},
+{id:92,cat:"Parsing",diff:"advanced",q:"What is <em>Hindley-Milner type inference</em>?",a:"Algorithm that infers principal types using unification. Steps:<ol><li>Generate type variables for unknowns</li><li>Create constraints from expressions</li><li>Unify constraints</li><li>Generalize let-bindings</li></ol>OCaml extends this with row polymorphism and GADTs.",hint:"Algorithm W: constrain then unify."},
+{id:93,cat:"Parsing",diff:"intermediate",q:"What is a <em>bytecode VM</em>?",a:"A virtual machine that executes compiled bytecode instructions (stack-based or register-based). OCaml's own runtime uses a bytecode interpreter for <code>ocaml</code> and native compilation for <code>ocamlopt</code>.",hint:"Intermediate representation executed by software."},
+];
+
+// ═══════════════════════════════════════
+// SM-2 SPACED REPETITION ENGINE
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'ocaml_flashcards_v1';
+const DAY_MS = 86400000;
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch { return {}; }
+}
+function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+function getCardState(id) {
+    const s = loadState();
+    if (!s.cards) s.cards = {};
+    if (!s.cards[id]) s.cards[id] = { ef:2.5, interval:0, reps:0, due:today(), reviews:[] };
+    return s.cards[id];
+}
+
+function updateCard(id, quality) {
+    // quality: 0=again, 1=hard, 2=good, 3=easy (mapped to SM-2 0-5)
+    const qMap = [0, 2, 4, 5];
+    const q = qMap[quality];
+    const s = loadState();
+    if (!s.cards) s.cards = {};
+    const c = s.cards[id] || { ef:2.5, interval:0, reps:0, due:today(), reviews:[] };
+
+    if (q >= 3) {
+        c.reps++;
+        if (c.reps === 1) c.interval = 1;
+        else if (c.reps === 2) c.interval = 6;
+        else c.interval = Math.round(c.interval * c.ef);
+    } else {
+        c.reps = 0;
+        c.interval = quality === 0 ? 0 : 1;
+    }
+
+    c.ef = Math.max(1.3, c.ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+
+    const due = new Date();
+    due.setDate(due.getDate() + c.interval);
+    c.due = due.toISOString().slice(0,10);
+    if (!c.reviews) c.reviews = [];
+    c.reviews.push({ date: today(), quality });
+
+    s.cards[id] = c;
+
+    // Track daily reviews
+    if (!s.daily) s.daily = {};
+    s.daily[today()] = (s.daily[today()] || 0) + 1;
+
+    // Streak
+    updateStreak(s);
+
+    saveState(s);
+    return c;
+}
+
+function updateStreak(s) {
+    if (!s.daily) return;
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+        const key = d.toISOString().slice(0,10);
+        if (s.daily[key]) { streak++; d.setDate(d.getDate()-1); }
+        else break;
+    }
+    s.streak = streak;
+}
+
+function isDue(id) {
+    const c = getCardState(id);
+    return c.due <= today();
+}
+
+function isNew(id) {
+    const s = loadState();
+    return !s.cards || !s.cards[id];
+}
+
+function isMastered(id) {
+    const c = getCardState(id);
+    return c.interval >= 21; // 3+ weeks interval = mastered
+}
+
+// ═══════════════════════════════════════
+// DECK MANAGEMENT
+// ═══════════════════════════════════════
+const CATEGORIES = [...new Set(CARDS.map(c => c.cat))];
+let selectedDecks = new Set(CATEGORIES);
+
+function loadDeckSelection() {
+    const s = loadState();
+    if (s.selectedDecks) selectedDecks = new Set(s.selectedDecks);
+}
+
+function saveDeckSelection() {
+    const s = loadState();
+    s.selectedDecks = [...selectedDecks];
+    saveState(s);
+}
+
+function getActiveCards() {
+    return CARDS.filter(c => selectedDecks.has(c.cat));
+}
+
+function getDueCards() {
+    return getActiveCards().filter(c => isDue(c.id));
+}
+
+// ═══════════════════════════════════════
+// VIEWS
+// ═══════════════════════════════════════
+let currentView = 'study';
+let sessionReviewed = 0;
+let currentCard = null;
+let isFlipped = false;
+
+function showView(v) {
+    currentView = v;
+    ['study','decks','progress','browse'].forEach(id => {
+        document.getElementById('view-'+id).style.display = id===v ? '' : 'none';
+    });
+    document.querySelectorAll('#nav .fc-btn').forEach((btn,i) => {
+        btn.classList.toggle('active', ['study','decks','progress','browse'][i]===v);
+    });
+    if (v==='study') renderStudy();
+    if (v==='decks') renderDecks();
+    if (v==='progress') renderProgress();
+    if (v==='browse') renderBrowse();
+}
+
+function renderStudy() {
+    const due = getDueCards();
+    const active = getActiveCards();
+    const newCards = active.filter(c => isNew(c.id));
+    const mastered = active.filter(c => isMastered(c.id));
+
+    document.getElementById('dueCount').textContent = due.length;
+    document.getElementById('newCount').textContent = newCards.length;
+    document.getElementById('reviewedCount').textContent = sessionReviewed;
+    document.getElementById('masteredCount').textContent = mastered.length;
+
+    const area = document.getElementById('cardArea');
+
+    if (due.length === 0 && !currentCard) {
+        area.innerHTML = `<div class="empty-state">
+            <div class="emoji">🎉</div>
+            <h3>All caught up!</h3>
+            <p style="margin:.5rem 0;">${active.length} cards in your deck${mastered.length ? ` · ${mastered.length} mastered` : ''}</p>
+            <p style="font-size:.85rem;">Come back tomorrow for more reviews, or add new decks.</p>
+            <button class="fc-btn primary" onclick="showView('decks')" style="margin-top:1rem;">🗂️ Manage Decks</button>
+        </div>`;
+        return;
+    }
+
+    if (!currentCard) currentCard = due[Math.floor(Math.random() * due.length)];
+    isFlipped = false;
+
+    area.innerHTML = `
+        <div class="card-container">
+            <div class="card" id="flashcard" onclick="flipCard()">
+                <div class="card-face card-front">
+                    <div>
+                        <span class="card-category">${currentCard.cat}</span>
+                        <span class="card-difficulty ${currentCard.diff}">${currentCard.diff}</span>
+                    </div>
+                    <div class="card-question">${currentCard.q}</div>
+                    ${currentCard.hint ? `<div class="card-hint">💡 ${currentCard.hint}</div>` : ''}
+                    <div class="flip-hint">Click to reveal answer</div>
+                </div>
+                <div class="card-face card-back">
+                    <div>
+                        <span class="card-category">${currentCard.cat}</span>
+                        <span class="card-difficulty ${currentCard.diff}">${currentCard.diff}</span>
+                    </div>
+                    <div class="card-answer">${currentCard.a}</div>
+                </div>
+            </div>
+        </div>
+        <div class="rating-buttons" id="ratingBtns" style="display:none;">
+            <button class="rate-btn again" onclick="rateCard(0)">Again<span class="rate-label">&lt;1 min</span></button>
+            <button class="rate-btn hard" onclick="rateCard(1)">Hard<span class="rate-label">1 day</span></button>
+            <button class="rate-btn good" onclick="rateCard(2)">Good<span class="rate-label">${nextIntervalLabel(currentCard.id, 2)}</span></button>
+            <button class="rate-btn easy" onclick="rateCard(3)">Easy<span class="rate-label">${nextIntervalLabel(currentCard.id, 3)}</span></button>
+        </div>
+        <div style="text-align:center;margin-top:.5rem;font-size:.75rem;color:var(--text-dim);">
+            ${due.length} card${due.length!==1?'s':''} remaining · Press Space to flip, 1-4 to rate
+        </div>`;
+}
+
+function nextIntervalLabel(id, quality) {
+    const c = getCardState(id);
+    let interval;
+    const qMap = [0, 2, 4, 5];
+    const q = qMap[quality];
+    if (q >= 3) {
+        const reps = c.reps + 1;
+        if (reps === 1) interval = 1;
+        else if (reps === 2) interval = 6;
+        else interval = Math.round((c.interval || 1) * c.ef);
+    } else {
+        interval = quality === 0 ? 0 : 1;
+    }
+    if (interval === 0) return '<1 min';
+    if (interval === 1) return '1 day';
+    if (interval < 30) return interval + ' days';
+    if (interval < 365) return Math.round(interval/30) + ' mo';
+    return Math.round(interval/365) + ' yr';
+}
+
+function flipCard() {
+    const card = document.getElementById('flashcard');
+    if (!card) return;
+    isFlipped = !isFlipped;
+    card.classList.toggle('flipped', isFlipped);
+    document.getElementById('ratingBtns').style.display = isFlipped ? '' : 'none';
+}
+
+function rateCard(quality) {
+    if (!currentCard) return;
+    updateCard(currentCard.id, quality);
+    sessionReviewed++;
+    currentCard = null;
+    renderStudy();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+    if (currentView !== 'study' || !currentCard) return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+    if (isFlipped && e.key >= '1' && e.key <= '4') { rateCard(parseInt(e.key) - 1); }
+});
+
+function renderDecks() {
+    const grid = document.getElementById('deckGrid');
+    grid.innerHTML = CATEGORIES.map(cat => {
+        const cards = CARDS.filter(c => c.cat === cat);
+        const due = cards.filter(c => isDue(c.id)).length;
+        const mastered = cards.filter(c => isMastered(c.id)).length;
+        const sel = selectedDecks.has(cat);
+        return `<div class="deck-card ${sel?'selected':''}" onclick="toggleDeck('${cat}')">
+            <div class="deck-name">${cat}</div>
+            <div class="deck-count">${cards.length} cards · ${mastered} mastered</div>
+            <div class="deck-due">${due} due today</div>
+        </div>`;
+    }).join('');
+}
+
+function toggleDeck(cat) {
+    if (selectedDecks.has(cat)) selectedDecks.delete(cat);
+    else selectedDecks.add(cat);
+    saveDeckSelection();
+    renderDecks();
+}
+function selectAllDecks() { CATEGORIES.forEach(c => selectedDecks.add(c)); saveDeckSelection(); renderDecks(); }
+function deselectAllDecks() { selectedDecks.clear(); saveDeckSelection(); renderDecks(); }
+
+function renderProgress() {
+    const s = loadState();
+    const active = getActiveCards();
+    const mastered = active.filter(c => isMastered(c.id)).length;
+    const totalReviews = Object.values(s.daily || {}).reduce((a,b) => a+b, 0);
+    const streak = s.streak || 0;
+
+    // Streak badge
+    const badge = document.getElementById('streakBadge');
+    if (streak > 0) { badge.style.display = ''; document.getElementById('streakNum').textContent = streak; }
+    else badge.style.display = 'none';
+
+    document.getElementById('totalStats').innerHTML = `
+        <div class="fc-stat"><div class="num">${active.length}</div><div class="lbl">Total Cards</div></div>
+        <div class="fc-stat"><div class="num">${mastered}</div><div class="lbl">Mastered</div></div>
+        <div class="fc-stat"><div class="num">${totalReviews}</div><div class="lbl">Total Reviews</div></div>
+        <div class="fc-stat"><div class="num">${streak}</div><div class="lbl">Day Streak 🔥</div></div>
+    `;
+
+    // Heatmap
+    const heatmap = document.getElementById('heatmap');
+    const cells = [];
+    const d = new Date();
+    d.setDate(d.getDate() - 55); // 8 weeks back
+    const maxReviews = Math.max(1, ...Object.values(s.daily || {}));
+    for (let i = 0; i < 56; i++) {
+        const key = d.toISOString().slice(0,10);
+        const count = (s.daily || {})[key] || 0;
+        const opacity = count === 0 ? 0 : Math.max(0.2, count / maxReviews);
+        const bg = count === 0 ? 'var(--surface)' : `rgba(99,102,241,${opacity})`;
+        const border = count === 0 ? '1px solid var(--border)' : 'none';
+        cells.push(`<div class="heatmap-cell" data-tip="${key}: ${count} reviews" style="background:${bg};border:${border};"></div>`);
+        d.setDate(d.getDate() + 1);
+    }
+    heatmap.innerHTML = cells.join('');
+}
+
+function renderBrowse() {
+    const query = (document.getElementById('browseSearch')?.value || '').toLowerCase();
+    const list = document.getElementById('browseList');
+    const filtered = CARDS.filter(c =>
+        c.q.toLowerCase().includes(query) || c.a.toLowerCase().includes(query) ||
+        c.cat.toLowerCase().includes(query) || c.diff.includes(query)
+    );
+    list.innerHTML = filtered.map(c => {
+        const cs = getCardState(c.id);
+        const status = isMastered(c.id) ? '✅ Mastered' : cs.reps > 0 ? '📖 Learning' : '🆕 New';
+        return `<div class="qcard" style="padding:1.25rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+                <div>
+                    <span class="card-category">${c.cat}</span>
+                    <span class="card-difficulty ${c.diff}">${c.diff}</span>
+                </div>
+                <span style="font-size:.75rem;color:var(--text-dim);">${status}</span>
+            </div>
+            <div style="font-size:.95rem;margin-bottom:.5rem;">${c.q}</div>
+            <details><summary style="font-size:.8rem;color:var(--accent);cursor:pointer;">Show Answer</summary>
+                <div style="margin-top:.5rem;font-size:.9rem;color:var(--text-dim);">${c.a}</div>
+            </details>
+        </div>`;
+    }).join('');
+    if (!filtered.length) list.innerHTML = '<div class="empty-state"><div class="emoji">🔍</div><p>No cards match your search.</p></div>';
+}
+
+function resetProgress() {
+    if (!confirm('Reset all flashcard progress? This cannot be undone.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    sessionReviewed = 0;
+    currentCard = null;
+    showView('progress');
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+loadDeckSelection();
+showView('study');
+</script>
+</body>
+</html>
