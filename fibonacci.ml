@@ -2,13 +2,16 @@
 (* Demonstrates: Hash tables, closures, imperative features in OCaml,
    comparison of naive vs memoized approaches *)
 
-(* Naive recursive Fibonacci — exponential time O(2^n) *)
+(** [fib_naive n] computes the [n]-th Fibonacci number using naive
+    recursion. Exponential time O(2^n) — only suitable for small [n]. *)
 let rec fib_naive = function
   | 0 -> 0
   | 1 -> 1
   | n -> fib_naive (n - 1) + fib_naive (n - 2)
 
-(* Memoized Fibonacci using a closure over a hash table — O(n) time *)
+(** [fib_memo n] computes the [n]-th Fibonacci number using memoization
+    with a hash table. O(n) time on first call, O(1) for cached values.
+    The cache persists across calls via a closure. *)
 let fib_memo =
   let cache = Hashtbl.create 64 in
   let rec fib n =
@@ -25,7 +28,8 @@ let fib_memo =
   in
   fib
 
-(* Tail-recursive iterative Fibonacci — O(n) time, O(1) space *)
+(** [fib_iter n] computes the [n]-th Fibonacci number using tail-recursive
+    iteration. O(n) time, O(1) space — the most efficient approach. *)
 let fib_iter n =
   if n <= 0 then 0
   else
@@ -35,11 +39,13 @@ let fib_iter n =
     in
     aux 0 1 1
 
-(* Generate first n Fibonacci numbers as a list *)
+(** [fib_sequence n] returns the first [n] Fibonacci numbers as a list,
+    i.e. [fib_iter 0; fib_iter 1; ...; fib_iter (n-1)]. *)
 let fib_sequence n =
   List.init n fib_iter
 
-(* Timing helper — returns (result, elapsed_seconds) *)
+(** [time f x] applies [f] to [x] and returns [(result, elapsed_seconds)].
+    Uses [Sys.time] for CPU time measurement. *)
 let time f x =
   let t0 = Sys.time () in
   let result = f x in

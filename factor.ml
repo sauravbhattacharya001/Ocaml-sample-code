@@ -1,8 +1,14 @@
 (* Prime factorization using recursive trial division *)
 (* Demonstrates: recursion, pattern matching, input validation *)
 
-(* Optimized: after extracting all factors of 2, only check odd divisors.
-   This nearly halves the number of trial divisions for large inputs. *)
+(** [factors n] returns the prime factorization of [n] as a list of prime
+    factors in non-decreasing order.
+    @param n integer >= 2
+    @raise Invalid_argument if [n < 2]
+
+    Optimized: after extracting all factors of 2, only checks odd divisors.
+    This nearly halves the number of trial divisions for large inputs.
+    Complexity: O(sqrt(n)) trial divisions in the worst case. *)
 let factors n =
   if n < 2 then invalid_arg "factors: input must be >= 2"
   else
@@ -17,7 +23,8 @@ let factors n =
     in
     extract_twos n
 
-(* Pretty-print a list of integers *)
+(** [string_of_int_list lst] formats an integer list as a bracketed,
+    semicolon-separated string, e.g. ["[2; 3; 5]"]. *)
 let string_of_int_list lst =
   "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]"
 

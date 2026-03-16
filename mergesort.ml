@@ -1,7 +1,9 @@
 (* Merge sort on lists *)
 (* Demonstrates: higher-order functions, tuple destructuring, recursion *)
 
-(* Split a list into two roughly equal halves — tail-recursive *)
+(** [split lst] divides [lst] into two roughly equal halves by alternating
+    elements. Returns [(left, right)] where [|left| - |right|] <= 1.
+    Tail-recursive. *)
 let split lst =
   let rec aux left right = function
     | [] -> (List.rev left, List.rev right)
@@ -10,7 +12,9 @@ let split lst =
   in
   aux [] [] lst
 
-(* Merge two sorted lists — tail-recursive to avoid stack overflow on large inputs *)
+(** [merge cmp l1 l2] merges two sorted lists into a single sorted list
+    using comparison function [cmp]. Tail-recursive to avoid stack overflow
+    on large inputs. Stable: preserves relative order of equal elements. *)
 let merge cmp l1 l2 =
   let rec aux acc l1 l2 =
     match l1, l2 with
@@ -21,14 +25,17 @@ let merge cmp l1 l2 =
   in
   aux [] l1 l2
 
-(* Merge sort: split, recurse, merge *)
+(** [mergesort cmp lst] sorts [lst] using the merge sort algorithm with
+    comparison function [cmp]. Stable sort with O(n log n) time complexity.
+    Returns a new sorted list. *)
 let rec mergesort cmp = function
   | ([] | [_]) as l -> l  (* base case: 0 or 1 elements *)
   | lst ->
     let (left, right) = split lst in
     merge cmp (mergesort cmp left) (mergesort cmp right)
 
-(* Pretty-print a list of integers *)
+(** [string_of_int_list lst] formats an integer list as a bracketed,
+    semicolon-separated string. *)
 let string_of_int_list lst =
   "[" ^ String.concat "; " (List.map string_of_int lst) ^ "]"
 

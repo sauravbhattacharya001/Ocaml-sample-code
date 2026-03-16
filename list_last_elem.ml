@@ -1,6 +1,9 @@
 (* Find the last element of a list using pattern matching *)
 (* Demonstrates: option types, pattern matching, recursion *)
 
+(** [last lst] returns [Some x] where [x] is the last element of [lst],
+    or [None] if [lst] is empty.
+    Complexity: O(n) where n is the length of the list. *)
 let rec last = function
   | [] -> None
   | [x] -> Some x
