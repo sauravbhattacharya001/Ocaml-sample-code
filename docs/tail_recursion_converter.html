@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCaml Tail Recursion Converter</title>
+<style>
+:root {
+  --bg: #1a1b26; --surface: #24283b; --border: #414868;
+  --text: #c0caf5; --dim: #565f89; --accent: #7aa2f7;
+  --green: #9ece6a; --red: #f7768e; --orange: #e0af68; --purple: #bb9af7;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 30px; display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 1.5rem; }
+.header h1 span { color: var(--accent); }
+.header p { color: var(--dim); font-size: 0.9rem; }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+.tab { padding: 8px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px 8px 0 0;
+  cursor: pointer; color: var(--dim); font-size: 0.85rem; transition: all 0.2s; }
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--accent); color: #1a1b26; border-color: var(--accent); font-weight: 600; }
+
+/* Example cards */
+.example-panel { display: none; }
+.example-panel.active { display: block; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media (max-width: 768px) { .split { grid-template-columns: 1fr; } }
+.code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.code-header { background: rgba(65,72,104,0.3); padding: 8px 14px; font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.code-header .label-naive { color: var(--red); }
+.code-header .label-tail { color: var(--green); }
+.code-header .copy-btn { background: none; border: 1px solid var(--border); color: var(--dim); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+.code-header .copy-btn:hover { color: var(--text); border-color: var(--text); }
+pre { padding: 14px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.6; overflow-x: auto; white-space: pre; }
+
+/* Steps */
+.steps { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.steps h3 { color: var(--accent); margin-bottom: 12px; font-size: 1rem; }
+.step { display: flex; gap: 12px; margin-bottom: 12px; }
+.step-num { width: 28px; height: 28px; background: var(--accent); color: #1a1b26; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+.step-text { color: var(--text); line-height: 1.5; font-size: 0.9rem; padding-top: 2px; }
+.step-text code { background: rgba(122,162,247,0.15); padding: 1px 5px; border-radius: 3px; color: var(--accent); font-family: 'Cascadia Code', monospace; font-size: 0.8rem; }
+
+/* Complexity */
+.complexity { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.complexity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 150px; }
+.complexity-card .label { color: var(--dim); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+.complexity-card .value { font-size: 1.2rem; font-weight: 700; margin-top: 4px; }
+.complexity-card .value.bad { color: var(--red); }
+.complexity-card .value.good { color: var(--green); }
+
+/* Interactive converter */
+.converter { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.converter h3 { color: var(--accent); margin-bottom: 12px; }
+.converter textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px; font-family: 'Cascadia Code', monospace; font-size: 0.85rem; resize: vertical; min-height: 100px; }
+.converter textarea:focus { outline: none; border-color: var(--accent); }
+.btn { background: var(--accent); color: #1a1b26; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;
+  font-weight: 600; font-size: 0.9rem; margin-top: 10px; transition: opacity 0.2s; }
+.btn:hover { opacity: 0.85; }
+.output { margin-top: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px;
+  font-family: 'Cascadia Code', monospace; font-size: 0.85rem; white-space: pre-wrap; min-height: 60px; line-height: 1.6; }
+.tip { background: rgba(224,175,104,0.1); border-left: 3px solid var(--orange); padding: 10px 14px; margin-top: 12px; border-radius: 0 6px 6px 0; font-size: 0.85rem; color: var(--orange); }
+
+/* Keyword highlighting */
+.kw { color: var(--purple); font-weight: 600; }
+.fn { color: var(--accent); }
+.cm { color: var(--dim); font-style: italic; }
+.str { color: var(--green); }
+.num { color: var(--orange); }
+
+/* Quiz */
+.quiz { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-top: 20px; }
+.quiz h3 { color: var(--accent); margin-bottom: 14px; }
+.quiz-q { margin-bottom: 16px; }
+.quiz-q p { margin-bottom: 8px; font-size: 0.9rem; }
+.quiz-q pre { margin-bottom: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 0.8rem; }
+.quiz-options { display: flex; flex-direction: column; gap: 6px; }
+.quiz-opt { padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+.quiz-opt:hover { border-color: var(--accent); }
+.quiz-opt.correct { border-color: var(--green); background: rgba(158,206,106,0.1); }
+.quiz-opt.wrong { border-color: var(--red); background: rgba(247,118,142,0.1); }
+.quiz-opt.disabled { pointer-events: none; }
+.quiz-result { margin-top: 6px; font-size: 0.85rem; padding: 6px 10px; border-radius: 4px; }
+.quiz-result.correct { color: var(--green); }
+.quiz-result.wrong { color: var(--red); }
+.score-bar { margin-top: 16px; padding: 10px 14px; background: var(--bg); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.score-bar .score { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔄 Tail Recursion <span>Converter</span></h1>
+    <p>Learn to transform naive recursive OCaml functions into stack-safe tail-recursive versions</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="factorial">Factorial</div>
+    <div class="tab" data-tab="fibonacci">Fibonacci</div>
+    <div class="tab" data-tab="list-length">List Length</div>
+    <div class="tab" data-tab="list-reverse">List Reverse</div>
+    <div class="tab" data-tab="list-map">List Map</div>
+    <div class="tab" data-tab="sum-list">Sum List</div>
+    <div class="tab" data-tab="flatten">Flatten</div>
+    <div class="tab" data-tab="gcd">GCD</div>
+    <div class="tab" data-tab="converter">🛠 Converter</div>
+    <div class="tab" data-tab="quiz">📝 Quiz</div>
+  </div>
+
+  <!-- FACTORIAL -->
+  <div class="example-panel active" id="panel-factorial">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Time</div><div class="value" style="color:var(--text)">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--green)">Beginner</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">factorial</span> n =
+  <span class="kw">if</span> n <= <span class="num">1</span> <span class="kw">then</span> <span class="num">1</span>
+  <span class="kw">else</span> n * <span class="fn">factorial</span> (n - <span class="num">1</span>)
+
+<span class="cm">(* factorial 5
+   = 5 * factorial 4
+   = 5 * (4 * factorial 3)
+   = 5 * (4 * (3 * factorial 2))
+   = 5 * (4 * (3 * (2 * 1)))
+   Stack frames: 5 *)</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">factorial</span> n =
+  <span class="kw">let rec</span> <span class="fn">aux</span> n acc =
+    <span class="kw">if</span> n <= <span class="num">1</span> <span class="kw">then</span> acc
+    <span class="kw">else</span> <span class="fn">aux</span> (n - <span class="num">1</span>) (n * acc)
+  <span class="kw">in</span>
+  <span class="fn">aux</span> n <span class="num">1</span>
+
+<span class="cm">(* aux 5 1 → aux 4 5 → aux 3 20
+   → aux 2 60 → aux 1 120 → 120
+   Stack frames: 1 *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">Identify the operation <strong>after</strong> the recursive call: <code>n * factorial (n-1)</code> — multiplication happens after return.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Add an <strong>accumulator parameter</strong> <code>acc</code> to carry the partial result. Initialize with the identity value (<code>1</code> for multiplication).</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Move the operation <strong>into the recursive call</strong>: <code>aux (n-1) (n * acc)</code> — now the call is in tail position.</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text">Base case returns <code>acc</code> instead of the identity value.</div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-text">Wrap in a non-recursive outer function to hide the accumulator from the API.</div></div>
+    </div>
+  </div>
+
+  <!-- FIBONACCI -->
+  <div class="example-panel" id="panel-fibonacci">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Time</div><div class="value bad">O(2ⁿ)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Time</div><div class="value good">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">fib</span> n =
+  <span class="kw">if</span> n <= <span class="num">1</span> <span class="kw">then</span> n
+  <span class="kw">else</span> <span class="fn">fib</span> (n - <span class="num">1</span>) + <span class="fn">fib</span> (n - <span class="num">2</span>)
+
+<span class="cm">(* Exponential tree of calls!
+   fib 5 calls fib 4 + fib 3
+   fib 4 calls fib 3 + fib 2
+   ... massive redundancy *)</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">fib</span> n =
+  <span class="kw">let rec</span> <span class="fn">aux</span> n a b =
+    <span class="kw">if</span> n = <span class="num">0</span> <span class="kw">then</span> a
+    <span class="kw">else</span> <span class="fn">aux</span> (n - <span class="num">1</span>) b (a + b)
+  <span class="kw">in</span>
+  <span class="fn">aux</span> n <span class="num">0</span> <span class="num">1</span>
+
+<span class="cm">(* aux 5 0 1 → aux 4 1 1 → aux 3 1 2
+   → aux 2 2 3 → aux 1 3 5 → aux 0 5 8
+   → 5.  Linear, O(1) stack! *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">Two recursive calls means we need <strong>two accumulators</strong>: <code>a</code> (current fib) and <code>b</code> (next fib).</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Each step shifts the window: <code>a → b</code>, <code>b → a + b</code>.</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Count <strong>down</strong> from <code>n</code>; when <code>n = 0</code>, <code>a</code> holds the answer.</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text">This also fixes the exponential time — each value computed exactly once.</div></div>
+    </div>
+  </div>
+
+  <!-- LIST LENGTH -->
+  <div class="example-panel" id="panel-list-length">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Time</div><div class="value" style="color:var(--text)">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--green)">Beginner</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">length</span> = <span class="kw">function</span>
+  | [] -> <span class="num">0</span>
+  | _ :: tl -> <span class="num">1</span> + <span class="fn">length</span> tl</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">length</span> lst =
+  <span class="kw">let rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    | [] -> acc
+    | _ :: tl -> <span class="fn">aux</span> (acc + <span class="num">1</span>) tl
+  <span class="kw">in</span>
+  <span class="fn">aux</span> <span class="num">0</span> lst</pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text"><code>1 + length tl</code> — addition after return, not tail-recursive.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Add <code>acc</code> starting at <code>0</code>. Increment <strong>before</strong> recursing: <code>aux (acc + 1) tl</code>.</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Base case returns <code>acc</code>.</div></div>
+    </div>
+  </div>
+
+  <!-- LIST REVERSE -->
+  <div class="example-panel" id="panel-list-reverse">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Naive Time</div><div class="value bad">O(n²)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Time</div><div class="value good">O(n)</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">reverse</span> = <span class="kw">function</span>
+  | [] -> []
+  | hd :: tl -> <span class="fn">reverse</span> tl @ [hd]
+
+<span class="cm">(* @ is O(n), called n times = O(n²) *)</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">reverse</span> lst =
+  <span class="kw">let rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    | [] -> acc
+    | hd :: tl -> <span class="fn">aux</span> (hd :: acc) tl
+  <span class="kw">in</span>
+  <span class="fn">aux</span> [] lst
+
+<span class="cm">(* :: is O(1), called n times = O(n) *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">The naive version appends to end (<code>@ [hd]</code>) — quadratic.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Accumulator is a list; <strong>prepend</strong> each element: <code>hd :: acc</code>. Prepending naturally reverses!</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">This is how <code>List.rev</code> is implemented in OCaml's standard library.</div></div>
+    </div>
+  </div>
+
+  <!-- LIST MAP -->
+  <div class="example-panel" id="panel-list-map">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--orange)">Intermediate</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">map</span> f = <span class="kw">function</span>
+  | [] -> []
+  | hd :: tl -> f hd :: <span class="fn">map</span> f tl</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">map</span> f lst =
+  <span class="kw">let rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    | [] -> List.rev acc
+    | hd :: tl -> <span class="fn">aux</span> (f hd :: acc) tl
+  <span class="kw">in</span>
+  <span class="fn">aux</span> [] lst
+
+<span class="cm">(* Builds reversed result, then
+   reverses at the end. Still O(n). *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text"><code>f hd :: map f tl</code> — cons after recursive call, not tail-recursive.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Accumulate results with prepend: <code>f hd :: acc</code>. This reverses the output.</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Call <code>List.rev acc</code> at the base case to restore correct order.</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Pattern:</strong> When building a list tail-recursively, you almost always need a final <code>List.rev</code>.</div></div>
+    </div>
+  </div>
+
+  <!-- SUM LIST -->
+  <div class="example-panel" id="panel-sum-list">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--green)">Beginner</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">sum</span> = <span class="kw">function</span>
+  | [] -> <span class="num">0</span>
+  | hd :: tl -> hd + <span class="fn">sum</span> tl</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">sum</span> lst =
+  <span class="kw">let rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    | [] -> acc
+    | hd :: tl -> <span class="fn">aux</span> (acc + hd) tl
+  <span class="kw">in</span>
+  <span class="fn">aux</span> <span class="num">0</span> lst
+
+<span class="cm">(* This is essentially List.fold_left (+) 0 *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">Same pattern as factorial/length: move <code>+</code> into the recursive call via accumulator.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Insight:</strong> Tail-recursive sum is just <code>fold_left</code>! Most accumulator patterns generalize to folds.</div></div>
+    </div>
+  </div>
+
+  <!-- FLATTEN -->
+  <div class="example-panel" id="panel-flatten">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Naive Stack</div><div class="value bad">O(n)</div></div>
+      <div class="complexity-card"><div class="label">Tail-Rec Stack</div><div class="value good">O(1)</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--orange)">Intermediate</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-naive">❌ Naive Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">flatten</span> = <span class="kw">function</span>
+  | [] -> []
+  | hd :: tl -> hd @ <span class="fn">flatten</span> tl</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Tail Recursive</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let</span> <span class="fn">flatten</span> lst =
+  <span class="kw">let rec</span> <span class="fn">aux</span> acc = <span class="kw">function</span>
+    | [] -> List.rev acc
+    | hd :: tl ->
+      <span class="kw">let</span> acc' = List.fold_left
+        (<span class="kw">fun</span> a x -> x :: a) acc hd
+      <span class="kw">in</span>
+      <span class="fn">aux</span> acc' tl
+  <span class="kw">in</span>
+  <span class="fn">aux</span> [] lst</pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Transformation Steps</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">Each sub-list's elements are prepended onto the accumulator (reversed).</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text"><code>List.fold_left</code> handles inner list traversal — already tail-recursive.</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Final <code>List.rev</code> restores order.</div></div>
+    </div>
+  </div>
+
+  <!-- GCD -->
+  <div class="example-panel" id="panel-gcd">
+    <div class="complexity">
+      <div class="complexity-card"><div class="label">Stack</div><div class="value good">Already O(1)!</div></div>
+      <div class="complexity-card"><div class="label">Time</div><div class="value" style="color:var(--text)">O(log min(a,b))</div></div>
+      <div class="complexity-card"><div class="label">Difficulty</div><div class="value" style="color:var(--green)">Beginner</div></div>
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <div class="code-header"><span class="label-tail">✅ Already Tail Recursive!</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="kw">let rec</span> <span class="fn">gcd</span> a b =
+  <span class="kw">if</span> b = <span class="num">0</span> <span class="kw">then</span> a
+  <span class="kw">else</span> <span class="fn">gcd</span> b (a <span class="kw">mod</span> b)
+
+<span class="cm">(* The recursive call IS the last thing —
+   no operation wraps it.
+   gcd 48 18 → gcd 18 12 → gcd 12 6
+   → gcd 6 0 → 6 *)</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span style="color:var(--purple)">🤔 How to Recognize Tail Position</span></div>
+        <pre><span class="cm">(* TAIL position — call IS the result: *)</span>
+<span class="kw">else</span> <span class="fn">gcd</span> b (a <span class="kw">mod</span> b)   <span class="cm">(* ✅ *)</span>
+
+<span class="cm">(* NOT tail position — work after call: *)</span>
+<span class="kw">else</span> <span class="num">1</span> + <span class="fn">f</span> (n-<span class="num">1</span>)       <span class="cm">(* ❌ add *)</span>
+<span class="kw">else</span> <span class="fn">f</span> (n-<span class="num">1</span>) @ [x]     <span class="cm">(* ❌ append *)</span>
+<span class="kw">else</span> x :: <span class="fn">f</span> tl        <span class="cm">(* ❌ cons *)</span>
+
+<span class="cm">(* Key test: if you removed the call
+   and put a value there, would the
+   function still return correctly? *)</span></pre>
+      </div>
+    </div>
+    <div class="steps">
+      <h3>Why GCD is Already Tail-Recursive</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-text">The recursive call <code>gcd b (a mod b)</code> is the <strong>entire return value</strong> — nothing wraps it.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">OCaml's compiler recognizes this and reuses the current stack frame (like a loop).</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Lesson:</strong> Not all recursion needs conversion! Check if the call is already in tail position.</div></div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE CONVERTER -->
+  <div class="example-panel" id="panel-converter">
+    <div class="converter">
+      <h3>🛠 Paste Your Recursive Function</h3>
+      <p style="color:var(--dim); font-size:0.85rem; margin-bottom:10px;">Enter a simple recursive OCaml function. The converter will analyze it and suggest a tail-recursive version.</p>
+      <textarea id="input-code" placeholder="let rec factorial n =
+  if n <= 1 then 1
+  else n * factorial (n - 1)"></textarea>
+      <button class="btn" onclick="analyzeCode()">Analyze & Convert</button>
+      <div id="converter-output" class="output" style="display:none;"></div>
+      <div class="tip" style="margin-top:16px;">
+        <strong>💡 Tip:</strong> The converter handles common patterns: arithmetic accumulators (<code>+</code>, <code>*</code>), list building (<code>::</code>, <code>@</code>), and counting. For complex mutual recursion or CPS, manual conversion is recommended.
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="example-panel" id="panel-quiz">
+    <div class="quiz">
+      <h3>📝 Test Your Understanding</h3>
+      <div id="quiz-container"></div>
+      <div class="score-bar" id="score-bar" style="display:none;">
+        <span>Score:</span>
+        <span class="score" id="quiz-score">0 / 0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.getElementById('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.example-panel').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+});
+
+// Copy code
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+// Converter
+function analyzeCode() {
+  const code = document.getElementById('input-code').value.trim();
+  const out = document.getElementById('converter-output');
+  out.style.display = 'block';
+
+  if (!code) { out.textContent = 'Please enter some code.'; return; }
+
+  // Detect function name and recursive pattern
+  const fnMatch = code.match(/let\s+rec\s+(\w+)/);
+  if (!fnMatch) { out.textContent = '⚠ Could not find "let rec <name>". Make sure your function uses "let rec".'; return; }
+  const fnName = fnMatch[1];
+
+  // Check if already tail-recursive (simple heuristic)
+  // Split into clauses, looking for recursive calls
+  const recCalls = [];
+  // Find all occurrences of fnName that aren't the definition
+  const callRe = new RegExp(`(?:^|[^a-zA-Z_])${fnName}\\s*[( ]`, 'g');
+  let defSkipped = false;
+  let m;
+  while ((m = callRe.exec(code)) !== null) {
+    // Skip the definition itself (first occurrence after "let rec")
+    if (!defSkipped) { defSkipped = true; continue; }
+    // Extract surrounding context
+    const start = Math.max(0, code.lastIndexOf('\n', m.index) + 1);
+    const end = code.indexOf('\n', m.index);
+    const line = code.substring(start, end === -1 ? code.length : end).trim();
+    recCalls.push(line);
+  }
+
+  if (recCalls.length === 0) {
+    out.textContent = '⚠ No recursive calls found. Is this actually recursive?';
+    return;
+  }
+
+  // Check for post-call operations
+  let analysis = `🔍 Analysis of "${fnName}":\n\n`;
+  let isTailRec = true;
+  const issues = [];
+
+  for (const call of recCalls) {
+    // Check common non-tail patterns
+    if (call.match(new RegExp(`\\w+\\s*[+*-]\\s*${fnName}|${fnName}[^)]*\\)\\s*[+*-]`))) {
+      isTailRec = false;
+      issues.push(`  ❌ "${call}" — arithmetic after recursive call`);
+    } else if (call.match(new RegExp(`${fnName}[^)]*\\)\\s*@|@\\s*${fnName}`))) {
+      isTailRec = false;
+      issues.push(`  ❌ "${call}" — list append after recursive call`);
+    } else if (call.match(new RegExp(`\\w+\\s*::\\s*${fnName}|${fnName}[^)]*\\)\\s*::`))) {
+      isTailRec = false;
+      issues.push(`  ❌ "${call}" — cons (::) wrapping recursive call`);
+    } else {
+      issues.push(`  ✅ "${call}" — appears to be in tail position`);
+    }
+  }
+
+  analysis += `Recursive calls found:\n${issues.join('\n')}\n\n`;
+
+  if (isTailRec) {
+    analysis += `✅ This function appears to already be tail-recursive! No conversion needed.\n`;
+    analysis += `The recursive call(s) are in tail position — OCaml will optimize them.`;
+  } else {
+    analysis += `🔄 Suggested tail-recursive version:\n\n`;
+
+    // Detect pattern and generate conversion
+    if (code.match(/[+]\s*\w+\s*\(|[*]\s*\w+\s*\(/)) {
+      // Arithmetic accumulator pattern
+      const op = code.includes('*') && !code.includes('+') ? '*' : '+';
+      const identity = op === '*' ? '1' : '0';
+      analysis += `let ${fnName} n =\n`;
+      analysis += `  let rec aux n acc =\n`;
+      analysis += `    (* move your base case to return acc *)\n`;
+      analysis += `    (* move ${op} into: aux (n - 1) (n ${op} acc) *)\n`;
+      analysis += `  in\n`;
+      analysis += `  aux n ${identity}\n\n`;
+      analysis += `Pattern: Arithmetic accumulator (identity: ${identity} for ${op === '*' ? 'multiplication' : 'addition'})`;
+    } else if (code.includes('::') || code.includes('@')) {
+      analysis += `let ${fnName} f lst =\n`;
+      analysis += `  let rec aux acc = function\n`;
+      analysis += `    | [] -> List.rev acc\n`;
+      analysis += `    | hd :: tl -> aux (f hd :: acc) tl\n`;
+      analysis += `  in\n`;
+      analysis += `  aux [] lst\n\n`;
+      analysis += `Pattern: List builder — accumulate reversed, then List.rev at the end.`;
+    } else {
+      analysis += `let ${fnName} (* args *) =\n`;
+      analysis += `  let rec aux acc (* args *) =\n`;
+      analysis += `    (* base case → acc *)\n`;
+      analysis += `    (* recursive case → aux (update acc) (reduce args) *)\n`;
+      analysis += `  in\n`;
+      analysis += `  aux initial_value (* args *)\n\n`;
+      analysis += `General pattern: Add accumulator, move post-call work into it.`;
+    }
+  }
+
+  out.textContent = analysis;
+}
+
+// Quiz
+var quizData = [
+  {
+    q: 'Which function is tail-recursive?',
+    code: 'A: let rec f n = if n=0 then 1 else n * f(n-1)\nB: let rec f n acc = if n=0 then acc else f (n-1) (n*acc)',
+    opts: ['A', 'B', 'Both', 'Neither'],
+    ans: 1,
+    explain: 'B is tail-recursive: f is the last call with no wrapping operation. A multiplies after the call returns.'
+  },
+  {
+    q: 'What is the accumulator\'s initial value for a tail-recursive sum?',
+    code: 'let sum lst = let rec aux acc = function\n  | [] -> acc | hd :: tl -> aux (acc + hd) tl\nin aux ??? lst',
+    opts: ['1', '0', '[]', 'None'],
+    ans: 1,
+    explain: '0 is the identity element for addition. Starting with 0 ensures the first element is added correctly.'
+  },
+  {
+    q: 'Why does tail-recursive list map need List.rev?',
+    code: 'let map f lst = let rec aux acc = function\n  | [] -> List.rev acc\n  | hd :: tl -> aux (f hd :: acc) tl\nin aux [] lst',
+    opts: ['It doesn\'t — List.rev is optional', 'Prepending (::) builds the list in reverse order', 'OCaml requires it for type checking', 'It improves performance'],
+    ans: 1,
+    explain: 'Prepending to the accumulator with :: is O(1) but reverses the output. List.rev at the end restores correct order.'
+  },
+  {
+    q: 'Is this function tail-recursive?',
+    code: 'let rec gcd a b =\n  if b = 0 then a\n  else gcd b (a mod b)',
+    opts: ['Yes', 'No'],
+    ans: 0,
+    explain: 'Yes! The recursive call "gcd b (a mod b)" is the entire return value — nothing wraps it. It\'s already in tail position.'
+  },
+  {
+    q: 'What happens if you run a non-tail-recursive function on a very long list?',
+    code: 'let rec length = function\n  | [] -> 0\n  | _ :: tl -> 1 + length tl\n\nlength (List.init 10_000_000 Fun.id)',
+    opts: ['Returns 10000000', 'Stack overflow', 'Returns 0', 'Compilation error'],
+    ans: 1,
+    explain: 'Each recursive call adds a stack frame. With 10 million elements, the stack overflows. The tail-recursive version with an accumulator would work fine.'
+  },
+  {
+    q: 'How many accumulators does tail-recursive Fibonacci need?',
+    code: 'let fib n = let rec aux n ??? = ...',
+    opts: ['0', '1', '2', '3'],
+    ans: 2,
+    explain: 'Fibonacci needs two accumulators (a, b) representing consecutive Fibonacci numbers. Each step: a→b, b→a+b.'
+  }
+];
+
+var quizCorrect = 0, quizTotal = 0;
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  container.innerHTML = quizData.map((q, qi) => `
+    <div class="quiz-q" id="quiz-${qi}">
+      <p><strong>Q${qi+1}:</strong> ${q.q}</p>
+      <pre>${q.code}</pre>
+      <div class="quiz-options">
+        ${q.opts.map((o, oi) => `<div class="quiz-opt" data-q="${qi}" data-o="${oi}" onclick="answerQuiz(${qi},${oi})">${o}</div>`).join('')}
+      </div>
+      <div class="quiz-result" id="result-${qi}"></div>
+    </div>
+  `).join('');
+}
+
+function answerQuiz(qi, oi) {
+  const q = quizData[qi];
+  const opts = document.querySelectorAll(`[data-q="${qi}"]`);
+  opts.forEach(o => {
+    o.classList.add('disabled');
+    if (parseInt(o.dataset.o) === q.ans) o.classList.add('correct');
+    if (parseInt(o.dataset.o) === oi && oi !== q.ans) o.classList.add('wrong');
+  });
+  const result = document.getElementById(`result-${qi}`);
+  quizTotal++;
+  if (oi === q.ans) {
+    quizCorrect++;
+    result.className = 'quiz-result correct';
+    result.textContent = '✅ ' + q.explain;
+  } else {
+    result.className = 'quiz-result wrong';
+    result.textContent = '❌ ' + q.explain;
+  }
+  const bar = document.getElementById('score-bar');
+  bar.style.display = 'flex';
+  document.getElementById('quiz-score').textContent = `${quizCorrect} / ${quizTotal}`;
+}
+
+renderQuiz();
+</script>
+</body>
+</html>
