@@ -443,39 +443,18 @@ let print_matching_result r =
   ) r.pairs
 
 (* ================================================================
-   Tests
+   Tests — uses shared test_framework for assertions
    ================================================================ *)
 
-let tests_passed = ref 0
-let tests_failed = ref 0
+(* Re-use the shared test framework instead of duplicating assertion helpers.
+   When compiled standalone, define minimal stubs; when linked with
+   test_framework.ml the shared counters are used automatically. *)
 
-let assert_equal name expected actual =
-  if expected = actual then begin
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" name
-  end else begin
-    incr tests_failed;
-    Printf.printf "  ✗ %s (expected %s, got %s)\n" name
-      (string_of_int expected) (string_of_int actual)
-  end
+let _nf_assert_equal name expected actual =
+  assert_equal ~msg:name (string_of_int expected) (string_of_int actual)
 
-let assert_true name cond =
-  if cond then begin
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" name
-  end else begin
-    incr tests_failed;
-    Printf.printf "  ✗ %s (expected true)\n" name
-  end
-
-let assert_false name cond =
-  if not cond then begin
-    incr tests_passed;
-    Printf.printf "  ✓ %s\n" name
-  end else begin
-    incr tests_failed;
-    Printf.printf "  ✗ %s (expected false)\n" name
-  end
+let _nf_assert_true name cond =
+  assert_true ~msg:name cond
 
 let run_tests () =
   Printf.printf "\n=== Network Flow Tests ===\n\n";
@@ -486,14 +465,14 @@ let run_tests () =
   (* Simple 2-node *)
   let fn = create_flow_network 2 in
   add_edge fn 0 1 10;
-  assert_equal "simple 2-node" 10 (max_flow fn 0 1);
+  _nf_assert_equal "simple 2-node" 10 (max_flow fn 0 1);
 
   (* Linear chain *)
   let fn = create_flow_network 4 in
   add_edge fn 0 1 10;
   add_edge fn 1 2 5;
   add_edge fn 2 3 8;
-  assert_equal "linear chain bottleneck" 5 (max_flow fn 0 3);
+  _nf_assert_equal "linear chain bottleneck" 5 (max_flow fn 0 3);
 
   (* Parallel paths *)
   let fn = create_flow_network 4 in
@@ -501,7 +480,7 @@ let run_tests () =
   add_edge fn 0 2 3;
   add_edge fn 1 3 5;
   add_edge fn 2 3 3;
-  assert_equal "parallel paths" 8 (max_flow fn 0 3);
+  _nf_assert_equal "parallel paths" 8 (max_flow fn 0 3);
 
   (* Diamond graph *)
   let fn = create_flow_network 4 in
@@ -510,7 +489,7 @@ let run_tests () =
   add_edge fn 1 3 10;
   add_edge fn 2 3 10;
   add_edge fn 1 2 1;
-  assert_equal "diamond graph" 20 (max_flow fn 0 3);
+  _nf_assert_equal "diamond graph" 20 (max_flow fn 0 3);
 
   (* Classic example: Ford-Fulkerson challenge *)
   let fn = create_flow_network 6 in
@@ -524,28 +503,28 @@ let run_tests () =
   add_edge fn 3 5 20;
   add_edge fn 4 3 7;
   add_edge fn 4 5 4;
-  assert_equal "classic CLRS example" 23 (max_flow fn 0 5);
+  _nf_assert_equal "classic CLRS example" 23 (max_flow fn 0 5);
 
   (* Zero capacity *)
   let fn = create_flow_network 3 in
   add_edge fn 0 1 0;
   add_edge fn 1 2 5;
-  assert_equal "zero capacity edge" 0 (max_flow fn 0 2);
+  _nf_assert_equal "zero capacity edge" 0 (max_flow fn 0 2);
 
   (* No path *)
   let fn = create_flow_network 3 in
   add_edge fn 0 1 5;
-  assert_equal "disconnected sink" 0 (max_flow fn 0 2);
+  _nf_assert_equal "disconnected sink" 0 (max_flow fn 0 2);
 
   (* Single node *)
   let fn = create_flow_network 1 in
-  assert_equal "single node (source=sink)" 0 (max_flow fn 0 0);
+  _nf_assert_equal "single node (source=sink)" 0 (max_flow fn 0 0);
 
   (* Multiple edges same pair *)
   let fn = create_flow_network 2 in
   add_edge fn 0 1 5;
   add_edge fn 0 1 3;
-  assert_equal "multiple edges same pair" 8 (max_flow fn 0 1);
+  _nf_assert_equal "multiple edges same pair" 8 (max_flow fn 0 1);
 
   (* Large fan-out *)
   let fn = create_flow_network 6 in
@@ -553,7 +532,7 @@ let run_tests () =
     add_edge fn 0 i 3;
     add_edge fn i 5 3
   done;
-  assert_equal "fan out 4 paths" 12 (max_flow fn 0 5);
+  _nf_assert_equal "fan out 4 paths" 12 (max_flow fn 0 5);
 
   Printf.printf "\n-- Min Cut --\n";
 
@@ -564,45 +543,45 @@ let run_tests () =
   add_edge fn 1 3 2;
   add_edge fn 2 3 3;
   let mc = min_cut fn 0 3 in
-  assert_equal "min cut value" 5 mc.max_flow_value;
-  assert_true "min cut s_side has source" (List.mem 0 mc.s_side);
-  assert_true "min cut t_side has sink" (List.mem 3 mc.t_side);
-  assert_true "cut edges non-empty" (mc.cut_edges <> []);
+  _nf_assert_equal "min cut value" 5 mc.max_flow_value;
+  _nf_assert_true "min cut s_side has source" (List.mem 0 mc.s_side);
+  _nf_assert_true "min cut t_side has sink" (List.mem 3 mc.t_side);
+  _nf_assert_true "cut edges non-empty" (mc.cut_edges <> []);
 
   (* Bottleneck min cut *)
   let fn = create_flow_network 3 in
   add_edge fn 0 1 100;
   add_edge fn 1 2 1;
   let mc = min_cut fn 0 2 in
-  assert_equal "bottleneck cut value" 1 mc.max_flow_value;
-  assert_equal "bottleneck cut edges count" 1 (List.length mc.cut_edges);
+  _nf_assert_equal "bottleneck cut value" 1 mc.max_flow_value;
+  _nf_assert_equal "bottleneck cut edges count" 1 (List.length mc.cut_edges);
 
   Printf.printf "\n-- Bipartite Matching --\n";
 
   (* Perfect matching *)
   let r = bipartite_matching 3 3 [(0,0); (1,1); (2,2)] in
-  assert_equal "perfect matching size" 3 r.matching_size;
+  _nf_assert_equal "perfect matching size" 3 r.matching_size;
 
   (* No matching possible *)
   let r = bipartite_matching 2 2 [] in
-  assert_equal "empty matching" 0 r.matching_size;
+  _nf_assert_equal "empty matching" 0 r.matching_size;
 
   (* Partial matching *)
   let r = bipartite_matching 3 2 [(0,0); (1,0); (2,1)] in
-  assert_equal "partial matching" 2 r.matching_size;
+  _nf_assert_equal "partial matching" 2 r.matching_size;
 
   (* Complete bipartite K3,3 *)
   let edges = List.init 3 (fun i -> List.init 3 (fun j -> (i, j))) |> List.flatten in
   let r = bipartite_matching 3 3 edges in
-  assert_equal "K3,3 matching" 3 r.matching_size;
+  _nf_assert_equal "K3,3 matching" 3 r.matching_size;
 
   (* Single left, multiple right *)
   let r = bipartite_matching 1 3 [(0,0); (0,1); (0,2)] in
-  assert_equal "single left" 1 r.matching_size;
+  _nf_assert_equal "single left" 1 r.matching_size;
 
   (* Job assignment *)
   let r = bipartite_matching 4 4 [(0,0); (0,1); (1,1); (1,2); (2,2); (2,3); (3,3)] in
-  assert_equal "job assignment" 4 r.matching_size;
+  _nf_assert_equal "job assignment" 4 r.matching_size;
 
   Printf.printf "\n-- Multi-source/sink --\n";
 
@@ -614,7 +593,7 @@ let run_tests () =
   let v = multi_source_sink_max_flow fn
     [(0, 100); (1, 100)]
     [(2, 100); (3, 100)] in
-  assert_equal "multi source/sink" 14 v;
+  _nf_assert_equal "multi source/sink" 14 v;
 
   Printf.printf "\n-- Flow Decomposition --\n";
 
@@ -625,12 +604,12 @@ let run_tests () =
   add_edge fn 2 3 2;
   let paths = decompose_flow fn 0 3 in
   let total = List.fold_left (fun acc p -> acc + p.path_flow) 0 paths in
-  assert_equal "decomposition total flow" 5 total;
-  assert_true "at least 1 path" (List.length paths >= 1);
+  _nf_assert_equal "decomposition total flow" 5 total;
+  _nf_assert_true "at least 1 path" (List.length paths >= 1);
   (* Each path starts at source and ends at sink *)
   List.iter (fun p ->
-    assert_true "path starts at source" (List.hd p.path = 0);
-    assert_true "path ends at sink" (List.nth p.path (List.length p.path - 1) = 3)
+    _nf_assert_true "path starts at source" (List.hd p.path = 0);
+    _nf_assert_true "path ends at sink" (List.nth p.path (List.length p.path - 1) = 3)
   ) paths;
 
   Printf.printf "\n-- Min Cost Max Flow --\n";
@@ -642,9 +621,9 @@ let run_tests () =
   add_edge_with_cost fn 1 3 2 1;
   add_edge_with_cost fn 2 3 2 1;
   let r = min_cost_max_flow fn 0 3 in
-  assert_equal "mcmf flow" 4 r.mcmf_flow;
+  _nf_assert_equal "mcmf flow" 4 r.mcmf_flow;
   (* Cheapest: 2 units via 0->1->3 (cost 4), then 2 via 0->2->3 (cost 12) = 16 *)
-  assert_equal "mcmf cost" 16 r.mcmf_cost;
+  _nf_assert_equal "mcmf cost" 16 r.mcmf_cost;
 
   (* MCMF: prefer cheap path *)
   let fn = create_flow_network 4 in
@@ -653,16 +632,16 @@ let run_tests () =
   add_edge_with_cost fn 1 3 5 1;
   add_edge_with_cost fn 2 3 10 1;
   let r = min_cost_max_flow fn 0 3 in
-  assert_equal "mcmf prefers cheap" 15 r.mcmf_flow;
+  _nf_assert_equal "mcmf prefers cheap" 15 r.mcmf_flow;
   (* 5 units via cheap (cost 5*2=10), 10 via expensive (cost 10*101=1010) = 1020 *)
-  assert_equal "mcmf cost cheap+expensive" 1020 r.mcmf_cost;
+  _nf_assert_equal "mcmf cost cheap+expensive" 1020 r.mcmf_cost;
 
   (* MCMF: zero cost *)
   let fn = create_flow_network 2 in
   add_edge_with_cost fn 0 1 5 0;
   let r = min_cost_max_flow fn 0 1 in
-  assert_equal "mcmf zero cost flow" 5 r.mcmf_flow;
-  assert_equal "mcmf zero cost" 0 r.mcmf_cost;
+  _nf_assert_equal "mcmf zero cost flow" 5 r.mcmf_flow;
+  _nf_assert_equal "mcmf zero cost" 0 r.mcmf_cost;
 
   Printf.printf "\n-- Edge Connectivity --\n";
 
@@ -671,27 +650,27 @@ let run_tests () =
   add_edge fn 0 2 1;
   add_edge fn 1 3 1;
   add_edge fn 2 3 1;
-  assert_equal "edge connectivity" 2 (edge_connectivity fn 0 3);
+  _nf_assert_equal "edge connectivity" 2 (edge_connectivity fn 0 3);
 
   let fn = create_flow_network 3 in
   add_edge fn 0 1 1;
   add_edge fn 1 2 1;
-  assert_equal "bridge connectivity" 1 (edge_connectivity fn 0 2);
+  _nf_assert_equal "bridge connectivity" 1 (edge_connectivity fn 0 2);
 
   Printf.printf "\n-- Bipartite Check --\n";
 
-  assert_true "empty graph bipartite" (is_bipartite 1 [] <> None);
-  assert_true "path bipartite" (is_bipartite 3 [(0,1); (1,2)] <> None);
-  assert_true "triangle not bipartite" (is_bipartite 3 [(0,1); (1,2); (0,2)] = None);
-  assert_true "even cycle bipartite" (is_bipartite 4 [(0,1); (1,2); (2,3); (3,0)] <> None);
-  assert_true "K2,2 bipartite" (is_bipartite 4 [(0,2); (0,3); (1,2); (1,3)] <> None);
+  _nf_assert_true "empty graph bipartite" (is_bipartite 1 [] <> None);
+  _nf_assert_true "path bipartite" (is_bipartite 3 [(0,1); (1,2)] <> None);
+  _nf_assert_true "triangle not bipartite" (is_bipartite 3 [(0,1); (1,2); (0,2)] = None);
+  _nf_assert_true "even cycle bipartite" (is_bipartite 4 [(0,1); (1,2); (2,3); (3,0)] <> None);
+  _nf_assert_true "K2,2 bipartite" (is_bipartite 4 [(0,2); (0,3); (1,2); (1,3)] <> None);
 
   Printf.printf "\n-- Stress Tests --\n";
 
   (* Chain of 100 nodes *)
   let fn = create_flow_network 100 in
   for i = 0 to 98 do add_edge fn i (i+1) 1000 done;
-  assert_equal "long chain" 1000 (max_flow fn 0 99);
+  _nf_assert_equal "long chain" 1000 (max_flow fn 0 99);
 
   (* Wide fan: source->N intermediates->sink *)
   let n = 50 in
@@ -700,7 +679,7 @@ let run_tests () =
     add_edge fn 0 i 1;
     add_edge fn i (n+1) 1
   done;
-  assert_equal "wide fan 50" 50 (max_flow fn 0 (n+1));
+  _nf_assert_equal "wide fan 50" 50 (max_flow fn 0 (n+1));
 
   (* Grid-like graph *)
   let fn = create_flow_network 9 in
@@ -713,14 +692,13 @@ let run_tests () =
     done
   done;
   let grid_flow = max_flow fn 0 8 in
-  assert_equal "3x3 grid flow" 4 grid_flow;
+  _nf_assert_equal "3x3 grid flow" 4 grid_flow;
 
   (* Matching verification *)
   let r = bipartite_matching 5 5
     [(0,0); (0,1); (1,1); (1,2); (2,2); (2,3); (3,3); (3,4); (4,4); (4,0)] in
-  assert_equal "5x5 circular matching" 5 r.matching_size;
+  _nf_assert_equal "5x5 circular matching" 5 r.matching_size;
 
-  Printf.printf "\n=== Results: %d passed, %d failed ===\n"
-    !tests_passed !tests_failed
+  test_summary ()
 
 let () = run_tests ()
