@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorting Visualizer — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .viz-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.5rem; }
+        .viz-controls select, .viz-controls button, .viz-controls input {
+            background: var(--surface); color: var(--text); border: 1px solid var(--border);
+            padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer;
+        }
+        .viz-controls button:hover { background: var(--surface-hover); }
+        .viz-controls button.primary { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+        .viz-controls button.primary:hover { opacity: 0.85; }
+        .viz-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .viz-controls label { color: var(--text-dim); font-size: 0.85rem; }
+        .viz-canvas { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; min-height: 320px; position: relative; }
+        .bar-container { display: flex; align-items: flex-end; gap: 1px; height: 300px; }
+        .bar { flex: 1; background: var(--accent2); border-radius: 2px 2px 0 0; transition: height 0.05s; min-width: 2px; }
+        .bar.comparing { background: var(--accent); }
+        .bar.sorted { background: var(--accent3); }
+        .bar.pivot { background: var(--accent4); }
+        .stats { display: flex; gap: 2rem; margin-bottom: 1rem; }
+        .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1.25rem; }
+        .stat-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
+        .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent2); }
+        .algo-info { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+        .algo-info h3 { margin-bottom: 0.5rem; color: var(--accent2); }
+        .algo-info .complexity { display: flex; gap: 1.5rem; margin-top: 0.5rem; }
+        .algo-info .complexity span { font-size: 0.85rem; }
+        .algo-info .complexity code { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a href="index.html" class="logo">🐫 OCaml Samples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link active">🎬 Sort Visualizer</a>
+            <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+            <a href="quiz.html" class="nav-link">📝 Quiz</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="bst.html" class="nav-link">🌳 BST</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="skip-list.html" class="nav-link">⏭️ Skip List</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="concept-map.html" class="nav-link">Concept Map</a>
+            <a href="cheat-sheet.html" class="nav-link">Cheat Sheet</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <div class="example-header">
+                <span class="icon">🎬</span>
+                <h1>Sorting Visualizer</h1>
+            </div>
+            <p>Watch sorting algorithms in action. Compare how different approaches tackle the same data — see the comparisons, swaps, and patterns that make each algorithm unique.</p>
+            <p style="margin-top:0.5rem"><strong>Related OCaml files:</strong>
+                <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/mergesort.ml"><code>mergesort.ml</code></a>,
+                <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/sorting.ml"><code>sorting.ml</code></a>
+            </p>
+
+            <div id="algo-info" class="algo-info" style="margin-top:1.5rem">
+                <h3 id="algo-name">Merge Sort</h3>
+                <p id="algo-desc">Divide-and-conquer: split array in half, recursively sort each half, merge results. Stable and predictable.</p>
+                <div class="complexity">
+                    <span>Best: <code id="algo-best">O(n log n)</code></span>
+                    <span>Average: <code id="algo-avg">O(n log n)</code></span>
+                    <span>Worst: <code id="algo-worst">O(n log n)</code></span>
+                    <span>Space: <code id="algo-space">O(n)</code></span>
+                </div>
+            </div>
+
+            <div class="viz-controls">
+                <select id="algorithm">
+                    <option value="merge">Merge Sort</option>
+                    <option value="quick">Quick Sort</option>
+                    <option value="bubble">Bubble Sort</option>
+                    <option value="insertion">Insertion Sort</option>
+                    <option value="selection">Selection Sort</option>
+                    <option value="heap">Heap Sort</option>
+                </select>
+                <div>
+                    <label>Size</label>
+                    <input type="range" id="size" min="10" max="200" value="60" style="width:120px">
+                    <span id="size-label">60</span>
+                </div>
+                <div>
+                    <label>Speed</label>
+                    <input type="range" id="speed" min="1" max="100" value="50" style="width:100px">
+                </div>
+                <button class="primary" id="btn-start">▶ Start</button>
+                <button id="btn-pause" disabled>⏸ Pause</button>
+                <button id="btn-reset">🔄 New Array</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><div class="stat-label">Comparisons</div><div class="stat-value" id="comparisons">0</div></div>
+                <div class="stat"><div class="stat-label">Array Accesses</div><div class="stat-value" id="accesses">0</div></div>
+                <div class="stat"><div class="stat-label">Time</div><div class="stat-value" id="elapsed">0.0s</div></div>
+            </div>
+
+            <div class="viz-canvas">
+                <div class="bar-container" id="bars"></div>
+            </div>
+
+            <section>
+                <h2>How to Use</h2>
+                <ol style="padding-left:1.5rem">
+                    <li>Pick an algorithm and array size</li>
+                    <li>Click <strong>Start</strong> to begin the animation</li>
+                    <li>Watch the bars: <span style="color:var(--accent)">red</span> = comparing, <span style="color:var(--accent4)">yellow</span> = pivot, <span style="color:var(--accent3)">green</span> = sorted</li>
+                    <li>Adjust speed mid-animation, or pause to study a step</li>
+                    <li>Try the same array with different algorithms to compare!</li>
+                </ol>
+            </section>
+        </div>
+    </main>
+
+    <script>
+    const ALGOS = {
+        merge:     { name:'Merge Sort',     desc:'Divide-and-conquer: split in half, sort each, merge. Stable and predictable.', best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', space:'O(n)' },
+        quick:     { name:'Quick Sort',     desc:'Pick a pivot, partition around it, recurse on each side. Fast in practice.', best:'O(n log n)', avg:'O(n log n)', worst:'O(n²)', space:'O(log n)' },
+        bubble:    { name:'Bubble Sort',    desc:'Repeatedly swap adjacent out-of-order elements. Simple but slow.', best:'O(n)', avg:'O(n²)', worst:'O(n²)', space:'O(1)' },
+        insertion: { name:'Insertion Sort', desc:'Build sorted portion one element at a time. Great for nearly-sorted data.', best:'O(n)', avg:'O(n²)', worst:'O(n²)', space:'O(1)' },
+        selection: { name:'Selection Sort', desc:'Find minimum of unsorted portion, place it next. Always quadratic.', best:'O(n²)', avg:'O(n²)', worst:'O(n²)', space:'O(1)' },
+        heap:      { name:'Heap Sort',      desc:'Build a max-heap, repeatedly extract the maximum. In-place and guaranteed n log n.', best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', space:'O(1)' },
+    };
+
+    let arr = [], steps = [], stepIdx = 0, running = false, paused = false, timer = null;
+    let comparisons = 0, accesses = 0, startTime = 0;
+    const $ = id => document.getElementById(id);
+
+    function updateInfo() {
+        const a = ALGOS[$('algorithm').value];
+        $('algo-name').textContent = a.name;
+        $('algo-desc').textContent = a.desc;
+        $('algo-best').textContent = a.best;
+        $('algo-avg').textContent = a.avg;
+        $('algo-worst').textContent = a.worst;
+        $('algo-space').textContent = a.space;
+    }
+
+    function genArray() {
+        const n = +$('size').value;
+        arr = Array.from({length:n}, ()=> Math.random()*0.95+0.05);
+        steps = []; stepIdx = 0; comparisons = 0; accesses = 0;
+        $('comparisons').textContent = '0';
+        $('accesses').textContent = '0';
+        $('elapsed').textContent = '0.0s';
+        renderBars();
+    }
+
+    function renderBars(highlights={}) {
+        const c = $('bars');
+        c.innerHTML = '';
+        arr.forEach((v,i) => {
+            const b = document.createElement('div');
+            b.className = 'bar';
+            if (highlights.sorted && highlights.sorted.has(i)) b.classList.add('sorted');
+            else if (highlights.pivot && highlights.pivot.has(i)) b.classList.add('pivot');
+            else if (highlights.comparing && highlights.comparing.has(i)) b.classList.add('comparing');
+            b.style.height = (v*100)+'%';
+            c.appendChild(b);
+        });
+    }
+
+    // Step recording
+    function record(type, data) { steps.push({type, ...data, arr: arr.slice()}); }
+    function swap(i,j) { [arr[i],arr[j]]=[arr[j],arr[i]]; accesses+=4; }
+    function cmp(i,j) { comparisons++; accesses+=2; return arr[i]-arr[j]; }
+
+    // Algorithms generate all steps upfront
+    function generateSteps() {
+        const a = arr.slice(); arr = a;
+        comparisons=0; accesses=0;
+        steps=[]; stepIdx=0;
+        const algo = $('algorithm').value;
+        if (algo==='bubble') algoBubble();
+        else if (algo==='insertion') algoInsertion();
+        else if (algo==='selection') algoSelection();
+        else if (algo==='merge') algoMerge(0, arr.length-1);
+        else if (algo==='quick') algoQuick(0, arr.length-1);
+        else if (algo==='heap') algoHeap();
+        record('done',{});
+    }
+
+    function algoBubble() {
+        const n=arr.length;
+        for (let i=0;i<n-1;i++) {
+            for (let j=0;j<n-i-1;j++) {
+                record('cmp',{a:j,b:j+1});
+                if (cmp(j,j+1)>0) { swap(j,j+1); record('swap',{a:j,b:j+1}); }
+            }
+            record('sorted',{idx:n-i-1});
+        }
+    }
+
+    function algoInsertion() {
+        for (let i=1;i<arr.length;i++) {
+            let j=i;
+            while (j>0) {
+                record('cmp',{a:j-1,b:j});
+                if (cmp(j-1,j)>0) { swap(j-1,j); record('swap',{a:j-1,b:j}); j--; }
+                else break;
+            }
+        }
+    }
+
+    function algoSelection() {
+        for (let i=0;i<arr.length-1;i++) {
+            let min=i;
+            for (let j=i+1;j<arr.length;j++) {
+                record('cmp',{a:min,b:j});
+                if (cmp(min,j)>0) min=j;
+            }
+            if (min!==i) { swap(i,min); record('swap',{a:i,b:min}); }
+            record('sorted',{idx:i});
+        }
+    }
+
+    function algoMerge(l,r) {
+        if (l>=r) return;
+        const m=Math.floor((l+r)/2);
+        algoMerge(l,m); algoMerge(m+1,r);
+        const tmp=[];
+        let i=l,j=m+1;
+        while (i<=m&&j<=r) {
+            record('cmp',{a:i,b:j}); comparisons++; accesses+=2;
+            if (arr[i]<=arr[j]) { tmp.push(arr[i++]); } else { tmp.push(arr[j++]); }
+        }
+        while (i<=m) tmp.push(arr[i++]);
+        while (j<=r) tmp.push(arr[j++]);
+        for (let k=0;k<tmp.length;k++) { arr[l+k]=tmp[k]; accesses++; }
+        record('merge',{l,r});
+    }
+
+    function algoQuick(lo,hi) {
+        if (lo>=hi) return;
+        const pivot=hi; record('pivot',{idx:pivot});
+        let i=lo;
+        for (let j=lo;j<hi;j++) {
+            record('cmp',{a:j,b:pivot}); comparisons++; accesses+=2;
+            if (arr[j]<arr[pivot]) { swap(i,j); record('swap',{a:i,b:j}); i++; }
+        }
+        swap(i,hi); record('swap',{a:i,b:hi});
+        record('sorted',{idx:i});
+        algoQuick(lo,i-1); algoQuick(i+1,hi);
+    }
+
+    function algoHeap() {
+        const n=arr.length;
+        function siftDown(s,e) {
+            let root=s;
+            while (root*2+1<=e) {
+                let child=root*2+1, sw=root;
+                record('cmp',{a:sw,b:child}); comparisons++; accesses+=2;
+                if (arr[sw]<arr[child]) sw=child;
+                if (child+1<=e) { record('cmp',{a:sw,b:child+1}); comparisons++; accesses+=2; if(arr[sw]<arr[child+1]) sw=child+1; }
+                if (sw===root) return;
+                swap(root,sw); record('swap',{a:root,b:sw}); root=sw;
+            }
+        }
+        for (let i=Math.floor((n-2)/2);i>=0;i--) siftDown(i,n-1);
+        for (let end=n-1;end>0;end--) {
+            swap(0,end); record('swap',{a:0,b:end});
+            record('sorted',{idx:end});
+            siftDown(0,end-1);
+        }
+    }
+
+    // Playback
+    const sortedSet = new Set();
+    const getDelay = () => Math.max(1, 200 - $('speed').value*2);
+
+    function playStep() {
+        if (stepIdx>=steps.length||!running||paused) return;
+        const s = steps[stepIdx++];
+        arr = s.arr || arr;
+        const hl = {comparing:new Set(), sorted:sortedSet, pivot:new Set()};
+        if (s.type==='cmp') { hl.comparing.add(s.a); hl.comparing.add(s.b); }
+        if (s.type==='swap') { hl.comparing.add(s.a); hl.comparing.add(s.b); }
+        if (s.type==='pivot') { hl.pivot.add(s.idx); }
+        if (s.type==='sorted') { sortedSet.add(s.idx); }
+        if (s.type==='merge') { for(let k=s.l;k<=s.r;k++) hl.comparing.add(k); }
+        if (s.type==='done') { for(let k=0;k<arr.length;k++) sortedSet.add(k); running=false; $('btn-start').disabled=false; $('btn-pause').disabled=true; }
+        renderBars(hl);
+        $('comparisons').textContent = comparisons;
+        $('accesses').textContent = accesses;
+        $('elapsed').textContent = ((performance.now()-startTime)/1000).toFixed(1)+'s';
+        if (running&&!paused) timer=setTimeout(playStep, getDelay());
+    }
+
+    $('btn-start').onclick = () => {
+        if (running&&paused) { paused=false; $('btn-pause').textContent='⏸ Pause'; playStep(); return; }
+        sortedSet.clear();
+        genArray();
+        generateSteps();
+        running=true; paused=false; startTime=performance.now();
+        $('btn-start').disabled=true; $('btn-pause').disabled=false;
+        // Reset counters for playback display
+        comparisons=0; accesses=0;
+        // Re-count during playback from steps
+        let c=0,a=0;
+        steps.forEach(s=>{if(s.type==='cmp'){c++;a+=2;}if(s.type==='swap')a+=4;});
+        comparisons=c; accesses=a;
+        playStep();
+    };
+
+    $('btn-pause').onclick = () => {
+        if (!running) return;
+        paused=!paused;
+        $('btn-pause').textContent = paused?'▶ Resume':'⏸ Pause';
+        if (!paused) playStep();
+    };
+
+    $('btn-reset').onclick = () => { running=false; paused=false; clearTimeout(timer); sortedSet.clear(); $('btn-start').disabled=false; $('btn-pause').disabled=true; $('btn-pause').textContent='⏸ Pause'; genArray(); };
+
+    $('algorithm').onchange = () => { updateInfo(); if(!running) { sortedSet.clear(); genArray(); } };
+    $('size').oninput = () => { $('size-label').textContent=$('size').value; if(!running) { sortedSet.clear(); genArray(); } };
+
+    updateInfo(); genArray();
+    </script>
+</body>
+</html>
