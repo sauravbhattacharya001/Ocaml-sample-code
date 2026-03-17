@@ -1,0 +1,60 @@
+name: Auto-label Issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  label-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label based on content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const text = `${issue.title} ${issue.body || ''}`.toLowerCase();
+            const labelsToAdd = [];
+
+            const rules = [
+              { keywords: ['data structure', 'bst', 'btree', 'heap', 'trie', 'queue', 'stack', 'hash', 'tree', 'linked list'], label: 'data-structures' },
+              { keywords: ['algorithm', 'sort', 'search', 'graph', 'dijkstra', 'fibonacci', 'dynamic programming', 'dfs', 'bfs'], label: 'algorithms' },
+              { keywords: ['parser', 'parsing', 'peg', 'earley', 'regex', 'json', 'csv', 'lexer', 'tokenizer'], label: 'parsing' },
+              { keywords: ['concurrent', 'concurrency', 'parallel', 'actor', 'mutex', 'thread', 'async', 'channel'], label: 'concurrency' },
+              { keywords: ['distributed', 'raft', 'crdt', 'consensus', 'replication'], label: 'distributed-systems' },
+              { keywords: ['formal', 'sat', 'smt', 'theorem', 'prover', 'model check', 'verification', 'quickcheck'], label: 'formal-methods' },
+              { keywords: ['type', 'gadt', 'lambda', 'monad', 'functor', 'polymorphism', 'inference'], label: 'type-theory' },
+              { keywords: ['interpreter', 'bytecode', 'vm', 'evaluator', 'datalog', 'rewriting'], label: 'interpreters' },
+              { keywords: ['matrix', 'calculus', 'integral', 'differentiation', 'probability', 'geometry', 'numerical'], label: 'numerical' },
+              { keywords: ['security', 'crypto', 'encrypt', 'hash', 'vulnerability', 'cve'], label: 'security' },
+              { keywords: ['ci', 'workflow', 'github action', 'pipeline', 'build'], label: 'ci' },
+              { keywords: ['docker', 'container', 'dockerfile'], label: 'docker' },
+              { keywords: ['doc', 'readme', 'documentation', 'comment', 'docstring'], label: 'documentation' },
+              { keywords: ['test', 'testing', 'unit test', 'coverage', 'assertion'], label: 'tests' },
+              { keywords: ['bug', 'error', 'crash', 'fix', 'broken', 'segfault', 'exception'], label: 'bug' },
+              { keywords: ['feature', 'enhancement', 'add', 'implement', 'support'], label: 'enhancement' },
+            ];
+
+            const existingLabels = issue.labels.map(l => l.name);
+
+            for (const rule of rules) {
+              if (existingLabels.includes(rule.label)) continue;
+              if (rule.keywords.some(kw => text.includes(kw))) {
+                labelsToAdd.push(rule.label);
+              }
+            }
+
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd,
+              });
+              console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+            } else {
+              console.log('No matching labels found');
+            }
