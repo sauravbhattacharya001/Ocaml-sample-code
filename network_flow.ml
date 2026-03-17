@@ -263,12 +263,18 @@ let decompose_flow fn source sink =
     match !found with
     | None -> continue := false
     | Some (path, bottleneck) ->
-      (* Subtract flow along path *)
+      (* Subtract flow along path — only the first matching edge per hop.
+         The previous Array.iter version would subtract from ALL parallel
+         edges to the same destination, corrupting flow values when
+         multiple edges exist between the same pair of nodes. *)
       let rec subtract = function
         | u :: v :: rest ->
+          let found = ref false in
           Array.iter (fun e ->
-            if e.dst = v && e.flow >= bottleneck then
-              e.flow <- e.flow - bottleneck
+            if not !found && e.dst = v && e.flow >= bottleneck then begin
+              e.flow <- e.flow - bottleneck;
+              found := true
+            end
           ) net.adj_list.(u);
           subtract (v :: rest)
         | _ -> ()
