@@ -40,6 +40,18 @@ module LRUCache = struct
   let remove_from_list k entries =
     List.filter (fun (k', _) -> k' <> k) entries
 
+  (** [remove_last entries] removes the last element from a non-empty list
+      in a single pass, returning [(last_key, last_value, trimmed_list)].
+      Avoids the List.rev + filter double-traversal pattern used previously.
+      @raise Failure on empty list (caller must guard). *)
+  let remove_last entries =
+    let rec aux acc = function
+      | [] -> failwith "remove_last: empty list"
+      | [(k, v)] -> (k, v, List.rev acc)
+      | x :: rest -> aux (x :: acc) rest
+    in
+    aux [] entries
+
   (* Trim list to capacity, evicting LRU entries from index.
      Returns (kept_list, new_size). *)
   let trim_to_capacity cap sz entries index =
@@ -80,12 +92,9 @@ module LRUCache = struct
     let new_sz = if existed then cache.size else cache.size + 1 in
     let updated = (k, v) :: cleaned in
     if new_sz > cache.capacity then begin
-      match List.rev updated with
-      | [] -> { cache with entries = updated; size = new_sz; index }
-      | (lru_k, _) :: _ ->
-        Hashtbl.remove index lru_k;
-        let trimmed = remove_from_list lru_k updated in
-        { cache with entries = trimmed; size = cache.capacity; index }
+      let (lru_k, _, trimmed) = remove_last updated in
+      Hashtbl.remove index lru_k;
+      { cache with entries = trimmed; size = cache.capacity; index }
     end
     else
       { cache with entries = updated; size = new_sz; index }
@@ -125,14 +134,14 @@ module LRUCache = struct
   (** Explicitly evict the least recently used entry.
       Returns (Some (key, value), updated_cache) or (None, cache). *)
   let evict cache =
-    match List.rev cache.entries with
+    match cache.entries with
     | [] -> (None, cache)
-    | (k, v) :: _ ->
+    | _ ->
+      let (k, v, remaining) = remove_last cache.entries in
       let index = Hashtbl.copy cache.index in
       Hashtbl.remove index k;
-      let entries = remove_from_list k cache.entries in
       (Some (k, v),
-       { cache with entries; size = cache.size - 1; index })
+       { cache with entries = remaining; size = cache.size - 1; index })
 
   (* ---- Queries ---- *)
 
