@@ -2,5 +2,8 @@
   "private": true,
   "scripts": {
     "test": "jest --no-coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
