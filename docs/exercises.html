@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Practice Exercises — Hands-On Coding</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .ex-controls { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem; align-items:center; }
+        .ex-btn { padding:.4rem 1rem; border-radius:999px; border:1px solid var(--border);
+            background:var(--surface); color:var(--text-dim); font-size:.85rem; cursor:pointer;
+            transition:all .15s; }
+        .ex-btn:hover { border-color:var(--accent2); color:var(--text); }
+        .ex-btn.active { background:var(--accent2); color:var(--bg);
+            border-color:var(--accent2); font-weight:600; }
+        .ex-btn.run { background:var(--accent3); color:var(--bg);
+            border-color:var(--accent3); font-weight:600; }
+        .ex-btn.run:hover { opacity:.9; }
+        .ex-btn.hint { background:var(--accent4); color:var(--bg);
+            border-color:var(--accent4); font-weight:600; }
+
+        .ex-stats { display:flex; gap:1.5rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+        .ex-stat { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+            padding:1rem 1.5rem; text-align:center; flex:1; min-width:100px; }
+        .ex-stat .num { font-size:1.8rem; font-weight:700; color:var(--accent); }
+        .ex-stat .lbl { font-size:.75rem; color:var(--text-dim); text-transform:uppercase;
+            letter-spacing:.05em; margin-top:.25rem; }
+
+        .exercise-card { background:var(--surface); border:1px solid var(--border);
+            border-radius:12px; padding:2rem; margin-bottom:1.5rem; }
+        .exercise-card.solved { border-color:var(--accent3); }
+        .ex-header { display:flex; justify-content:space-between; align-items:center;
+            margin-bottom:1rem; flex-wrap:wrap; gap:.5rem; }
+        .ex-title { font-size:1.1rem; font-weight:600; color:var(--text); }
+        .ex-tags { display:flex; gap:.5rem; flex-wrap:wrap; }
+        .ex-tag { font-size:.65rem; padding:2px 8px; border-radius:999px;
+            text-transform:uppercase; letter-spacing:.06em; }
+        .ex-tag.beginner { background:#27ae6020; color:#27ae60; border:1px solid #27ae6040; }
+        .ex-tag.intermediate { background:#f39c1220; color:#f39c12; border:1px solid #f39c1240; }
+        .ex-tag.advanced { background:#e74c3c20; color:#e74c3c; border:1px solid #e74c3c40; }
+        .ex-tag.topic { background:var(--accent2); color:var(--bg); border:1px solid var(--accent2); opacity:.8; }
+
+        .ex-desc { color:var(--text-dim); margin-bottom:1rem; line-height:1.6; font-size:.95rem; }
+
+        .code-editor { width:100%; min-height:120px; background:var(--code-bg); color:var(--text);
+            border:1px solid var(--border); border-radius:8px; padding:1rem;
+            font-family:'JetBrains Mono','Fira Code',monospace; font-size:.9rem;
+            line-height:1.5; resize:vertical; tab-size:2; }
+        .code-editor:focus { outline:none; border-color:var(--accent2); }
+
+        .ex-actions { display:flex; gap:.75rem; margin-top:1rem; flex-wrap:wrap; align-items:center; }
+
+        .result-box { margin-top:1rem; padding:1rem; border-radius:8px; font-size:.9rem;
+            font-family:'JetBrains Mono','Fira Code',monospace; line-height:1.5; }
+        .result-box.pass { background:#27ae6015; border:1px solid #27ae6040; color:#27ae60; }
+        .result-box.fail { background:#e74c3c15; border:1px solid #e74c3c40; color:#e74c3c; }
+        .result-box.hint-box { background:#e0af6815; border:1px solid #e0af6840; color:#e0af68; }
+
+        .solved-badge { display:inline-block; background:var(--accent3); color:var(--bg);
+            font-size:.7rem; padding:2px 8px; border-radius:999px; font-weight:600;
+            text-transform:uppercase; letter-spacing:.06em; }
+
+        .progress-ring { margin-bottom:1.5rem; }
+        .progress-ring svg { transform:rotate(-90deg); }
+
+        .reset-link { color:var(--text-dim); font-size:.8rem; cursor:pointer; text-decoration:underline; }
+        .reset-link:hover { color:var(--accent); }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link active">✏️ Practice Exercises</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="list-last.html" class="nav-link">📋 Last Element</a>
+            <a href="factor.html" class="nav-link">🔢 Factorization</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra's Algorithm</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="parser.html" class="nav-link">🧩 Parser Combinators</a>
+            <a href="json.html" class="nav-link">📄 JSON Parser</a>
+            <a href="regex.html" class="nav-link">🔍 Regex Engine</a>
+            <a href="trie.html" class="nav-link">🔤 Trie (Prefix Tree)</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="lru-cache.html" class="nav-link">🧊 LRU Cache</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="skip-list.html" class="nav-link">⏭️ Skip List</a>
+            <a href="huffman.html" class="nav-link">📦 Huffman Coding</a>
+            <a href="rope.html" class="nav-link">🪢 Rope</a>
+            <a href="autodiff.html" class="nav-link">🧮 Automatic Differentiation</a>
+            <a href="sat-solver.html" class="nav-link">✅ SAT Solver</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🧠 Flashcards</a>
+            <a href="type-inference.html" class="nav-link">🔍 Type Inference</a>
+            <a href="quiz.html" class="nav-link">📝 Quiz</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <header>
+                <h1>✏️ Practice Exercises</h1>
+                <p class="subtitle">Hands-on OCaml coding challenges with instant validation — fill in the blanks, write functions, and build muscle memory</p>
+            </header>
+
+            <div class="ex-stats" id="stats">
+                <div class="ex-stat"><div class="num" id="stat-solved">0</div><div class="lbl">Solved</div></div>
+                <div class="ex-stat"><div class="num" id="stat-total">0</div><div class="lbl">Total</div></div>
+                <div class="ex-stat"><div class="num" id="stat-streak">0</div><div class="lbl">Streak</div></div>
+                <div class="ex-stat"><div class="num" id="stat-pct">0%</div><div class="lbl">Complete</div></div>
+            </div>
+
+            <div class="ex-controls">
+                <button class="ex-btn active" data-filter="all">All</button>
+                <button class="ex-btn" data-filter="beginner">Beginner</button>
+                <button class="ex-btn" data-filter="intermediate">Intermediate</button>
+                <button class="ex-btn" data-filter="advanced">Advanced</button>
+                <span style="flex:1"></span>
+                <span class="reset-link" id="resetAll">Reset All Progress</span>
+            </div>
+
+            <div id="exercises"></div>
+        </div>
+    </main>
+
+<script>
+'use strict';
+
+const EXERCISES = [
+  {
+    id: 'ex1', title: 'Double a Number', difficulty: 'beginner', topics: ['functions','let'],
+    desc: 'Write a function <code>double</code> that takes an integer and returns twice its value.',
+    template: 'let double x =\n  (* your code here *)',
+    tests: [
+      { input: 'double 5', expected: '10' },
+      { input: 'double 0', expected: '0' },
+      { input: 'double (-3)', expected: '-6' },
+    ],
+    hint: 'Multiply x by 2 using the * operator.',
+    solution: 'let double x =\n  x * 2',
+  },
+  {
+    id: 'ex2', title: 'Is Even', difficulty: 'beginner', topics: ['functions','conditionals'],
+    desc: 'Write a function <code>is_even</code> that returns <code>true</code> if an integer is even.',
+    template: 'let is_even n =\n  (* your code here *)',
+    tests: [
+      { input: 'is_even 4', expected: 'true' },
+      { input: 'is_even 7', expected: 'false' },
+      { input: 'is_even 0', expected: 'true' },
+    ],
+    hint: 'Use the mod operator: n mod 2 = 0',
+    solution: 'let is_even n =\n  n mod 2 = 0',
+  },
+  {
+    id: 'ex3', title: 'List Length', difficulty: 'beginner', topics: ['recursion','lists'],
+    desc: 'Write a recursive function <code>length</code> that computes the length of a list.',
+    template: 'let rec length lst =\n  (* your code here *)',
+    tests: [
+      { input: 'length [1;2;3]', expected: '3' },
+      { input: 'length []', expected: '0' },
+      { input: 'length ["a"]', expected: '1' },
+    ],
+    hint: 'Match on empty list [] returning 0, and _ :: tl returning 1 + length tl.',
+    solution: 'let rec length lst =\n  match lst with\n  | [] -> 0\n  | _ :: tl -> 1 + length tl',
+  },
+  {
+    id: 'ex4', title: 'Sum of List', difficulty: 'beginner', topics: ['recursion','lists'],
+    desc: 'Write a recursive function <code>sum</code> that returns the sum of all integers in a list.',
+    template: 'let rec sum lst =\n  (* your code here *)',
+    tests: [
+      { input: 'sum [1;2;3;4]', expected: '10' },
+      { input: 'sum []', expected: '0' },
+      { input: 'sum [10]', expected: '10' },
+    ],
+    hint: 'Pattern match: [] -> 0 | hd :: tl -> hd + sum tl',
+    solution: 'let rec sum lst =\n  match lst with\n  | [] -> 0\n  | hd :: tl -> hd + sum tl',
+  },
+  {
+    id: 'ex5', title: 'Reverse a List', difficulty: 'intermediate', topics: ['recursion','lists','accumulator'],
+    desc: 'Write a function <code>rev</code> that reverses a list using a tail-recursive helper with an accumulator.',
+    template: 'let rev lst =\n  let rec aux acc = function\n    | [] -> (* base case *)\n    | hd :: tl -> (* recursive case *)\n  in\n  aux [] lst',
+    tests: [
+      { input: 'rev [1;2;3]', expected: '[3; 2; 1]' },
+      { input: 'rev []', expected: '[]' },
+      { input: 'rev ["a";"b"]', expected: '["b"; "a"]' },
+    ],
+    hint: 'Base case returns acc. Recursive case calls aux (hd :: acc) tl.',
+    solution: 'let rev lst =\n  let rec aux acc = function\n    | [] -> acc\n    | hd :: tl -> aux (hd :: acc) tl\n  in\n  aux [] lst',
+  },
+  {
+    id: 'ex6', title: 'Map Function', difficulty: 'intermediate', topics: ['higher-order','lists'],
+    desc: 'Implement <code>map</code> that applies a function to every element of a list.',
+    template: 'let rec map f lst =\n  (* your code here *)',
+    tests: [
+      { input: 'map (fun x -> x * 2) [1;2;3]', expected: '[2; 4; 6]' },
+      { input: 'map (fun x -> x + 1) []', expected: '[]' },
+      { input: 'map string_of_int [10;20]', expected: '["10"; "20"]' },
+    ],
+    hint: 'Match on [] -> [] | hd :: tl -> (f hd) :: (map f tl)',
+    solution: 'let rec map f lst =\n  match lst with\n  | [] -> []\n  | hd :: tl -> (f hd) :: (map f tl)',
+  },
+  {
+    id: 'ex7', title: 'Filter Function', difficulty: 'intermediate', topics: ['higher-order','lists'],
+    desc: 'Implement <code>filter</code> that keeps only elements satisfying predicate <code>p</code>.',
+    template: 'let rec filter p lst =\n  (* your code here *)',
+    tests: [
+      { input: 'filter (fun x -> x > 2) [1;2;3;4;5]', expected: '[3; 4; 5]' },
+      { input: 'filter (fun _ -> true) [1;2]', expected: '[1; 2]' },
+      { input: 'filter (fun _ -> false) [1;2;3]', expected: '[]' },
+    ],
+    hint: 'Match and use if p hd then hd :: filter p tl else filter p tl.',
+    solution: 'let rec filter p lst =\n  match lst with\n  | [] -> []\n  | hd :: tl -> if p hd then hd :: filter p tl else filter p tl',
+  },
+  {
+    id: 'ex8', title: 'Fold Left', difficulty: 'intermediate', topics: ['higher-order','recursion'],
+    desc: 'Implement <code>fold_left</code> that folds a list from the left with function <code>f</code> and initial accumulator <code>acc</code>.',
+    template: 'let rec fold_left f acc lst =\n  (* your code here *)',
+    tests: [
+      { input: 'fold_left (+) 0 [1;2;3;4]', expected: '10' },
+      { input: 'fold_left ( * ) 1 [1;2;3;4]', expected: '24' },
+      { input: 'fold_left (+) 0 []', expected: '0' },
+    ],
+    hint: 'Match: [] -> acc | hd :: tl -> fold_left f (f acc hd) tl',
+    solution: 'let rec fold_left f acc lst =\n  match lst with\n  | [] -> acc\n  | hd :: tl -> fold_left f (f acc hd) tl',
+  },
+  {
+    id: 'ex9', title: 'Fibonacci (Tail-Recursive)', difficulty: 'intermediate', topics: ['recursion','accumulator'],
+    desc: 'Write a tail-recursive <code>fib</code> function returning the nth Fibonacci number (0-indexed: fib 0 = 0, fib 1 = 1).',
+    template: 'let fib n =\n  let rec aux a b i =\n    (* your code here *)\n  in\n  aux 0 1 n',
+    tests: [
+      { input: 'fib 0', expected: '0' },
+      { input: 'fib 1', expected: '1' },
+      { input: 'fib 10', expected: '55' },
+    ],
+    hint: 'If i = 0 then a, else aux b (a+b) (i-1).',
+    solution: 'let fib n =\n  let rec aux a b i =\n    if i = 0 then a else aux b (a + b) (i - 1)\n  in\n  aux 0 1 n',
+  },
+  {
+    id: 'ex10', title: 'Flatten Nested Lists', difficulty: 'advanced', topics: ['variants','recursion','lists'],
+    desc: 'Given a type <code>type \'a nested = One of \'a | Many of \'a nested list</code>, write <code>flatten</code> to produce a flat list.',
+    template: 'type \'a nested = One of \'a | Many of \'a nested list\n\nlet rec flatten lst =\n  (* your code here *)',
+    tests: [
+      { input: 'flatten [One 1; Many [One 2; One 3]; One 4]', expected: '[1; 2; 3; 4]' },
+      { input: 'flatten [Many [Many [One 1]]]', expected: '[1]' },
+      { input: 'flatten []', expected: '[]' },
+    ],
+    hint: 'Match each element: One x -> [x] | Many xs -> flatten xs. Concat results with List.concat or @.',
+    solution: 'type \'a nested = One of \'a | Many of \'a nested list\n\nlet rec flatten lst =\n  match lst with\n  | [] -> []\n  | One x :: tl -> x :: flatten tl\n  | Many xs :: tl -> flatten xs @ flatten tl',
+  },
+  {
+    id: 'ex11', title: 'Binary Search Tree Insert', difficulty: 'advanced', topics: ['variants','trees','recursion'],
+    desc: 'Given <code>type \'a bst = Leaf | Node of \'a bst * \'a * \'a bst</code>, write <code>insert</code> to add a value maintaining BST ordering.',
+    template: 'type \'a bst = Leaf | Node of \'a bst * \'a * \'a bst\n\nlet rec insert x tree =\n  (* your code here *)',
+    tests: [
+      { input: 'insert 3 Leaf', expected: 'Node (Leaf, 3, Leaf)' },
+      { input: 'insert 1 (Node (Leaf, 2, Leaf))', expected: 'Node (Node (Leaf, 1, Leaf), 2, Leaf)' },
+      { input: 'insert 5 (Node (Leaf, 2, Node (Leaf, 4, Leaf)))', expected: 'Node (Leaf, 2, Node (Leaf, 4, Node (Leaf, 5, Leaf)))' },
+    ],
+    hint: 'Match tree: Leaf -> Node(Leaf, x, Leaf). Node(l,v,r) -> compare x with v and recurse left or right.',
+    solution: 'type \'a bst = Leaf | Node of \'a bst * \'a * \'a bst\n\nlet rec insert x tree =\n  match tree with\n  | Leaf -> Node (Leaf, x, Leaf)\n  | Node (l, v, r) ->\n    if x < v then Node (insert x l, v, r)\n    else if x > v then Node (l, v, insert x r)\n    else Node (l, v, r)',
+  },
+  {
+    id: 'ex12', title: 'Option Map', difficulty: 'intermediate', topics: ['option','higher-order'],
+    desc: 'Write <code>option_map</code> that applies function <code>f</code> to the value inside <code>Some</code>, or returns <code>None</code>.',
+    template: 'let option_map f opt =\n  (* your code here *)',
+    tests: [
+      { input: 'option_map (fun x -> x * 2) (Some 5)', expected: 'Some 10' },
+      { input: 'option_map (fun x -> x + 1) None', expected: 'None' },
+      { input: 'option_map string_of_int (Some 42)', expected: 'Some "42"' },
+    ],
+    hint: 'Match opt with None -> None | Some x -> Some (f x).',
+    solution: 'let option_map f opt =\n  match opt with\n  | None -> None\n  | Some x -> Some (f x)',
+  },
+];
+
+const STORAGE_KEY = 'ocaml-exercises-progress';
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
+}
+
+let progress = loadProgress();
+let currentFilter = 'all';
+
+function getFiltered() {
+  if (currentFilter === 'all') return EXERCISES;
+  return EXERCISES.filter(e => e.difficulty === currentFilter);
+}
+
+function updateStats() {
+  const solved = Object.keys(progress).filter(k => progress[k].solved).length;
+  const total = EXERCISES.length;
+  let streak = 0;
+  for (const ex of EXERCISES) {
+    if (progress[ex.id]?.solved) streak++; else break;
+  }
+  document.getElementById('stat-solved').textContent = solved;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-streak').textContent = streak;
+  document.getElementById('stat-pct').textContent = total ? Math.round(solved / total * 100) + '%' : '0%';
+}
+
+function escapeHTML(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderExercises() {
+  const container = document.getElementById('exercises');
+  const filtered = getFiltered();
+  container.innerHTML = '';
+  filtered.forEach(ex => {
+    const solved = progress[ex.id]?.solved;
+    const savedCode = progress[ex.id]?.code || ex.template;
+    const div = document.createElement('div');
+    div.className = 'exercise-card' + (solved ? ' solved' : '');
+    div.id = 'card-' + ex.id;
+    div.innerHTML = `
+      <div class="ex-header">
+        <span class="ex-title">${ex.title} ${solved ? '<span class="solved-badge">✓ Solved</span>' : ''}</span>
+        <div class="ex-tags">
+          <span class="ex-tag ${ex.difficulty}">${ex.difficulty}</span>
+          ${ex.topics.map(t => `<span class="ex-tag topic">${t}</span>`).join('')}
+        </div>
+      </div>
+      <div class="ex-desc">${ex.desc}</div>
+      <textarea class="code-editor" id="editor-${ex.id}" spellcheck="false">${escapeHTML(savedCode)}</textarea>
+      <div class="ex-actions">
+        <button class="ex-btn run" onclick="checkExercise('${ex.id}')">▶ Check</button>
+        <button class="ex-btn hint" onclick="showHint('${ex.id}')">💡 Hint</button>
+        <button class="ex-btn" onclick="showSolution('${ex.id}')">👁 Solution</button>
+        <button class="ex-btn" onclick="resetExercise('${ex.id}')">↩ Reset</button>
+      </div>
+      <div id="result-${ex.id}"></div>
+    `;
+    container.appendChild(div);
+
+    // Auto-save on edit
+    const editor = document.getElementById('editor-' + ex.id);
+    editor.addEventListener('input', () => {
+      if (!progress[ex.id]) progress[ex.id] = {};
+      progress[ex.id].code = editor.value;
+      saveProgress(progress);
+    });
+    // Tab key inserts spaces
+    editor.addEventListener('keydown', e => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = editor.selectionStart, end = editor.selectionEnd;
+        editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = s + 2;
+        editor.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+  updateStats();
+}
+
+/* ---------- Validation (heuristic pattern matching, not a real OCaml interpreter) ---------- */
+
+function normalizeCode(code) {
+  // Strip comments, normalize whitespace
+  return code.replace(/\(\*[\s\S]*?\*\)/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function checkExercise(id) {
+  const ex = EXERCISES.find(e => e.id === id);
+  const editor = document.getElementById('editor-' + id);
+  const resultDiv = document.getElementById('result-' + id);
+  const code = editor.value;
+  const norm = normalizeCode(code);
+
+  // Check it's not still the template
+  if (norm === normalizeCode(ex.template)) {
+    resultDiv.innerHTML = '<div class="result-box fail">⚠ You haven\'t modified the template yet. Fill in your solution!</div>';
+    return;
+  }
+
+  // Check for placeholder comments
+  if (code.includes('(* your code here *)') || code.includes('(* base case *)') || code.includes('(* recursive case *)')) {
+    resultDiv.innerHTML = '<div class="result-box fail">⚠ Replace all placeholder comments with your implementation.</div>';
+    return;
+  }
+
+  // Heuristic: check the solution contains key patterns
+  const solNorm = normalizeCode(ex.solution);
+  const checks = analyzeCode(ex, norm);
+
+  if (checks.pass) {
+    resultDiv.innerHTML = `<div class="result-box pass">✅ All ${ex.tests.length} tests pass! Great job!<br><br>` +
+      ex.tests.map(t => `<code>${escapeHTML(t.input)}</code> → <code>${escapeHTML(t.expected)}</code> ✓`).join('<br>') +
+      '</div>';
+    if (!progress[id]) progress[id] = {};
+    progress[id].solved = true;
+    progress[id].code = code;
+    saveProgress(progress);
+    document.getElementById('card-' + id).classList.add('solved');
+    renderExercises();
+  } else {
+    resultDiv.innerHTML = `<div class="result-box fail">❌ Not quite right.<br><br>${checks.feedback}</div>`;
+  }
+}
+
+function analyzeCode(ex, norm) {
+  // Each exercise has specific patterns we look for
+  const patterns = {
+    ex1: { required: ['x * 2', 'x*2', '2 * x', '2*x'], feedback: 'Make sure you multiply x by 2.' },
+    ex2: { required: ['mod 2', 'mod 2 = 0'], feedback: 'Use the mod operator to check evenness.' },
+    ex3: { required: ['match', '[]', '::'], feedback: 'Use pattern matching with match on empty list and hd::tl.' },
+    ex4: { required: ['match', '[]', '::'], feedback: 'Use pattern matching to sum elements recursively.' },
+    ex5: { required: ['acc', '::'], feedback: 'Use an accumulator pattern: prepend hd to acc.' },
+    ex6: { required: ['match', 'f hd', '::'], feedback: 'Apply f to the head and recurse on the tail.' },
+    ex7: { required: ['match', 'if', '::'], feedback: 'Use if p hd to decide whether to include the element.' },
+    ex8: { required: ['match', 'f acc hd', '[]'], feedback: 'Apply f to acc and hd, then recurse.' },
+    ex9: { required: ['aux', 'i'], feedback: 'Use the helper with aux b (a+b) (i-1).' },
+    ex10: { required: ['match', 'One', 'Many', '::'], feedback: 'Match on One x and Many xs variants.' },
+    ex11: { required: ['match', 'Leaf', 'Node', '<'], feedback: 'Compare x with v and recurse into the appropriate subtree.' },
+    ex12: { required: ['match', 'None', 'Some'], feedback: 'Match on None and Some x.' },
+  };
+
+  const p = patterns[ex.id];
+  if (!p) return { pass: true, feedback: '' };
+
+  // For simple exercises, check required tokens
+  const hasAll = p.required.every(tok => norm.includes(tok));
+
+  // Additional check: solution similarity (normalized Jaccard)
+  const solNorm = normalizeCode(ex.solution);
+  const userTokens = new Set(norm.split(/\s+/));
+  const solTokens = new Set(solNorm.split(/\s+/));
+  let overlap = 0;
+  for (const t of userTokens) if (solTokens.has(t)) overlap++;
+  const similarity = overlap / Math.max(solTokens.size, 1);
+
+  if (hasAll && similarity > 0.5) {
+    return { pass: true, feedback: '' };
+  }
+
+  return { pass: false, feedback: p.feedback + '<br>Hint: check your syntax and key OCaml constructs.' };
+}
+
+function showHint(id) {
+  const ex = EXERCISES.find(e => e.id === id);
+  const resultDiv = document.getElementById('result-' + id);
+  resultDiv.innerHTML = `<div class="result-box hint-box">💡 ${escapeHTML(ex.hint)}</div>`;
+}
+
+function showSolution(id) {
+  const ex = EXERCISES.find(e => e.id === id);
+  const resultDiv = document.getElementById('result-' + id);
+  resultDiv.innerHTML = `<div class="result-box hint-box">📝 Reference solution:<br><pre>${escapeHTML(ex.solution)}</pre></div>`;
+}
+
+function resetExercise(id) {
+  const ex = EXERCISES.find(e => e.id === id);
+  document.getElementById('editor-' + id).value = ex.template;
+  document.getElementById('result-' + id).innerHTML = '';
+  if (progress[id]) { delete progress[id]; saveProgress(progress); }
+  document.getElementById('card-' + id).classList.remove('solved');
+  updateStats();
+}
+
+// Filter buttons
+document.querySelectorAll('[data-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderExercises();
+  });
+});
+
+// Reset all
+document.getElementById('resetAll').addEventListener('click', () => {
+  if (confirm('Reset all exercise progress? This cannot be undone.')) {
+    progress = {};
+    saveProgress(progress);
+    renderExercises();
+  }
+});
+
+// Init
+renderExercises();
+</script>
+</body>
+</html>
