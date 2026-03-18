@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧭 Data Structure Chooser — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .chooser-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .question-card {
+            background: #1a1b26;
+            border: 1px solid #3b3d57;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+        .question-card h2 {
+            color: #c0caf5;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        .question-card p {
+            color: #9aa5ce;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .option-btn {
+            background: #24283b;
+            border: 2px solid #3b3d57;
+            border-radius: 8px;
+            padding: 0.75rem 1.25rem;
+            color: #c0caf5;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            min-width: 140px;
+        }
+        .option-btn:hover {
+            border-color: #7aa2f7;
+            background: #292e42;
+            transform: translateY(-1px);
+        }
+        .option-btn:active { transform: translateY(0); }
+
+        .breadcrumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .crumb {
+            background: #24283b;
+            border-radius: 6px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.8rem;
+            color: #7aa2f7;
+        }
+        .crumb-arrow { color: #565f89; font-size: 0.8rem; }
+
+        .result-card {
+            background: linear-gradient(135deg, #1a1b26 0%, #1e2030 100%);
+            border: 2px solid #7aa2f7;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+        }
+        .result-card h2 { color: #7aa2f7; margin-bottom: 0.25rem; }
+        .result-card .subtitle { color: #9aa5ce; margin-bottom: 1rem; }
+        .result-card .desc { color: #c0caf5; line-height: 1.6; margin-bottom: 1rem; }
+
+        .props-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .prop {
+            background: #24283b;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .prop-label { color: #565f89; }
+        .prop-value { color: #9ece6a; font-weight: 600; }
+
+        .result-links { margin-top: 1rem; }
+        .result-links a {
+            display: inline-block;
+            background: #7aa2f7;
+            color: #1a1b26;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .result-links a:hover { background: #89b4fa; }
+        .result-links a.secondary {
+            background: transparent;
+            border: 1px solid #7aa2f7;
+            color: #7aa2f7;
+        }
+
+        .alternatives {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #3b3d57;
+        }
+        .alternatives h3 { color: #9aa5ce; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .alt-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .alt-chip {
+            background: #24283b;
+            border: 1px solid #3b3d57;
+            border-radius: 16px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8rem;
+            color: #c0caf5;
+            cursor: pointer;
+        }
+        .alt-chip:hover { border-color: #7aa2f7; }
+
+        .restart-btn {
+            background: transparent;
+            border: 1px solid #565f89;
+            color: #9aa5ce;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
+        .restart-btn:hover { border-color: #7aa2f7; color: #7aa2f7; }
+
+        .history-section {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #3b3d57;
+        }
+        .history-section h3 { color: #9aa5ce; font-size: 0.9rem; margin-bottom: 0.75rem; }
+        .history-item {
+            background: #24283b;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        .history-item .name { color: #7aa2f7; font-weight: 600; }
+        .history-item .path { color: #565f89; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link active">🧭 DS Chooser</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="rbtree.html" class="nav-link">🔴 Red-Black Tree</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+            <a href="dijkstra.html" class="nav-link">🗺️ Dijkstra's Algorithm</a>
+            <a href="heap.html" class="nav-link">⛰️ Priority Queue</a>
+            <a href="trie.html" class="nav-link">🔤 Trie</a>
+            <a href="hashmap.html" class="nav-link">🗄️ Hash Map</a>
+            <a href="lru-cache.html" class="nav-link">🧊 LRU Cache</a>
+            <a href="bloom-filter.html" class="nav-link">🌸 Bloom Filter</a>
+            <a href="skip-list.html" class="nav-link">⏭️ Skip List</a>
+            <a href="rope.html" class="nav-link">🪢 Rope</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🧠 Flashcards</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container chooser-container">
+            <header>
+                <h1>🧭 Data Structure Chooser</h1>
+                <p class="subtitle">Answer a few questions and get a recommendation for the best data structure for your use case</p>
+            </header>
+
+            <div id="breadcrumbs" class="breadcrumbs"></div>
+            <div id="wizard"></div>
+            <div id="history-panel"></div>
+        </div>
+    </main>
+
+    <script>
+    const DS = {
+        hashmap: {
+            name: "Hash Map", icon: "🗄️", file: "hashmap.ml", doc: "hashmap.html",
+            desc: "Key-value store with O(1) average lookup, insert, and delete. Best when you need fast access by unique keys and don't care about ordering.",
+            ops: { lookup: "O(1) avg", insert: "O(1) avg", delete: "O(1) avg", ordered: "No" },
+            alts: ["bst", "trie", "skiplist"]
+        },
+        bst: {
+            name: "Binary Search Tree", icon: "🌳", file: "bst.ml", doc: "bst.html",
+            desc: "Ordered tree with O(log n) operations. Keeps elements sorted for efficient range queries and in-order traversal.",
+            ops: { lookup: "O(log n)", insert: "O(log n)", delete: "O(log n)", ordered: "Yes" },
+            alts: ["rbtree", "skiplist", "hashmap"]
+        },
+        rbtree: {
+            name: "Red-Black Tree", icon: "🔴", file: "rbtree.ml", doc: "rbtree.html",
+            desc: "Self-balancing BST guaranteeing O(log n) worst-case. Use when you need ordered data with guaranteed performance.",
+            ops: { lookup: "O(log n)", insert: "O(log n)", delete: "O(log n)", ordered: "Yes, balanced" },
+            alts: ["bst", "skiplist", "heap"]
+        },
+        heap: {
+            name: "Priority Queue (Heap)", icon: "⛰️", file: "heap.ml", doc: "heap.html",
+            desc: "Efficiently access the minimum or maximum element. Perfect for scheduling, Dijkstra's, and any 'process highest priority first' pattern.",
+            ops: { "find-min": "O(1)", insert: "O(log n)", "extract-min": "O(log n)", ordered: "Partial" },
+            alts: ["skiplist", "rbtree"]
+        },
+        trie: {
+            name: "Trie (Prefix Tree)", icon: "🔤", file: "trie.ml", doc: "trie.html",
+            desc: "Tree structure for string/prefix operations. Ideal for autocomplete, spell checking, and IP routing tables.",
+            ops: { lookup: "O(k)", insert: "O(k)", "prefix search": "O(k+m)", ordered: "Lexicographic" },
+            alts: ["hashmap", "bloomfilter"]
+        },
+        bloomfilter: {
+            name: "Bloom Filter", icon: "🌸", file: "bloom_filter.ml", doc: "bloom-filter.html",
+            desc: "Space-efficient probabilistic set membership test. Answers 'definitely not in set' or 'probably in set'. Great for caches and pre-filters.",
+            ops: { lookup: "O(k)", insert: "O(k)", delete: "N/A", "false pos": "Tunable" },
+            alts: ["hashmap", "trie"]
+        },
+        lrucache: {
+            name: "LRU Cache", icon: "🧊", file: "lru_cache.ml", doc: "lru-cache.html",
+            desc: "Fixed-size cache evicting the least-recently-used entry. Use when you want to cache hot data with bounded memory.",
+            ops: { lookup: "O(1)", insert: "O(1)", eviction: "Auto (LRU)", ordered: "By recency" },
+            alts: ["hashmap", "bloomfilter"]
+        },
+        skiplist: {
+            name: "Skip List", icon: "⏭️", file: "skip_list.ml", doc: "skip-list.html",
+            desc: "Probabilistic sorted structure with O(log n) expected operations. Simpler to implement than balanced trees, good for concurrent use.",
+            ops: { lookup: "O(log n)", insert: "O(log n)", delete: "O(log n)", ordered: "Yes" },
+            alts: ["rbtree", "bst"]
+        },
+        rope: {
+            name: "Rope", icon: "🪢", file: "rope.ml", doc: "rope.html",
+            desc: "Tree of strings for efficient text editing. Supports fast insert, delete, and concat on very long strings — used in text editors.",
+            ops: { concat: "O(log n)", split: "O(log n)", index: "O(log n)", ordered: "Positional" },
+            alts: ["fingertree"]
+        },
+        graph: {
+            name: "Graph (Adjacency List)", icon: "🕸️", file: "graph.ml", doc: "graph.html",
+            desc: "Nodes and edges for modeling relationships, networks, dependencies. Supports BFS, DFS, shortest path, topological sort, etc.",
+            ops: { "add edge": "O(1)", "find neighbors": "O(deg)", traversal: "O(V+E)", ordered: "No" },
+            alts: ["graphdb"]
+        },
+        graphdb: {
+            name: "Graph Database", icon: "🗃️", file: "graph_db.ml", doc: null,
+            desc: "Persistent graph with typed nodes, edges, and properties. Supports path queries and pattern matching over relationships.",
+            ops: { "add node": "O(1)", query: "O(V+E)", "path find": "O(V+E)", ordered: "No" },
+            alts: ["graph"]
+        },
+        fingertree: {
+            name: "Finger Tree", icon: "🖐️", file: "finger_tree.ml", doc: null,
+            desc: "Versatile functional sequence with O(1) amortized access to both ends and O(log n) concat/split. Underlies many functional data structures.",
+            ops: { "push/pop ends": "O(1)*", concat: "O(log n)", split: "O(log n)", ordered: "Positional" },
+            alts: ["rope", "deque"]
+        },
+        deque: {
+            name: "Deque", icon: "↔️", file: "deque.ml", doc: null,
+            desc: "Double-ended queue with O(1) push/pop on both sides. Perfect for sliding windows, BFS, and work-stealing schedulers.",
+            ops: { "push front/back": "O(1)", "pop front/back": "O(1)", index: "O(n)", ordered: "Insertion" },
+            alts: ["fingertree", "queue"]
+        },
+        queue: {
+            name: "Queue", icon: "📬", file: "queue.ml", doc: null,
+            desc: "FIFO structure: enqueue at back, dequeue from front. Fundamental for BFS, task scheduling, and buffering.",
+            ops: { enqueue: "O(1)", dequeue: "O(1)", peek: "O(1)", ordered: "FIFO" },
+            alts: ["deque", "heap"]
+        },
+        segmenttree: {
+            name: "Segment Tree", icon: "📏", file: "segment_tree.ml", doc: null,
+            desc: "Answers range queries (sum, min, max) over an array in O(log n) with O(log n) point updates. Essential for competitive programming.",
+            ops: { "range query": "O(log n)", update: "O(log n)", build: "O(n)", ordered: "Positional" },
+            alts: ["fenwick", "intervaltree"]
+        },
+        fenwick: {
+            name: "Fenwick Tree (BIT)", icon: "🌿", file: "fenwick_tree.ml", doc: null,
+            desc: "Compact structure for prefix sums and point updates. Simpler and more cache-friendly than segment trees for cumulative queries.",
+            ops: { "prefix query": "O(log n)", update: "O(log n)", build: "O(n)", ordered: "Positional" },
+            alts: ["segmenttree"]
+        },
+        intervaltree: {
+            name: "Interval Tree", icon: "📐", file: "interval_tree.ml", doc: null,
+            desc: "Efficiently find all intervals overlapping a point or range. Used in scheduling, genomics, and computational geometry.",
+            ops: { insert: "O(log n)", "overlap query": "O(log n + k)", delete: "O(log n)", ordered: "By interval" },
+            alts: ["segmenttree", "rbtree"]
+        },
+        unionfind: {
+            name: "Union-Find", icon: "🔗", file: "union_find.ml", doc: null,
+            desc: "Disjoint set structure with near-O(1) union and find. Perfect for connected components, Kruskal's MST, and equivalence classes.",
+            ops: { find: "O(α(n)) ≈ O(1)", union: "O(α(n)) ≈ O(1)", connected: "O(α(n))", ordered: "No" },
+            alts: ["graph"]
+        }
+    };
+
+    const QUESTIONS = [
+        {
+            id: "primary",
+            q: "What's your primary operation?",
+            hint: "What will you do most often with this data?",
+            options: [
+                { text: "🔍 Look up by key", next: "keytype" },
+                { text: "📊 Keep data sorted", next: "sortedperf" },
+                { text: "⚡ Get min/max fast", next: "minmax" },
+                { text: "📝 Edit text/sequences", next: "seqtype" },
+                { text: "🕸️ Model relationships", next: "reltype" },
+                { text: "📏 Range queries", next: "rangetype" },
+                { text: "🔗 Group/merge sets", result: "unionfind" },
+                { text: "📬 FIFO processing", next: "fifotype" }
+            ]
+        },
+        {
+            id: "keytype",
+            q: "What kind of keys?",
+            hint: "This affects which lookup structure works best.",
+            options: [
+                { text: "Strings / prefixes", next: "stringneed" },
+                { text: "Any hashable keys", next: "exactness" },
+            ]
+        },
+        {
+            id: "stringneed",
+            q: "Do you need prefix search?",
+            hint: "e.g., autocomplete: find all keys starting with 'hel'",
+            options: [
+                { text: "Yes, prefix search", result: "trie" },
+                { text: "No, just exact match", result: "hashmap" }
+            ]
+        },
+        {
+            id: "exactness",
+            q: "Do you need exact answers?",
+            hint: "Probabilistic structures use less memory but can have false positives.",
+            options: [
+                { text: "Exact (no false positives)", next: "cachebound" },
+                { text: "'Probably in set' is OK", result: "bloomfilter" }
+            ]
+        },
+        {
+            id: "cachebound",
+            q: "Do you need bounded memory (cache)?",
+            hint: "A cache auto-evicts old entries when full.",
+            options: [
+                { text: "Yes, fixed-size cache", result: "lrucache" },
+                { text: "No, unbounded is fine", result: "hashmap" }
+            ]
+        },
+        {
+            id: "sortedperf",
+            q: "How important is worst-case performance?",
+            hint: "Balanced trees guarantee O(log n); plain BSTs can degrade to O(n).",
+            options: [
+                { text: "Guaranteed O(log n)", next: "balancestyle" },
+                { text: "Average case is fine", result: "bst" }
+            ]
+        },
+        {
+            id: "balancestyle",
+            q: "Prefer deterministic or probabilistic?",
+            hint: "Skip lists are simpler to implement; red-black trees are the classic choice.",
+            options: [
+                { text: "Deterministic (classic)", result: "rbtree" },
+                { text: "Probabilistic (simpler)", result: "skiplist" }
+            ]
+        },
+        {
+            id: "minmax",
+            q: "Do you need sorted iteration too?",
+            hint: "Heaps only give you the min/max; trees give full sorted order.",
+            options: [
+                { text: "Just min or max", result: "heap" },
+                { text: "Full sorted order + min/max", result: "rbtree" }
+            ]
+        },
+        {
+            id: "seqtype",
+            q: "What kind of sequence editing?",
+            hint: "Different structures optimize for different edit patterns.",
+            options: [
+                { text: "Long text (insert/delete in middle)", result: "rope" },
+                { text: "General sequence (push/pop both ends)", result: "fingertree" },
+                { text: "Just push/pop both ends", result: "deque" }
+            ]
+        },
+        {
+            id: "reltype",
+            q: "How complex are the relationships?",
+            hint: "Simple graphs vs. rich property graphs with typed edges.",
+            options: [
+                { text: "Simple nodes + edges", result: "graph" },
+                { text: "Typed nodes, properties, path queries", result: "graphdb" }
+            ]
+        },
+        {
+            id: "rangetype",
+            q: "What kind of range queries?",
+            hint: "Sum/min over index ranges vs. overlapping intervals.",
+            options: [
+                { text: "Sum/min/max over array ranges", next: "rangecomplex" },
+                { text: "Find overlapping intervals", result: "intervaltree" }
+            ]
+        },
+        {
+            id: "rangecomplex",
+            q: "Do you need range updates or just point updates?",
+            hint: "Fenwick trees are simpler for prefix sums; segment trees handle more.",
+            options: [
+                { text: "Just prefix sums + point updates", result: "fenwick" },
+                { text: "Arbitrary range queries + updates", result: "segmenttree" }
+            ]
+        },
+        {
+            id: "fifotype",
+            q: "Do you need priority ordering?",
+            hint: "A regular queue is FIFO; a priority queue dequeues by priority.",
+            options: [
+                { text: "Strict FIFO", result: "queue" },
+                { text: "By priority", result: "heap" },
+                { text: "Push/pop from both ends", result: "deque" }
+            ]
+        }
+    ];
+
+    const qMap = {};
+    QUESTIONS.forEach(q => qMap[q.id] = q);
+
+    let path = [];
+    let history = JSON.parse(localStorage.getItem("ds-chooser-history") || "[]");
+
+    function render() {
+        const wiz = document.getElementById("wizard");
+        const bc = document.getElementById("breadcrumbs");
+
+        // breadcrumbs
+        if (path.length > 0) {
+            bc.innerHTML = path.map((p, i) => {
+                const q = qMap[p.qid];
+                return `<span class="crumb">${p.answer}</span>` + (i < path.length - 1 ? '<span class="crumb-arrow">→</span>' : '');
+            }).join("");
+        } else {
+            bc.innerHTML = "";
+        }
+
+        const last = path[path.length - 1];
+        if (last && last.result) {
+            renderResult(wiz, last.result);
+        } else {
+            const qid = last ? last.nextQ : "primary";
+            renderQuestion(wiz, qMap[qid]);
+        }
+
+        renderHistory();
+    }
+
+    function renderQuestion(el, q) {
+        el.innerHTML = `
+            <div class="question-card">
+                <h2>${q.q}</h2>
+                <p>${q.hint}</p>
+                <div class="options">
+                    ${q.options.map((o, i) => `<button class="option-btn" onclick="choose('${q.id}', ${i})">${o.text}</button>`).join("")}
+                </div>
+            </div>
+            ${path.length > 0 ? `<button class="restart-btn" onclick="goBack()">← Back</button> ` : ""}
+            <button class="restart-btn" onclick="restart()">Start Over</button>
+        `;
+    }
+
+    function renderResult(el, dsKey) {
+        const ds = DS[dsKey];
+        if (!ds) { el.innerHTML = `<p>Unknown: ${dsKey}</p>`; return; }
+
+        const propsHtml = Object.entries(ds.ops).map(([k, v]) =>
+            `<div class="prop"><span class="prop-label">${k}: </span><span class="prop-value">${v}</span></div>`
+        ).join("");
+
+        const docLink = ds.doc ? `<a href="${ds.doc}">📖 Read Documentation</a>` : "";
+        const srcLink = `<a class="secondary" href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/${ds.file}" target="_blank">💻 View Source</a>`;
+
+        const altsHtml = ds.alts.map(a => {
+            const alt = DS[a];
+            return alt ? `<span class="alt-chip" onclick="showDirect('${a}')">${alt.icon} ${alt.name}</span>` : "";
+        }).join("");
+
+        el.innerHTML = `
+            <div class="result-card">
+                <h2>${ds.icon} ${ds.name}</h2>
+                <p class="subtitle">Recommended for your use case</p>
+                <p class="desc">${ds.desc}</p>
+                <div class="props-grid">${propsHtml}</div>
+                <div class="result-links">${docLink} ${srcLink}</div>
+                ${altsHtml ? `<div class="alternatives"><h3>Also consider:</h3><div class="alt-chips">${altsHtml}</div></div>` : ""}
+            </div>
+            <button class="restart-btn" onclick="goBack()">← Back</button>
+            <button class="restart-btn" onclick="restart()">Start Over</button>
+        `;
+
+        // save to history
+        const entry = { name: ds.name, icon: ds.icon, key: dsKey, path: path.map(p => p.answer).join(" → "), ts: Date.now() };
+        history = [entry, ...history.filter(h => !(h.key === dsKey && h.path === entry.path))].slice(0, 10);
+        localStorage.setItem("ds-chooser-history", JSON.stringify(history));
+    }
+
+    function renderHistory() {
+        const panel = document.getElementById("history-panel");
+        if (history.length === 0) { panel.innerHTML = ""; return; }
+        panel.innerHTML = `
+            <div class="history-section">
+                <h3>📜 Recent Recommendations</h3>
+                ${history.slice(0, 5).map(h => `
+                    <div class="history-item">
+                        <span class="name">${h.icon} ${h.name}</span>
+                        <span class="path">${h.path}</span>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    function choose(qid, optIdx) {
+        const q = qMap[qid];
+        const opt = q.options[optIdx];
+        const entry = { qid, answer: opt.text.replace(/^[^\s]+ /, "") };
+        if (opt.result) {
+            entry.result = opt.result;
+        } else {
+            entry.nextQ = opt.next;
+        }
+        path.push(entry);
+        render();
+    }
+
+    function showDirect(dsKey) {
+        path.push({ qid: "direct", answer: "Direct", result: dsKey });
+        render();
+    }
+
+    function goBack() {
+        path.pop();
+        render();
+    }
+
+    function restart() {
+        path = [];
+        render();
+    }
+
+    render();
+    </script>
+</body>
+</html>
