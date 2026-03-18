@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursion Visualizer — OCaml Samples</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .viz-container { display: flex; gap: 1.5rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .viz-panel { flex: 1; min-width: 300px; }
+        .controls { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+        .controls select, .controls input, .controls button {
+            padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); font-size: 0.9rem;
+        }
+        .controls button { background: var(--accent2); color: #fff; border: none; cursor: pointer; font-weight: 600; }
+        .controls button:hover { opacity: 0.85; }
+        .controls button.danger { background: var(--accent); }
+        .speed-label { color: var(--text-dim); font-size: 0.85rem; }
+
+        /* Call Tree */
+        #tree-canvas { width: 100%; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); overflow: auto; min-height: 400px; }
+        .tree-svg { font-family: monospace; }
+        .tree-node { cursor: default; }
+        .tree-node rect { rx: 6; ry: 6; stroke-width: 1.5; }
+        .tree-node text { font-size: 12px; fill: var(--text); }
+        .tree-edge { stroke: var(--border); stroke-width: 1.5; fill: none; }
+        .node-active rect { stroke: var(--accent2); fill: rgba(122,162,247,0.15); }
+        .node-returning rect { stroke: var(--accent3); fill: rgba(158,206,106,0.15); }
+        .node-done rect { stroke: var(--text-dim); fill: var(--surface); opacity: 0.7; }
+
+        /* Stack */
+        .stack-container { background: var(--surface); border-radius: 8px; border: 1px solid var(--border); padding: 1rem; min-height: 400px; }
+        .stack-title { font-weight: 700; color: var(--accent4); margin-bottom: 0.75rem; font-size: 0.95rem; }
+        .stack-frame {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; font-family: monospace; font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        .stack-frame.active { border-color: var(--accent2); background: rgba(122,162,247,0.1); }
+        .stack-frame .fn-name { color: var(--accent2); font-weight: 700; }
+        .stack-frame .fn-args { color: var(--accent4); }
+        .stack-frame .fn-result { color: var(--accent3); }
+
+        /* Stats */
+        .stats-bar { display: flex; gap: 1.5rem; margin: 1rem 0; flex-wrap: wrap; }
+        .stat { background: var(--surface); padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid var(--border); }
+        .stat .label { color: var(--text-dim); font-size: 0.8rem; }
+        .stat .value { color: var(--accent2); font-weight: 700; font-size: 1.1rem; }
+
+        /* OCaml code */
+        .ocaml-code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; white-space: pre; overflow-x: auto; margin: 1rem 0; line-height: 1.5; }
+        .ocaml-code .kw { color: var(--accent); }
+        .ocaml-code .fn { color: var(--accent2); }
+        .ocaml-code .num { color: var(--accent4); }
+        .ocaml-code .comment { color: var(--text-dim); }
+        .info-box { background: var(--surface); border-left: 3px solid var(--accent2); padding: 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link active">🌀 Recursion Visualizer</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Examples</div>
+            <a href="hello.html" class="nav-link">🖐 Hello OCaml</a>
+            <a href="fibonacci.html" class="nav-link">🐇 Fibonacci</a>
+            <a href="mergesort.html" class="nav-link">🔀 Merge Sort</a>
+            <a href="bst.html" class="nav-link">🌳 Binary Search Tree</a>
+            <a href="graph.html" class="nav-link">🕸️ Graph Algorithms</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🧠 Flashcards</a>
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="nav-link external">GitHub ↗</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <h1>🌀 Recursion Visualizer</h1>
+        <p>Watch recursive functions unfold step by step. See the call tree grow and the stack build up as each call is made, then watch results propagate back up.</p>
+
+        <div class="controls">
+            <select id="algo-select">
+                <option value="factorial">Factorial</option>
+                <option value="fibonacci">Fibonacci</option>
+                <option value="power">Power (x^n)</option>
+                <option value="gcd">GCD (Euclid)</option>
+                <option value="sum_list">Sum List</option>
+                <option value="tower">Tower of Hanoi</option>
+            </select>
+            <label>n = <input id="input-n" type="number" value="5" min="0" max="12" style="width:60px"></label>
+            <button id="btn-run">▶ Run</button>
+            <button id="btn-step">⏭ Step</button>
+            <button id="btn-reset" class="danger">↺ Reset</button>
+            <span class="speed-label">Speed:</span>
+            <input id="speed" type="range" min="1" max="10" value="5" style="width:100px">
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat"><div class="label">Calls</div><div class="value" id="stat-calls">0</div></div>
+            <div class="stat"><div class="label">Max Depth</div><div class="value" id="stat-depth">0</div></div>
+            <div class="stat"><div class="label">Current Step</div><div class="value" id="stat-step">0 / 0</div></div>
+        </div>
+
+        <div class="viz-container">
+            <div class="viz-panel" style="flex:2">
+                <div id="tree-canvas"></div>
+            </div>
+            <div class="viz-panel" style="flex:1; max-width: 320px;">
+                <div class="stack-container">
+                    <div class="stack-title">📚 Call Stack</div>
+                    <div id="stack-display"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="code-display"></div>
+
+        <div class="info-box">
+            <strong>How to use:</strong> Select an algorithm, set the input, and press <strong>Run</strong> to animate or <strong>Step</strong> to go one call at a time.
+            Blue nodes are active calls, green nodes are returning results, and dimmed nodes are complete. The stack on the right shows the current call chain.
+        </div>
+    </main>
+
+    <script>
+    const ALGOS = {
+        factorial: {
+            name: 'factorial',
+            code: `<span class="kw">let rec</span> <span class="fn">factorial</span> n =\n  <span class="kw">if</span> n <= <span class="num">1</span> <span class="kw">then</span> <span class="num">1</span>\n  <span class="kw">else</span> n * <span class="fn">factorial</span> (n - <span class="num">1</span>)`,
+            run(n) {
+                const steps = [];
+                function f(n, depth) {
+                    const id = steps.length;
+                    steps.push({ id, call: `factorial(${n})`, depth, children: [], result: null, parent: null });
+                    if (n <= 1) { steps[id].result = 1; return { id, val: 1 }; }
+                    const c = f(n - 1, depth + 1);
+                    steps[id].children.push(c.id);
+                    steps[c.id].parent = id;
+                    const val = n * c.val;
+                    steps[id].result = val;
+                    return { id, val };
+                }
+                f(Math.max(0, n), 0);
+                return steps;
+            }
+        },
+        fibonacci: {
+            name: 'fibonacci',
+            code: `<span class="kw">let rec</span> <span class="fn">fib</span> n =\n  <span class="kw">if</span> n <= <span class="num">1</span> <span class="kw">then</span> n\n  <span class="kw">else</span> <span class="fn">fib</span> (n - <span class="num">1</span>) + <span class="fn">fib</span> (n - <span class="num">2</span>)`,
+            run(n) {
+                const steps = [];
+                function f(n, depth) {
+                    const id = steps.length;
+                    steps.push({ id, call: `fib(${n})`, depth, children: [], result: null, parent: null });
+                    if (n <= 1) { steps[id].result = n; return { id, val: n }; }
+                    const a = f(n - 1, depth + 1);
+                    steps[id].children.push(a.id);
+                    steps[a.id].parent = id;
+                    const b = f(n - 2, depth + 1);
+                    steps[id].children.push(b.id);
+                    steps[b.id].parent = id;
+                    const val = a.val + b.val;
+                    steps[id].result = val;
+                    return { id, val };
+                }
+                f(Math.max(0, Math.min(n, 10)), 0);
+                return steps;
+            }
+        },
+        power: {
+            name: 'power',
+            code: `<span class="kw">let rec</span> <span class="fn">power</span> x n =\n  <span class="kw">if</span> n = <span class="num">0</span> <span class="kw">then</span> <span class="num">1</span>\n  <span class="kw">else if</span> n <span class="kw">mod</span> <span class="num">2</span> = <span class="num">0</span> <span class="kw">then</span>\n    <span class="kw">let</span> half = <span class="fn">power</span> x (n / <span class="num">2</span>) <span class="kw">in</span> half * half\n  <span class="kw">else</span> x * <span class="fn">power</span> x (n - <span class="num">1</span>)`,
+            run(n) {
+                const x = 2;
+                const steps = [];
+                function f(x, n, depth) {
+                    const id = steps.length;
+                    steps.push({ id, call: `power(${x}, ${n})`, depth, children: [], result: null, parent: null });
+                    if (n === 0) { steps[id].result = 1; return { id, val: 1 }; }
+                    if (n % 2 === 0) {
+                        const c = f(x, n / 2, depth + 1);
+                        steps[id].children.push(c.id);
+                        steps[c.id].parent = id;
+                        const val = c.val * c.val;
+                        steps[id].result = val;
+                        return { id, val };
+                    }
+                    const c = f(x, n - 1, depth + 1);
+                    steps[id].children.push(c.id);
+                    steps[c.id].parent = id;
+                    const val = x * c.val;
+                    steps[id].result = val;
+                    return { id, val };
+                }
+                f(x, Math.max(0, n), 0);
+                return steps;
+            }
+        },
+        gcd: {
+            name: 'gcd',
+            code: `<span class="kw">let rec</span> <span class="fn">gcd</span> a b =\n  <span class="kw">if</span> b = <span class="num">0</span> <span class="kw">then</span> a\n  <span class="kw">else</span> <span class="fn">gcd</span> b (a <span class="kw">mod</span> b)`,
+            run(n) {
+                const a = n * 3 + 6, b = n * 2 + 4;
+                const steps = [];
+                function f(a, b, depth) {
+                    const id = steps.length;
+                    steps.push({ id, call: `gcd(${a}, ${b})`, depth, children: [], result: null, parent: null });
+                    if (b === 0) { steps[id].result = a; return { id, val: a }; }
+                    const c = f(b, a % b, depth + 1);
+                    steps[id].children.push(c.id);
+                    steps[c.id].parent = id;
+                    steps[id].result = c.val;
+                    return { id, val: c.val };
+                }
+                f(a, b, 0);
+                return steps;
+            }
+        },
+        sum_list: {
+            name: 'sum_list',
+            code: `<span class="kw">let rec</span> <span class="fn">sum_list</span> = <span class="kw">function</span>\n  | [] -> <span class="num">0</span>\n  | hd :: tl -> hd + <span class="fn">sum_list</span> tl`,
+            run(n) {
+                const lst = Array.from({ length: Math.min(n, 8) }, (_, i) => i + 1);
+                const steps = [];
+                function f(arr, depth) {
+                    const id = steps.length;
+                    const repr = arr.length ? `[${arr.join('; ')}]` : '[]';
+                    steps.push({ id, call: `sum_list ${repr}`, depth, children: [], result: null, parent: null });
+                    if (!arr.length) { steps[id].result = 0; return { id, val: 0 }; }
+                    const c = f(arr.slice(1), depth + 1);
+                    steps[id].children.push(c.id);
+                    steps[c.id].parent = id;
+                    const val = arr[0] + c.val;
+                    steps[id].result = val;
+                    return { id, val };
+                }
+                f(lst, 0);
+                return steps;
+            }
+        },
+        tower: {
+            name: 'tower',
+            code: `<span class="kw">let rec</span> <span class="fn">hanoi</span> n src dst aux =\n  <span class="kw">if</span> n = <span class="num">0</span> <span class="kw">then</span> ()\n  <span class="kw">else begin</span>\n    <span class="fn">hanoi</span> (n-<span class="num">1</span>) src aux dst;\n    Printf.printf <span class="num">"%c → %c\\n"</span> src dst;\n    <span class="fn">hanoi</span> (n-<span class="num">1</span>) aux dst src\n  <span class="kw">end</span>`,
+            run(n) {
+                const steps = [];
+                function f(n, s, d, a, depth) {
+                    const id = steps.length;
+                    steps.push({ id, call: `hanoi(${n}, ${s}→${d})`, depth, children: [], result: null, parent: null });
+                    if (n === 0) { steps[id].result = '()'; return { id, val: 0 }; }
+                    const c1 = f(n - 1, s, a, d, depth + 1);
+                    steps[id].children.push(c1.id); steps[c1.id].parent = id;
+                    const c2 = f(n - 1, a, d, s, depth + 1);
+                    steps[id].children.push(c2.id); steps[c2.id].parent = id;
+                    steps[id].result = `${c1.val + c2.val + 1} moves`;
+                    return { id, val: c1.val + c2.val + 1 };
+                }
+                f(Math.min(n, 5), 'A', 'C', 'B', 0);
+                return steps;
+            }
+        }
+    };
+
+    let steps = [], animIdx = 0, animTimer = null, eventLog = [];
+
+    function buildEventLog(steps) {
+        // Create ordered events: enter(id), then children events, then return(id)
+        const events = [];
+        function walk(id) {
+            events.push({ type: 'enter', id });
+            for (const c of steps[id].children) walk(c);
+            events.push({ type: 'return', id });
+        }
+        if (steps.length) walk(0);
+        return events;
+    }
+
+    function getSpeed() { return 1100 - document.getElementById('speed').value * 100; }
+
+    function render(upToEvent) {
+        const nodeStates = {}; // id -> 'pending' | 'active' | 'returning' | 'done'
+        const stack = [];
+        for (let i = 0; i <= upToEvent && i < eventLog.length; i++) {
+            const ev = eventLog[i];
+            if (ev.type === 'enter') {
+                nodeStates[ev.id] = 'active';
+                stack.push(ev.id);
+            } else {
+                nodeStates[ev.id] = 'done';
+                const idx = stack.lastIndexOf(ev.id);
+                if (idx >= 0) stack.splice(idx, 1);
+                // Mark current stack top as active again
+                if (stack.length) nodeStates[stack[stack.length - 1]] = 'active';
+            }
+        }
+
+        // Draw tree as SVG
+        const nodeW = 130, nodeH = 36, gapX = 10, gapY = 50;
+        // Compute layout: x positions via subtree width
+        const widths = new Array(steps.length).fill(0);
+        const positions = new Array(steps.length);
+        function calcWidth(id) {
+            const ch = steps[id].children;
+            if (!ch.length) { widths[id] = nodeW + gapX; return; }
+            for (const c of ch) calcWidth(c);
+            widths[id] = Math.max(nodeW + gapX, ch.reduce((s, c) => s + widths[c], 0));
+        }
+        function layout(id, x, y) {
+            const ch = steps[id].children;
+            const myW = widths[id];
+            positions[id] = { x: x + myW / 2 - nodeW / 2, y };
+            let cx = x;
+            for (const c of ch) {
+                layout(c, cx, y + nodeH + gapY);
+                cx += widths[c];
+            }
+        }
+        if (steps.length) { calcWidth(0); layout(0, 0, 10); }
+
+        const totalW = widths[0] || 400;
+        const maxD = steps.reduce((m, s) => Math.max(m, s.depth), 0);
+        const totalH = (maxD + 1) * (nodeH + gapY) + 20;
+
+        let svg = `<svg class="tree-svg" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">`;
+        // Edges
+        for (const s of steps) {
+            if (s.parent !== null) {
+                const p = positions[s.parent], c = positions[s.id];
+                svg += `<path class="tree-edge" d="M${p.x + nodeW/2},${p.y + nodeH} C${p.x + nodeW/2},${p.y + nodeH + gapY/2} ${c.x + nodeW/2},${c.y - gapY/2} ${c.x + nodeW/2},${c.y}"/>`;
+            }
+        }
+        // Nodes
+        for (const s of steps) {
+            const p = positions[s.id];
+            const state = nodeStates[s.id] || 'pending';
+            const cls = state === 'active' ? 'node-active' : state === 'done' ? 'node-done' : 'node-returning';
+            const label = s.result !== null ? `${s.call} = ${s.result}` : s.call;
+            const textW = Math.min(label.length * 7.2, nodeW - 8);
+            svg += `<g class="tree-node ${cls}" transform="translate(${p.x},${p.y})">`;
+            svg += `<rect width="${nodeW}" height="${nodeH}" fill="var(--surface)" stroke="var(--border)"/>`;
+            svg += `<text x="${nodeW/2}" y="${nodeH/2 + 4}" text-anchor="middle" font-size="11">${label.length > 18 ? label.slice(0,17)+'…' : label}</text>`;
+            svg += `</g>`;
+        }
+        svg += '</svg>';
+        document.getElementById('tree-canvas').innerHTML = svg;
+
+        // Stack
+        const stackHtml = stack.map((id, i) => {
+            const s = steps[id];
+            const active = i === stack.length - 1 ? ' active' : '';
+            return `<div class="stack-frame${active}"><span class="fn-name">${s.call}</span>${s.result !== null ? ` → <span class="fn-result">${s.result}</span>` : ''}</div>`;
+        }).reverse().join('');
+        document.getElementById('stack-display').innerHTML = stackHtml || '<div style="color:var(--text-dim)">Empty</div>';
+
+        // Stats
+        const callsMade = eventLog.slice(0, upToEvent + 1).filter(e => e.type === 'enter').length;
+        document.getElementById('stat-calls').textContent = callsMade;
+        document.getElementById('stat-depth').textContent = steps.reduce((m, s) => Math.max(m, s.depth), 0) + 1;
+        document.getElementById('stat-step').textContent = `${upToEvent + 1} / ${eventLog.length}`;
+    }
+
+    function init() {
+        const algo = ALGOS[document.getElementById('algo-select').value];
+        const n = parseInt(document.getElementById('input-n').value) || 0;
+        stop();
+        steps = algo.run(n);
+        eventLog = buildEventLog(steps);
+        animIdx = -1;
+        render(-1);
+        document.getElementById('code-display').innerHTML = `<div class="ocaml-code">${algo.code}</div>`;
+        document.getElementById('stat-calls').textContent = '0';
+        document.getElementById('stat-step').textContent = `0 / ${eventLog.length}`;
+    }
+
+    function stepOnce() {
+        if (animIdx < eventLog.length - 1) { animIdx++; render(animIdx); }
+    }
+
+    function runAnim() {
+        stop();
+        if (animIdx >= eventLog.length - 1) { animIdx = -1; }
+        animTimer = setInterval(() => {
+            if (animIdx >= eventLog.length - 1) { stop(); return; }
+            animIdx++; render(animIdx);
+        }, getSpeed());
+    }
+
+    function stop() { if (animTimer) { clearInterval(animTimer); animTimer = null; } }
+
+    document.getElementById('btn-run').addEventListener('click', runAnim);
+    document.getElementById('btn-step').addEventListener('click', () => { stop(); stepOnce(); });
+    document.getElementById('btn-reset').addEventListener('click', init);
+    document.getElementById('algo-select').addEventListener('change', init);
+    document.getElementById('input-n').addEventListener('change', init);
+
+    init();
+    </script>
+</body>
+</html>
