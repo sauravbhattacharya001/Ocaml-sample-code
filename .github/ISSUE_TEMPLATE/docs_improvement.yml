@@ -1,0 +1,48 @@
+name: Documentation Improvement
+description: Suggest improvements to code comments, README, or inline documentation
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the documentation and learning experience!
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Documentation Area
+      description: Which part needs improvement?
+      options:
+        - README
+        - Code comments / docstrings
+        - Example explanations
+        - Setup / installation instructions
+        - API documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current State
+      description: What's missing or unclear?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed Improvement
+      description: How should it be improved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Links, screenshots, or references that would help.
+    validations:
+      required: false

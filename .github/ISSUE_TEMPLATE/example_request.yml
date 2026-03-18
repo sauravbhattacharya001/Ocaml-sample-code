@@ -1,0 +1,61 @@
+name: New Example Request
+description: Suggest a new OCaml example program for the collection
+title: "[Example] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for a new OCaml example? We'd love to hear it!
+
+  - type: textarea
+    id: proposed-example
+    attributes:
+      label: Proposed Example
+      description: What concept or algorithm should the example demonstrate?
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why It Belongs Here
+      description: How does it complement the existing examples? What OCaml concept does it teach?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: concepts
+    attributes:
+      label: Key OCaml Concepts
+      description: Which features would this example showcase?
+      options:
+        - label: Pattern matching
+        - label: Modules / Functors
+        - label: Algebraic data types
+        - label: Higher-order functions
+        - label: Monads / Effects
+        - label: GADTs
+        - label: Concurrency (Lwt/Async)
+        - label: FFI / C interop
+        - label: Other (describe below)
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty Level
+      options:
+        - Beginner
+        - Intermediate
+        - Advanced
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Suggested Implementation
+      description: Optional — sketch the approach or provide pseudocode.
+      render: ocaml
+    validations:
+      required: false
