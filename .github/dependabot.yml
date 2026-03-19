@@ -4,7 +4,7 @@
 
 version: 2
 updates:
-  # GitHub Actions — keep workflow actions current
+  # GitHub Actions - keep workflow actions current
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -20,7 +20,23 @@ updates:
       - "sauravbhattacharya001"
     open-pull-requests-limit: 10
 
-  # Docker — keep base image (ocaml/opam) up to date
+  # npm - keep JavaScript dev dependencies (jest) up to date
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "npm"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "javascript"
+    reviewers:
+      - "sauravbhattacharya001"
+    open-pull-requests-limit: 5
+
+  # Docker - keep base image (ocaml/opam) up to date
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
