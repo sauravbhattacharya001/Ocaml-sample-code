@@ -135,6 +135,51 @@ let test_my_feature () = suite "My Feature" (fun () ->
 (* Register it in the main let () block *)
 ```
 
+## Development with Docker
+
+If you don't have OCaml installed locally, use the included Dockerfile:
+
+```bash
+# Build the dev image
+docker build --target builder -t ocaml-samples-dev .
+
+# Run interactively
+docker run -it --rm -v $(pwd):/home/opam/app ocaml-samples-dev bash
+
+# Inside the container:
+make all && make test
+```
+
+This gives you OCaml 5.x with all dependencies pre-installed — no opam setup needed.
+
+## Navigating the Codebase
+
+With 100+ `.ml` files, finding your way around can be daunting. Here's the structure:
+
+| Category | Examples | Complexity |
+|----------|----------|------------|
+| **Basics** | `hello.ml`, `fibonacci.ml`, `factor.ml`, `list_last_elem.ml` | Beginner |
+| **Data Structures** | `bst.ml`, `rbtree.ml`, `heap.ml`, `trie.ml`, `rope.ml`, `btree.ml`, `skip_list.ml` | Intermediate |
+| **Algorithms** | `mergesort.ml`, `sorting.ml`, `dijkstra.ml`, `graph.ml`, `huffman.ml` | Intermediate |
+| **Parsing** | `parser.ml`, `json.ml`, `regex.ml`, `peg.ml`, `earley.ml`, `csv.ml` | Advanced |
+| **Type System** | `gadts.ml`, `type_infer.ml`, `optics.ml`, `monad_transformers.ml` | Advanced |
+| **Concurrency** | `actor.ml`, `csp.ml`, `stm.ml`, `raft.ml`, `effects.ml` | Advanced |
+| **Math/Science** | `calculus.ml`, `matrix.ml`, `probability.ml`, `geometry.ml`, `neural_network.ml` | Mixed |
+| **Tests** | `test_*.ml`, `__tests__/` | — |
+
+Start with something in your comfort zone, then branch out.
+
+## Pull Request Review Process
+
+PRs are reviewed for:
+
+1. **Correctness** — does the code compile cleanly with no warnings? Does it produce the expected output?
+2. **Idiomacy** — does it follow OCaml conventions? Pattern matching, immutability, proper use of the type system?
+3. **Clarity** — would a learner understand this? Are comments helpful without being excessive?
+4. **Completeness** — does it include a demo `let () = ...` block? Tests for non-trivial logic?
+
+Expect at least one round of feedback. Don't take it personally — the goal is quality educational content.
+
 ## Reporting Issues
 
 Found a bug or have a suggestion? [Open an issue](https://github.com/sauravbhattacharya001/Ocaml-sample-code/issues/new/choose) with:
