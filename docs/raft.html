@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raft Consensus Algorithm — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🗳️ Raft Consensus</h1>
+    <p class="subtitle">Distributed consensus via leader election and log replication</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Raft</strong> is a consensus algorithm designed to be understandable.
+      It ensures a cluster of nodes agrees on a sequence of commands even when some
+      nodes fail. Unlike Paxos, Raft decomposes consensus into three sub-problems:
+      <em>leader election</em>, <em>log replication</em>, and <em>safety</em>.</p>
+      <p>This implementation simulates a full Raft cluster with deterministic
+      in-memory message passing, including network partition scenarios for testing
+      fault tolerance.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Record types</strong> — rich message types (AppendEntries, RequestVote) with named fields</li>
+        <li><strong>Variant types</strong> — node roles (Follower | Candidate | Leader) and message types</li>
+        <li><strong>Mutable state with records</strong> — per-node state (term, log, commit index) updated via ref cells</li>
+        <li><strong>Pattern matching on messages</strong> — dispatching RPCs to handler functions</li>
+        <li><strong>Functional simulation</strong> — deterministic network model for reproducible testing</li>
+        <li><strong>List operations</strong> — log manipulation using immutable lists with List.nth, List.length</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How Raft Works</h2>
+      <pre><code>(* Node roles *)
+type role = Follower | Candidate | Leader
+
+(* Each node maintains: *)
+type node_state = {
+  mutable current_term : int;     (* latest term seen *)
+  mutable voted_for    : int option; (* candidate voted for *)
+  mutable log          : log_entry list;  (* command log *)
+  mutable commit_index : int;     (* highest committed entry *)
+  mutable role         : role;
+  ...
+}
+
+(* Message types mirror the Raft paper *)
+type message =
+  | AppendEntries of append_entries_req
+  | AppendEntriesResp of append_entries_resp
+  | RequestVote of request_vote_req
+  | RequestVoteResp of request_vote_resp
+  | ClientRequest of string
+
+(* Leader election: candidate requests votes *)
+(* Log replication: leader sends AppendEntries *)
+(* Commitment: entry committed when replicated to majority *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Protocol Phases</h2>
+      <table>
+        <tr><th>Phase</th><th>Trigger</th><th>Description</th></tr>
+        <tr><td>Leader Election</td><td>Election timeout expires</td><td>Follower becomes candidate, increments term, requests votes from peers. Wins with majority.</td></tr>
+        <tr><td>Log Replication</td><td>Client submits command</td><td>Leader appends to local log, sends AppendEntries RPCs to all followers.</td></tr>
+        <tr><td>Commitment</td><td>Majority acknowledgment</td><td>Once a majority of nodes have replicated an entry, leader marks it committed.</td></tr>
+        <tr><td>Term Transition</td><td>Higher term discovered</td><td>Any node seeing a higher term steps down to follower and updates its term.</td></tr>
+        <tr><td>Network Partition</td><td>Simulated link failure</td><td>Partitioned nodes elect a new leader; old leader steps down on reconnection.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Safety Properties</h2>
+      <ul>
+        <li><strong>Election Safety:</strong> At most one leader per term</li>
+        <li><strong>Leader Append-Only:</strong> Leader never overwrites or deletes log entries</li>
+        <li><strong>Log Matching:</strong> If two logs have an entry with the same index and term, all preceding entries are identical</li>
+        <li><strong>Leader Completeness:</strong> A committed entry appears in all future leaders' logs</li>
+        <li><strong>State Machine Safety:</strong> If a node applies an entry at index i, no other node applies a different entry at i</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running</h2>
+      <pre><code># Compile and run the simulation
+ocamlfind ocamlopt -package unix -linkpkg raft.ml -o raft && ./raft
+
+# Or with bytecode
+ocamlfind ocamlc -package unix -linkpkg raft.ml -o raft && ./raft</code></pre>
+    </section>
+
+    <section>
+      <h2>Further Reading</h2>
+      <ul>
+        <li><a href="https://raft.github.io/">Raft Visualization</a> — interactive Raft simulator</li>
+        <li><a href="https://raft.github.io/raft.pdf">In Search of an Understandable Consensus Algorithm</a> — the original Raft paper (Ongaro &amp; Ousterhout, 2014)</li>
+        <li><a href="actor.html">Actor Model</a> — related concurrency pattern in this repo</li>
+        <li><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/raft.ml">Source code</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actor Model — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🎭 Actor Model</h1>
+    <p class="subtitle">Erlang-style message passing concurrency with supervision trees</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>The <strong>Actor model</strong> is a concurrency paradigm where independent
+      actors communicate exclusively through asynchronous message passing — no shared
+      mutable state. Each actor has a private mailbox, processes messages sequentially,
+      and can spawn child actors, creating supervision hierarchies for fault tolerance.</p>
+      <p>This implementation is inspired by Erlang/OTP and Akka, featuring typed mailboxes,
+      supervision trees, behavior switching, routers, and a dead letter handler. It includes
+      38 built-in tests.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Message-passing concurrency</strong> — actors communicate without shared state</li>
+        <li><strong>Supervision trees</strong> — one-for-one, one-for-all, rest-for-one restart strategies</li>
+        <li><strong>Higher-order functions as behaviors</strong> — actor logic is a function <code>'msg → unit</code></li>
+        <li><strong>Behavior switching</strong> — <code>become</code>/<code>unbecome</code> for state machines</li>
+        <li><strong>Variant types</strong> — message envelopes, supervision strategies, actor lifecycle events</li>
+        <li><strong>Mutable state encapsulation</strong> — each actor's state is isolated in its context</li>
+        <li><strong>Pattern matching</strong> — selective receive dispatches messages by type</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Actor references for addressing *)
+type actor_ref = {
+  id: actor_id;
+  name: string option;
+}
+
+(* Messages wrapped in envelopes *)
+type 'msg envelope = {
+  from: actor_ref option;
+  to_ref: actor_ref;
+  payload: 'msg;
+  timestamp: float;
+  correlation_id: string option;
+}
+
+(* Supervision strategies *)
+type restart_strategy =
+  | OneForOne    (* restart only the failed child *)
+  | OneForAll    (* restart all children *)
+  | RestForOne   (* restart failed child + all children started after it *)
+
+(* Define an actor's behavior *)
+let counter_behavior ctx msg =
+  match msg with
+  | Increment -> ctx.state := !(ctx.state) + 1
+  | GetCount reply_to ->
+      send reply_to (Count !(ctx.state))
+
+(* Spawn and communicate *)
+let counter = spawn system "counter" counter_behavior
+send counter Increment
+send counter Increment
+let count = ask counter (GetCount self)  (* → Count 2 *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Components</h2>
+      <table>
+        <tr><th>Component</th><th>Description</th></tr>
+        <tr><td><code>ActorSystem</code></td><td>Top-level container that manages all actors, message routing, and dead letters</td></tr>
+        <tr><td><code>Actor</code></td><td>Unit of computation with a mailbox, behavior function, and optional parent</td></tr>
+        <tr><td><code>Supervisor</code></td><td>Special actor that monitors children and applies a restart strategy on failure</td></tr>
+        <tr><td><code>Router</code></td><td>Distributes messages across a pool of actors (round-robin or broadcast)</td></tr>
+        <tr><td><code>Registry</code></td><td>Named actor lookup — find actors by name instead of reference</td></tr>
+        <tr><td><code>DeadLetterHandler</code></td><td>Captures messages sent to stopped or non-existent actors</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Supervision Strategies</h2>
+      <ul>
+        <li><strong>One-for-One:</strong> Only the failed actor is restarted. Other siblings are unaffected. Use when children are independent.</li>
+        <li><strong>One-for-All:</strong> All children are stopped and restarted when any child fails. Use when children are interdependent.</li>
+        <li><strong>Rest-for-One:</strong> The failed child and all children started <em>after</em> it are restarted. Use when children have ordered dependencies.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Design Philosophy: "Let It Crash"</h2>
+      <p>Rather than defensive error handling in every function, actors delegate
+      failure recovery to supervisors. If an actor encounters an unexpected error,
+      it crashes. Its supervisor detects the failure and decides whether to restart
+      it, escalate, or stop. This produces cleaner application code and more
+      robust systems.</p>
+    </section>
+
+    <section>
+      <h2>Running</h2>
+      <pre><code># Compile and run with tests
+ocamlfind ocamlopt -package unix -linkpkg actor.ml -o actor && ./actor</code></pre>
+    </section>
+
+    <section>
+      <h2>Further Reading</h2>
+      <ul>
+        <li><a href="https://www.erlang.org/doc/design_principles/des_princ">Erlang/OTP Design Principles</a></li>
+        <li><a href="raft.html">Raft Consensus</a> — distributed consensus, related distributed systems topic</li>
+        <li><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/actor.ml">Source code</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
