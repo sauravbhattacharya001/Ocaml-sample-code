@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module System Explorer — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .module-explorer { max-width: 960px; margin: 0 auto; padding: 2rem; }
+        .module-explorer h1 { color: var(--accent); margin-bottom: 0.5rem; font-size: 2rem; }
+        .module-explorer .subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.1rem; }
+
+        .topic-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .topic-tab {
+            padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
+            background: var(--surface); border: 1px solid var(--border);
+            color: var(--text-dim); font-size: 0.9rem; transition: all 0.2s;
+        }
+        .topic-tab:hover { border-color: var(--accent2); color: var(--text); }
+        .topic-tab.active { background: var(--accent2); color: #1a1b26; border-color: var(--accent2); font-weight: 600; }
+
+        .topic-section { display: none; }
+        .topic-section.active { display: block; }
+
+        .concept-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .concept-card h2 { color: var(--accent2); font-size: 1.3rem; margin-bottom: 0.5rem; }
+        .concept-card h3 { color: var(--accent4); font-size: 1.1rem; margin: 1rem 0 0.5rem; }
+        .concept-card p { color: var(--text); margin-bottom: 0.75rem; }
+        .concept-card ul { margin-left: 1.5rem; margin-bottom: 0.75rem; }
+        .concept-card li { color: var(--text); margin-bottom: 0.25rem; }
+
+        .code-block {
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 1rem; margin: 0.75rem 0;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;
+            overflow-x: auto; line-height: 1.5; white-space: pre; color: var(--text);
+        }
+
+        .exercise-box {
+            background: var(--surface); border: 2px solid var(--accent3);
+            border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;
+        }
+        .exercise-box h3 { color: var(--accent3); margin-bottom: 0.5rem; }
+        .exercise-box .prompt { color: var(--text); margin-bottom: 1rem; }
+
+        .exercise-box textarea {
+            width: 100%; min-height: 120px; background: var(--code-bg);
+            color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.75rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        .btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+        .btn {
+            padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
+            font-size: 0.85rem; border: none; font-weight: 600; transition: all 0.2s;
+        }
+        .btn-check { background: var(--accent3); color: #1a1b26; }
+        .btn-check:hover { filter: brightness(1.1); }
+        .btn-hint { background: var(--surface-hover); color: var(--accent4); border: 1px solid var(--accent4); }
+        .btn-hint:hover { background: var(--accent4); color: #1a1b26; }
+        .btn-solution { background: var(--surface-hover); color: var(--accent); border: 1px solid var(--accent); }
+        .btn-solution:hover { background: var(--accent); color: #1a1b26; }
+
+        .feedback {
+            margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
+            font-size: 0.9rem; display: none;
+        }
+        .feedback.correct { display: block; background: rgba(158,206,106,0.15); color: var(--accent3); border: 1px solid var(--accent3); }
+        .feedback.incorrect { display: block; background: rgba(247,118,142,0.15); color: var(--accent); border: 1px solid var(--accent); }
+        .feedback.hint { display: block; background: rgba(224,175,104,0.15); color: var(--accent4); border: 1px solid var(--accent4); }
+
+        .progress-bar {
+            background: var(--surface); border-radius: 12px; height: 8px;
+            margin-bottom: 1.5rem; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent3));
+            border-radius: 12px; transition: width 0.5s ease;
+        }
+
+        .diagram {
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 1.5rem; margin: 1rem 0;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+            line-height: 1.4; overflow-x: auto; white-space: pre; color: var(--text-dim);
+        }
+
+        .key-point {
+            background: rgba(122,162,247,0.1); border-left: 3px solid var(--accent2);
+            padding: 0.75rem 1rem; margin: 0.75rem 0; border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .comparison-table {
+            width: 100%; border-collapse: collapse; margin: 1rem 0;
+        }
+        .comparison-table th {
+            background: var(--surface-hover); color: var(--accent2);
+            padding: 0.5rem 0.75rem; text-align: left; border: 1px solid var(--border);
+        }
+        .comparison-table td {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border); font-size: 0.9rem;
+        }
+
+        .nav-footer {
+            display: flex; justify-content: space-between; margin-top: 2rem;
+            padding-top: 1rem; border-top: 1px solid var(--border);
+        }
+        .nav-btn {
+            padding: 0.5rem 1.25rem; border-radius: 8px; cursor: pointer;
+            background: var(--surface); border: 1px solid var(--border);
+            color: var(--accent2); font-size: 0.9rem; transition: all 0.2s;
+        }
+        .nav-btn:hover { background: var(--accent2); color: #1a1b26; }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        @media (max-width: 700px) {
+            .module-explorer { padding: 1rem; }
+            .topic-tabs { gap: 0.25rem; }
+            .topic-tab { padding: 0.4rem 0.7rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml</a>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="learning-path.html">Learning Path</a>
+            <a href="exercises.html">Exercises</a>
+            <a href="sort-visualizer.html">Sort Visualizer</a>
+            <a href="recursion-viz.html">Recursion Viz</a>
+            <a href="ds-chooser.html">DS Chooser</a>
+            <a href="pattern-matching.html">Pattern Matching</a>
+            <a href="complexity.html">Complexity</a>
+            <a href="cheat-sheet.html">Cheat Sheet</a>
+            <a href="modules.html" class="active">Modules</a>
+            <a href="type-inference.html">Type Inference</a>
+            <a href="flashcards.html">Flashcards</a>
+        </div>
+    </nav>
+    <main class="content">
+        <div class="module-explorer">
+            <h1>🧱 Module System Explorer</h1>
+            <p class="subtitle">Master OCaml's powerful module system — from basic modules to functors</p>
+
+            <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
+
+            <div class="topic-tabs" id="topicTabs">
+                <div class="topic-tab active" data-topic="basics">1. Basic Modules</div>
+                <div class="topic-tab" data-topic="signatures">2. Signatures</div>
+                <div class="topic-tab" data-topic="abstract">3. Abstract Types</div>
+                <div class="topic-tab" data-topic="functors">4. Functors</div>
+                <div class="topic-tab" data-topic="firstclass">5. First-Class Modules</div>
+                <div class="topic-tab" data-topic="patterns">6. Design Patterns</div>
+            </div>
+
+            <!-- ==================== TOPIC 1: BASICS ==================== -->
+            <div class="topic-section active" id="topic-basics">
+                <div class="concept-card">
+                    <h2>What Are Modules?</h2>
+                    <p>Modules are OCaml's primary mechanism for organizing code. Every <code>.ml</code> file is implicitly a module. You can also define modules explicitly inside files.</p>
+
+                    <div class="key-point">💡 Think of modules as <strong>namespaces with superpowers</strong> — they group related types, values, and functions, but they can also be parameterized (functors) and passed as values (first-class modules).</div>
+
+                    <h3>Defining a Module</h3>
+<div class="code-block"><span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Counter</span> = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = { mutable count : int; name : string }
+
+  <span style="color:#bb9af7">let</span> create name = { count = 0; name }
+  <span style="color:#bb9af7">let</span> increment c = c.count <- c.count + 1
+  <span style="color:#bb9af7">let</span> get c = c.count
+  <span style="color:#bb9af7">let</span> reset c = c.count <- 0
+  <span style="color:#bb9af7">let</span> to_string c =
+    Printf.sprintf "%s: %d" c.name c.count
+<span style="color:#bb9af7">end</span></div>
+
+                    <h3>Using a Module</h3>
+<div class="code-block"><span style="color:#565f89">(* Qualified access *)</span>
+<span style="color:#bb9af7">let</span> c = Counter.create "page_views"
+<span style="color:#bb9af7">let</span> () = Counter.increment c
+<span style="color:#bb9af7">let</span> n = Counter.get c  <span style="color:#565f89">(* n = 1 *)</span>
+
+<span style="color:#565f89">(* Open for unqualified access *)</span>
+<span style="color:#bb9af7">open</span> Counter
+<span style="color:#bb9af7">let</span> c2 = create "clicks"
+
+<span style="color:#565f89">(* Local open — preferred, limits scope *)</span>
+<span style="color:#bb9af7">let</span> msg = Counter.(to_string (create "test"))
+<span style="color:#565f89">(* or *)</span>
+<span style="color:#bb9af7">let</span> msg = <span style="color:#bb9af7">let open</span> Counter <span style="color:#bb9af7">in</span> to_string (create "test")</div>
+
+                    <h3>Nested Modules</h3>
+<div class="code-block"><span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Geometry</span> = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Point</span> = <span style="color:#bb9af7">struct</span>
+    <span style="color:#bb9af7">type</span> t = { x : float; y : float }
+    <span style="color:#bb9af7">let</span> origin = { x = 0.0; y = 0.0 }
+    <span style="color:#bb9af7">let</span> distance p1 p2 =
+      sqrt ((p1.x -. p2.x) ** 2.0 +. (p1.y -. p2.y) ** 2.0)
+  <span style="color:#bb9af7">end</span>
+
+  <span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Circle</span> = <span style="color:#bb9af7">struct</span>
+    <span style="color:#bb9af7">type</span> t = { center : Point.t; radius : float }
+    <span style="color:#bb9af7">let</span> area c = Float.pi *. c.radius ** 2.0
+  <span style="color:#bb9af7">end</span>
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Access: Geometry.Point.origin *)</span></div>
+                </div>
+
+                <div class="exercise-box" data-exercise="basics-1">
+                    <h3>🏋️ Exercise: Create a Stack Module</h3>
+                    <p class="prompt">Define a module <code>Stack</code> with type <code>t</code> (an <code>int list</code>), and functions <code>empty</code>, <code>push</code>, <code>pop</code>, and <code>top</code>. <code>pop</code> and <code>top</code> should return <code>option</code> types.</p>
+                    <textarea id="ex-basics-1" placeholder="module Stack = struct
+  ...
+end"></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-check" onclick="checkExercise('basics-1')">Check</button>
+                        <button class="btn btn-hint" onclick="showHint('basics-1')">Hint</button>
+                        <button class="btn btn-solution" onclick="showSolution('basics-1')">Solution</button>
+                    </div>
+                    <div class="feedback" id="fb-basics-1"></div>
+                </div>
+            </div>
+
+            <!-- ==================== TOPIC 2: SIGNATURES ==================== -->
+            <div class="topic-section" id="topic-signatures">
+                <div class="concept-card">
+                    <h2>Module Signatures (Interfaces)</h2>
+                    <p>A <strong>signature</strong> (or module type) describes the interface of a module — what types and values it exposes — without revealing implementation details.</p>
+
+                    <div class="key-point">💡 Signatures are to modules what <code>.mli</code> files are to <code>.ml</code> files. They define the contract.</div>
+
+<div class="code-block"><span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">PRINTABLE</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t
+  <span style="color:#bb9af7">val</span> to_string : t -> string
+  <span style="color:#bb9af7">val</span> print : t -> unit
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">COMPARABLE</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t
+  <span style="color:#bb9af7">val</span> compare : t -> t -> int
+  <span style="color:#bb9af7">val</span> equal : t -> t -> bool
+<span style="color:#bb9af7">end</span></div>
+
+                    <h3>Constraining a Module</h3>
+<div class="code-block"><span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">IntPair</span> : <span style="color:#7aa2f7">COMPARABLE</span> = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = int * int
+  <span style="color:#bb9af7">let</span> compare (a1, b1) (a2, b2) =
+    <span style="color:#bb9af7">match</span> Int.compare a1 a2 <span style="color:#bb9af7">with</span>
+    | 0 -> Int.compare b1 b2
+    | c -> c
+  <span style="color:#bb9af7">let</span> equal a b = compare a b = 0
+
+  <span style="color:#565f89">(* This helper exists but is NOT visible outside! *)</span>
+  <span style="color:#bb9af7">let</span> swap (a, b) = (b, a)
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* IntPair.swap is hidden — signature hides it *)</span></div>
+
+                    <h3>Signature vs No Signature</h3>
+                    <table class="comparison-table">
+                        <tr><th>Aspect</th><th>No Signature</th><th>With Signature</th></tr>
+                        <tr><td>Visibility</td><td>Everything exposed</td><td>Only declared items visible</td></tr>
+                        <tr><td>Type info</td><td>Concrete types visible</td><td>Can make types abstract</td></tr>
+                        <tr><td>Refactoring</td><td>Any change breaks users</td><td>Internal changes are safe</td></tr>
+                        <tr><td>Documentation</td><td>Must read implementation</td><td>Signature IS the docs</td></tr>
+                    </table>
+                </div>
+
+                <div class="exercise-box" data-exercise="sig-1">
+                    <h3>🏋️ Exercise: Write a Signature</h3>
+                    <p class="prompt">Write a <code>STACK</code> signature with an abstract type <code>t</code> and functions <code>empty : t</code>, <code>push : int -> t -> t</code>, <code>pop : t -> t option</code>, <code>top : t -> int option</code>, and <code>size : t -> int</code>.</p>
+                    <textarea id="ex-sig-1" placeholder="module type STACK = sig
+  ...
+end"></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-check" onclick="checkExercise('sig-1')">Check</button>
+                        <button class="btn btn-hint" onclick="showHint('sig-1')">Hint</button>
+                        <button class="btn btn-solution" onclick="showSolution('sig-1')">Solution</button>
+                    </div>
+                    <div class="feedback" id="fb-sig-1"></div>
+                </div>
+            </div>
+
+            <!-- ==================== TOPIC 3: ABSTRACT TYPES ==================== -->
+            <div class="topic-section" id="topic-abstract">
+                <div class="concept-card">
+                    <h2>Abstract Types & Encapsulation</h2>
+                    <p>Abstract types are the key to encapsulation in OCaml. When a signature declares <code>type t</code> without <code>= ...</code>, the internal representation is hidden from users.</p>
+
+<div class="code-block"><span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">SET</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> elt              <span style="color:#565f89">(* element type — abstract *)</span>
+  <span style="color:#bb9af7">type</span> t                <span style="color:#565f89">(* set type — abstract *)</span>
+  <span style="color:#bb9af7">val</span> empty : t
+  <span style="color:#bb9af7">val</span> add : elt -> t -> t
+  <span style="color:#bb9af7">val</span> mem : elt -> t -> bool
+  <span style="color:#bb9af7">val</span> size : t -> int
+  <span style="color:#bb9af7">val</span> to_list : t -> elt list
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Implementation using a sorted list *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">IntSet</span> : <span style="color:#7aa2f7">SET</span> <span style="color:#bb9af7">with type</span> elt = int = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> elt = int
+  <span style="color:#bb9af7">type</span> t = int list  <span style="color:#565f89">(* hidden! users can't see it's a list *)</span>
+  <span style="color:#bb9af7">let</span> empty = []
+  <span style="color:#bb9af7">let rec</span> add x = <span style="color:#bb9af7">function</span>
+    | [] -> [x]
+    | h :: _ <span style="color:#bb9af7">as</span> l <span style="color:#bb9af7">when</span> x < h -> x :: l
+    | h :: _ <span style="color:#bb9af7">as</span> l <span style="color:#bb9af7">when</span> x = h -> l
+    | h :: t -> h :: add x t
+  <span style="color:#bb9af7">let rec</span> mem x = <span style="color:#bb9af7">function</span>
+    | [] -> false
+    | h :: _ <span style="color:#bb9af7">when</span> x = h -> true
+    | h :: _ <span style="color:#bb9af7">when</span> x < h -> false
+    | _ :: t -> mem x t
+  <span style="color:#bb9af7">let</span> size = List.length
+  <span style="color:#bb9af7">let</span> to_list l = l
+<span style="color:#bb9af7">end</span></div>
+
+                    <div class="key-point">💡 The <code>with type elt = int</code> sharing constraint reveals <em>just</em> the element type so users can create sets of ints, while keeping the internal representation (<code>t = int list</code>) hidden.</div>
+
+                    <h3>Why Abstract Types Matter</h3>
+                    <div class="diagram">┌─────────────── Public API ───────────────┐
+│  type elt = int                          │
+│  type t = ???  (abstract — can't peek!)  │
+│  val empty : t                           │
+│  val add : int -> t -> t                 │
+│  val mem : int -> t -> bool              │
+└──────────────────────────────────────────┘
+         ▲ Users see this
+
+┌─────────── Implementation ───────────────┐
+│  type t = int list  (sorted)             │
+│  ← Could change to balanced BST later!  │
+│  ← No user code breaks.                 │
+└──────────────────────────────────────────┘
+         ▲ Only module author sees this</div>
+                </div>
+
+                <div class="exercise-box" data-exercise="abs-1">
+                    <h3>🏋️ Exercise: Spot the Leak</h3>
+                    <p class="prompt">This module has an abstraction leak. What is it, and how would you fix it?</p>
+<div class="code-block"><span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">COUNTER</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t = int  <span style="color:#565f89">(* ← is this right? *)</span>
+  <span style="color:#bb9af7">val</span> zero : t
+  <span style="color:#bb9af7">val</span> incr : t -> t
+  <span style="color:#bb9af7">val</span> value : t -> int
+<span style="color:#bb9af7">end</span></div>
+                    <textarea id="ex-abs-1" placeholder="Explain the problem and write the fixed signature..."></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-check" onclick="checkExercise('abs-1')">Check</button>
+                        <button class="btn btn-hint" onclick="showHint('abs-1')">Hint</button>
+                        <button class="btn btn-solution" onclick="showSolution('abs-1')">Solution</button>
+                    </div>
+                    <div class="feedback" id="fb-abs-1"></div>
+                </div>
+            </div>
+
+            <!-- ==================== TOPIC 4: FUNCTORS ==================== -->
+            <div class="topic-section" id="topic-functors">
+                <div class="concept-card">
+                    <h2>Functors — Parameterized Modules</h2>
+                    <p>A <strong>functor</strong> is a function from modules to modules. It takes a module (matching a signature) as input and produces a new module as output. This is OCaml's most powerful abstraction tool.</p>
+
+                    <div class="key-point">💡 Functors let you write code that's generic over <em>module-level</em> abstractions. Think: "Give me any module with a <code>compare</code> function, and I'll give you back a complete Set implementation."</div>
+
+<div class="code-block"><span style="color:#565f89">(* Input signature: what the functor needs *)</span>
+<span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">ORDERED</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t
+  <span style="color:#bb9af7">val</span> compare : t -> t -> int
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Functor: produces a Set for any ordered type *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">MakeSet</span> (<span style="color:#7aa2f7">Ord</span> : <span style="color:#7aa2f7">ORDERED</span>) = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> elt = Ord.t
+  <span style="color:#bb9af7">type</span> t = elt list
+
+  <span style="color:#bb9af7">let</span> empty = []
+
+  <span style="color:#bb9af7">let rec</span> add x = <span style="color:#bb9af7">function</span>
+    | [] -> [x]
+    | h :: t ->
+      <span style="color:#bb9af7">match</span> Ord.compare x h <span style="color:#bb9af7">with</span>
+      | c <span style="color:#bb9af7">when</span> c < 0 -> x :: h :: t
+      | 0 -> h :: t  <span style="color:#565f89">(* duplicate *)</span>
+      | _ -> h :: add x t
+
+  <span style="color:#bb9af7">let rec</span> mem x = <span style="color:#bb9af7">function</span>
+    | [] -> false
+    | h :: t ->
+      <span style="color:#bb9af7">match</span> Ord.compare x h <span style="color:#bb9af7">with</span>
+      | 0 -> true
+      | c <span style="color:#bb9af7">when</span> c < 0 -> false
+      | _ -> mem x t
+
+  <span style="color:#bb9af7">let</span> to_list s = s
+  <span style="color:#bb9af7">let</span> size = List.length
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Using the functor *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">StringSet</span> = MakeSet(<span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = string
+  <span style="color:#bb9af7">let</span> compare = String.compare
+<span style="color:#bb9af7">end</span>)
+
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">FloatSet</span> = MakeSet(<span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = float
+  <span style="color:#bb9af7">let</span> compare = Float.compare
+<span style="color:#bb9af7">end</span>)
+
+<span style="color:#bb9af7">let</span> s = StringSet.(add "hello" (add "world" empty))
+<span style="color:#bb9af7">let</span> has = StringSet.mem "hello" s  <span style="color:#565f89">(* true *)</span></div>
+
+                    <h3>Functor Anatomy</h3>
+                    <div class="diagram">  module MakeSet (Ord : ORDERED) = struct ... end
+  ─────── ─────── ───  ───────    ─────────────
+     │       │     │      │            │
+     │    functor  │   signature    output module
+     │    name     │   constraint   (the body)
+     │             │
+  keyword     parameter
+              name</div>
+
+                    <h3>Real-World: Map from Stdlib</h3>
+<div class="code-block"><span style="color:#565f89">(* OCaml's standard Map uses exactly this pattern *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">StringMap</span> = Map.Make(String)
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">IntMap</span> = Map.Make(Int)
+
+<span style="color:#bb9af7">let</span> m = StringMap.empty
+  |> StringMap.add "name" "OCaml"
+  |> StringMap.add "version" "5.1"
+
+<span style="color:#bb9af7">let</span> name = StringMap.find "name" m  <span style="color:#565f89">(* "OCaml" *)</span></div>
+                </div>
+
+                <div class="exercise-box" data-exercise="func-1">
+                    <h3>🏋️ Exercise: Write a Functor</h3>
+                    <p class="prompt">Write a <code>MakePriorityQueue</code> functor that takes an <code>ORDERED</code> module and provides <code>empty</code>, <code>insert</code>, and <code>pop_min</code> (returns <code>(elt * t) option</code>). Use a sorted list internally.</p>
+                    <textarea id="ex-func-1" placeholder="module MakePriorityQueue (Ord : ORDERED) = struct
+  ...
+end"></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-check" onclick="checkExercise('func-1')">Check</button>
+                        <button class="btn btn-hint" onclick="showHint('func-1')">Hint</button>
+                        <button class="btn btn-solution" onclick="showSolution('func-1')">Solution</button>
+                    </div>
+                    <div class="feedback" id="fb-func-1"></div>
+                </div>
+            </div>
+
+            <!-- ==================== TOPIC 5: FIRST-CLASS MODULES ==================== -->
+            <div class="topic-section" id="topic-firstclass">
+                <div class="concept-card">
+                    <h2>First-Class Modules</h2>
+                    <p>OCaml lets you pack modules into values and unpack them back. This bridges the module system and the core language, enabling powerful dynamic patterns.</p>
+
+<div class="code-block"><span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">SHOW</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t
+  <span style="color:#bb9af7">val</span> show : t -> string
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Pack a module into a value *)</span>
+<span style="color:#bb9af7">let</span> int_shower : (<span style="color:#bb9af7">module</span> SHOW <span style="color:#bb9af7">with type</span> t = int) =
+  (<span style="color:#bb9af7">module struct</span>
+    <span style="color:#bb9af7">type</span> t = int
+    <span style="color:#bb9af7">let</span> show = string_of_int
+  <span style="color:#bb9af7">end</span>)
+
+<span style="color:#565f89">(* Unpack and use *)</span>
+<span style="color:#bb9af7">let</span> show_value (<span style="color:#bb9af7">type</span> a) (<span style="color:#bb9af7">module</span> S : SHOW <span style="color:#bb9af7">with type</span> t = a) (x : a) =
+  S.show x
+
+<span style="color:#bb9af7">let</span> result = show_value (<span style="color:#bb9af7">module struct</span>
+  <span style="color:#bb9af7">type</span> t = float
+  <span style="color:#bb9af7">let</span> show = Float.to_string
+<span style="color:#bb9af7">end</span>) 3.14
+<span style="color:#565f89">(* result = "3.14" *)</span></div>
+
+                    <h3>Heterogeneous Collections</h3>
+<div class="code-block"><span style="color:#565f89">(* Store different "showable" things in one list *)</span>
+<span style="color:#bb9af7">type</span> showable = <span style="color:#7aa2f7">Showable</span> : (<span style="color:#bb9af7">module</span> SHOW <span style="color:#bb9af7">with type</span> t = 'a) * 'a -> showable
+
+<span style="color:#bb9af7">let</span> items = [
+  Showable ((<span style="color:#bb9af7">module struct</span> <span style="color:#bb9af7">type</span> t = int    <span style="color:#bb9af7">let</span> show = string_of_int <span style="color:#bb9af7">end</span>), 42);
+  Showable ((<span style="color:#bb9af7">module struct</span> <span style="color:#bb9af7">type</span> t = string <span style="color:#bb9af7">let</span> show x = x           <span style="color:#bb9af7">end</span>), "hi");
+  Showable ((<span style="color:#bb9af7">module struct</span> <span style="color:#bb9af7">type</span> t = bool   <span style="color:#bb9af7">let</span> show = Bool.to_string <span style="color:#bb9af7">end</span>), true);
+]
+
+<span style="color:#bb9af7">let</span> show_all items =
+  List.map (<span style="color:#bb9af7">fun</span> (Showable ((<span style="color:#bb9af7">module</span> S), v)) -> S.show v) items
+<span style="color:#565f89">(* ["42"; "hi"; "true"] *)</span></div>
+
+                    <div class="key-point">💡 First-class modules are essential for plugin systems, dynamic dispatch, and when you need to choose implementations at runtime rather than compile time.</div>
+                </div>
+
+                <div class="exercise-box" data-exercise="fc-1">
+                    <h3>🏋️ Exercise: Module Selection</h3>
+                    <p class="prompt">Write a function <code>pick_serializer</code> that takes a format string (<code>"json"</code> or <code>"csv"</code>) and returns the appropriate first-class module matching a <code>SERIALIZER</code> signature with <code>val serialize : string list -> string</code>.</p>
+                    <textarea id="ex-fc-1" placeholder="module type SERIALIZER = sig
+  val serialize : string list -> string
+end
+
+let pick_serializer format = ..."></textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-check" onclick="checkExercise('fc-1')">Check</button>
+                        <button class="btn btn-hint" onclick="showHint('fc-1')">Hint</button>
+                        <button class="btn btn-solution" onclick="showSolution('fc-1')">Solution</button>
+                    </div>
+                    <div class="feedback" id="fb-fc-1"></div>
+                </div>
+            </div>
+
+            <!-- ==================== TOPIC 6: DESIGN PATTERNS ==================== -->
+            <div class="topic-section" id="topic-patterns">
+                <div class="concept-card">
+                    <h2>Module Design Patterns</h2>
+
+                    <h3>1. The "Make" Pattern</h3>
+                    <p>Standard library convention: a functor named <code>Make</code> that produces a full implementation from a minimal input.</p>
+<div class="code-block"><span style="color:#565f89">(* Used everywhere in stdlib *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">StringSet</span> = Set.Make(String)
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">IntMap</span> = Map.Make(Int)
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">MyHashtbl</span> = Hashtbl.Make(<span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = string * int
+  <span style="color:#bb9af7">let</span> equal (a1,b1) (a2,b2) = a1 = a2 && b1 = b2
+  <span style="color:#bb9af7">let</span> hash (a,b) = Hashtbl.hash a lxor Hashtbl.hash b
+<span style="color:#bb9af7">end</span>)</div>
+
+                    <h3>2. The "T" Convention</h3>
+                    <p>Name your main type <code>t</code> so it reads naturally with the module name.</p>
+<div class="code-block"><span style="color:#565f89">(* User.t, Token.t, Config.t — reads like English *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">User</span> = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> t = { id : int; name : string; email : string }
+  <span style="color:#bb9af7">let</span> create ~id ~name ~email = { id; name; email }
+  <span style="color:#bb9af7">let</span> to_string u = Printf.sprintf "%s <%s>" u.name u.email
+<span style="color:#bb9af7">end</span></div>
+
+                    <h3>3. Include for Extension</h3>
+                    <p>Use <code>include</code> to build larger modules from smaller ones.</p>
+<div class="code-block"><span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">BASE</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> t
+  <span style="color:#bb9af7">val</span> compare : t -> t -> int
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#bb9af7">module type</span> <span style="color:#7aa2f7">EXTENDED</span> = <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">include</span> BASE
+  <span style="color:#bb9af7">val</span> equal : t -> t -> bool
+  <span style="color:#bb9af7">val</span> min : t -> t -> t
+  <span style="color:#bb9af7">val</span> max : t -> t -> t
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Implement EXTENDED from any BASE *)</span>
+<span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Extend</span> (<span style="color:#7aa2f7">B</span> : <span style="color:#7aa2f7">BASE</span>) : <span style="color:#7aa2f7">EXTENDED</span> <span style="color:#bb9af7">with type</span> t = B.t = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">include</span> B
+  <span style="color:#bb9af7">let</span> equal a b = compare a b = 0
+  <span style="color:#bb9af7">let</span> min a b = <span style="color:#bb9af7">if</span> compare a b <= 0 <span style="color:#bb9af7">then</span> a <span style="color:#bb9af7">else</span> b
+  <span style="color:#bb9af7">let</span> max a b = <span style="color:#bb9af7">if</span> compare a b >= 0 <span style="color:#bb9af7">then</span> a <span style="color:#bb9af7">else</span> b
+<span style="color:#bb9af7">end</span></div>
+
+                    <h3>4. Phantom Types via Modules</h3>
+<div class="code-block"><span style="color:#bb9af7">module</span> <span style="color:#7aa2f7">Id</span> : <span style="color:#bb9af7">sig</span>
+  <span style="color:#bb9af7">type</span> _ t  <span style="color:#565f89">(* phantom type parameter *)</span>
+  <span style="color:#bb9af7">type</span> user
+  <span style="color:#bb9af7">type</span> post
+  <span style="color:#bb9af7">val</span> user_id : int -> user t
+  <span style="color:#bb9af7">val</span> post_id : int -> post t
+  <span style="color:#bb9af7">val</span> to_int : _ t -> int
+<span style="color:#bb9af7">end</span> = <span style="color:#bb9af7">struct</span>
+  <span style="color:#bb9af7">type</span> _ t = int
+  <span style="color:#bb9af7">type</span> user
+  <span style="color:#bb9af7">type</span> post
+  <span style="color:#bb9af7">let</span> user_id n = n
+  <span style="color:#bb9af7">let</span> post_id n = n
+  <span style="color:#bb9af7">let</span> to_int n = n
+<span style="color:#bb9af7">end</span>
+
+<span style="color:#565f89">(* Now the type system prevents mixing IDs! *)</span>
+<span style="color:#bb9af7">let</span> uid = Id.user_id 42
+<span style="color:#bb9af7">let</span> pid = Id.post_id 42
+<span style="color:#565f89">(* These are different types — can't mix them *)</span></div>
+
+                    <h3>Quick Reference</h3>
+                    <table class="comparison-table">
+                        <tr><th>Pattern</th><th>When to Use</th><th>Example</th></tr>
+                        <tr><td><code>module M = struct ... end</code></td><td>Simple namespace</td><td>Group related functions</td></tr>
+                        <tr><td><code>module type S = sig ... end</code></td><td>Define an interface</td><td>Contract for plugins</td></tr>
+                        <tr><td><code>M : S</code></td><td>Hide internals</td><td>Abstract data types</td></tr>
+                        <tr><td><code>module F(X:S) = struct...end</code></td><td>Generic over types</td><td>Set.Make, Map.Make</td></tr>
+                        <tr><td><code>(module M : S)</code></td><td>Runtime dispatch</td><td>Plugin selection</td></tr>
+                        <tr><td><code>include M</code></td><td>Extend a module</td><td>Add helpers to Base</td></tr>
+                        <tr><td><code>S with type t = ...</code></td><td>Reveal one type</td><td>Share element type</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="nav-footer">
+                <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" disabled>← Previous</button>
+                <span id="topicLabel" style="color: var(--text-dim);">1 / 6</span>
+                <button class="nav-btn" id="nextBtn" onclick="navigate(1)">Next →</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    const topics = ['basics', 'signatures', 'abstract', 'functors', 'firstclass', 'patterns'];
+    let currentTopic = 0;
+    const completed = new Set();
+
+    // Exercise data
+    const exercises = {
+        'basics-1': {
+            keywords: ['module', 'Stack', 'struct', 'type', 'list', 'push', 'pop', 'top', 'empty', 'option', 'None', 'Some'],
+            requiredCount: 8,
+            hint: 'Start with `type t = int list`. `empty` is `[]`. `push` uses `::`. `pop` and `top` pattern-match on the list.',
+            solution: `module Stack = struct
+  type t = int list
+  let empty = []
+  let push x s = x :: s
+  let pop = function
+    | [] -> None
+    | _ :: t -> Some t
+  let top = function
+    | [] -> None
+    | h :: _ -> Some h
+end`
+        },
+        'sig-1': {
+            keywords: ['module', 'type', 'STACK', 'sig', 'type', 't', 'val', 'empty', 'push', 'pop', 'top', 'size', 'int', 'option'],
+            requiredCount: 9,
+            hint: 'Declare `type t` (abstract — no `= ...`). Then list val declarations with their types. `pop` returns `t option`, `top` returns `int option`.',
+            solution: `module type STACK = sig
+  type t
+  val empty : t
+  val push : int -> t -> t
+  val pop : t -> t option
+  val top : t -> int option
+  val size : t -> int
+end`
+        },
+        'abs-1': {
+            keywords: ['type', 'abstract', 'int', 'hidden', 'leak', 'expose', 'concrete'],
+            requiredCount: 3,
+            hint: 'If the type is `t = int`, users can bypass `incr` and do arithmetic directly on counter values. That defeats encapsulation.',
+            solution: `(* Problem: type t = int exposes the representation.
+   Users can write: let c = zero + 100  — bypassing incr.
+   Fix: make t abstract. *)
+
+module type COUNTER = sig
+  type t          (* abstract — no = int *)
+  val zero : t
+  val incr : t -> t
+  val value : t -> int
+end`
+        },
+        'func-1': {
+            keywords: ['module', 'MakePriorityQueue', 'Ord', 'ORDERED', 'struct', 'type', 'elt', 'empty', 'insert', 'pop_min', 'compare', 'option'],
+            requiredCount: 8,
+            hint: 'Keep a sorted list. `insert` walks the list and places the element in order using `Ord.compare`. `pop_min` returns the head (smallest) and the rest.',
+            solution: `module MakePriorityQueue (Ord : ORDERED) = struct
+  type elt = Ord.t
+  type t = elt list
+
+  let empty = []
+
+  let rec insert x = function
+    | [] -> [x]
+    | h :: t as l ->
+      if Ord.compare x h <= 0 then x :: l
+      else h :: insert x t
+
+  let pop_min = function
+    | [] -> None
+    | h :: t -> Some (h, t)
+end`
+        },
+        'fc-1': {
+            keywords: ['module', 'SERIALIZER', 'serialize', 'pick_serializer', 'json', 'csv', 'struct'],
+            requiredCount: 5,
+            hint: 'Return a `(module SERIALIZER)` value. Use `match format with "json" -> (module ...) | "csv" -> (module ...)`.',
+            solution: `module type SERIALIZER = sig
+  val serialize : string list -> string
+end
+
+let pick_serializer format : (module SERIALIZER) =
+  match format with
+  | "json" ->
+    (module struct
+      let serialize items =
+        "[" ^ String.concat ", "
+          (List.map (fun s -> "\\"" ^ s ^ "\\"") items) ^ "]"
+    end)
+  | "csv" ->
+    (module struct
+      let serialize items = String.concat "," items
+    end)
+  | _ -> failwith ("Unknown format: " ^ format)`
+        }
+    };
+
+    function switchTopic(index) {
+        currentTopic = index;
+        document.querySelectorAll('.topic-tab').forEach((tab, i) => {
+            tab.classList.toggle('active', i === index);
+        });
+        document.querySelectorAll('.topic-section').forEach((sec, i) => {
+            sec.classList.toggle('active', i === index);
+        });
+        document.getElementById('prevBtn').disabled = index === 0;
+        document.getElementById('nextBtn').disabled = index === topics.length - 1;
+        document.getElementById('topicLabel').textContent = `${index + 1} / ${topics.length}`;
+        updateProgress();
+    }
+
+    function navigate(dir) {
+        const next = currentTopic + dir;
+        if (next >= 0 && next < topics.length) {
+            completed.add(currentTopic);
+            switchTopic(next);
+        }
+    }
+
+    function updateProgress() {
+        const pct = Math.round(((completed.size + (currentTopic > 0 ? 1 : 0)) / topics.length) * 100);
+        document.getElementById('progressFill').style.width = Math.min(pct, 100) + '%';
+    }
+
+    document.querySelectorAll('.topic-tab').forEach((tab, i) => {
+        tab.addEventListener('click', () => {
+            if (currentTopic > 0) completed.add(currentTopic);
+            switchTopic(i);
+        });
+    });
+
+    function checkExercise(id) {
+        const textarea = document.getElementById('ex-' + id);
+        const fb = document.getElementById('fb-' + id);
+        const text = textarea.value.toLowerCase();
+        const ex = exercises[id];
+        const matches = ex.keywords.filter(k => text.includes(k.toLowerCase()));
+        if (matches.length >= ex.requiredCount) {
+            fb.className = 'feedback correct';
+            fb.textContent = '✅ Looks good! Your answer contains the key elements.';
+        } else {
+            fb.className = 'feedback incorrect';
+            fb.textContent = `❌ Missing some key elements (${matches.length}/${ex.requiredCount} found). Try including: ${ex.keywords.filter(k => !text.includes(k.toLowerCase())).slice(0, 3).join(', ')}...`;
+        }
+    }
+
+    function showHint(id) {
+        const fb = document.getElementById('fb-' + id);
+        fb.className = 'feedback hint';
+        fb.textContent = '💡 ' + exercises[id].hint;
+    }
+
+    function showSolution(id) {
+        const textarea = document.getElementById('ex-' + id);
+        textarea.value = exercises[id].solution;
+        const fb = document.getElementById('fb-' + id);
+        fb.className = 'feedback hint';
+        fb.textContent = '📖 Solution loaded. Study it, then try writing it from scratch!';
+    }
+
+    // Init
+    switchTopic(0);
+    </script>
+</body>
+</html>
