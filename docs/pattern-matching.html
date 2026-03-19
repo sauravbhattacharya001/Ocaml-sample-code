@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Matching Playground — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .playground-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        @media (max-width: 900px) {
+            .playground-grid { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .panel h3 {
+            color: var(--accent2);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+        .match-editor {
+            width: 100%;
+            min-height: 180px;
+            background: var(--code-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        .match-editor:focus {
+            outline: none;
+            border-color: var(--accent2);
+            box-shadow: 0 0 0 2px rgba(122,162,247,0.15);
+        }
+        .result-box {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            min-height: 120px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .result-match { color: var(--accent3); }
+        .result-no-match { color: var(--accent); }
+        .result-binding { color: var(--accent4); }
+        .result-error { color: var(--accent); font-style: italic; }
+        .result-info { color: var(--text-dim); }
+
+        .btn-row { display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+        .btn {
+            padding: 0.4rem 0.85rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surface-hover);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: var(--accent2); color: var(--accent2); }
+        .btn-primary { background: var(--accent2); color: #1a1b26; border-color: var(--accent2); font-weight: 600; }
+        .btn-primary:hover { opacity: 0.85; color: #1a1b26; }
+
+        .challenge-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 0.75rem 0;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .challenge-card:hover { border-color: var(--accent2); transform: translateY(-1px); }
+        .challenge-card.completed { border-color: var(--accent3); }
+        .challenge-card .tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-right: 0.4rem;
+        }
+        .tag-beginner { background: rgba(158,206,106,0.15); color: var(--accent3); }
+        .tag-intermediate { background: rgba(224,175,104,0.15); color: var(--accent4); }
+        .tag-advanced { background: rgba(247,118,142,0.15); color: var(--accent); }
+        .challenge-title { font-weight: 600; margin: 0.4rem 0 0.25rem; }
+        .challenge-desc { color: var(--text-dim); font-size: 0.85rem; }
+
+        .match-trace {
+            margin-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            padding-top: 0.75rem;
+        }
+        .trace-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0;
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        .trace-icon { font-size: 1rem; flex-shrink: 0; }
+        .trace-text { color: var(--text-dim); }
+        .trace-text em { color: var(--accent4); font-style: normal; }
+
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .stat { text-align: center; }
+        .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent2); }
+        .stat-label { font-size: 0.75rem; color: var(--text-dim); }
+
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .example-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .example-card:hover { border-color: var(--accent4); }
+        .example-card code {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--accent3);
+            white-space: pre;
+            margin-top: 0.3rem;
+        }
+        .example-card .label { font-size: 0.8rem; color: var(--accent4); font-weight: 600; }
+
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+        .tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            color: var(--text-dim);
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+            font-size: 0.85rem;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .hint-box {
+            background: rgba(122,162,247,0.08);
+            border: 1px solid rgba(122,162,247,0.2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .hint-box.visible { display: block; }
+        .hint-box code { color: var(--accent3); background: var(--code-bg); padding: 0.1rem 0.3rem; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link">🌀 Recursion Visualizer</a>
+            <a href="pattern-matching.html" class="nav-link active">🎯 Pattern Matching</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">References</div>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="concept-map.html" class="nav-link">🗺️ Concept Map</a>
+            <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+            <a href="quiz.html" class="nav-link">❓ Quiz</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <h1>🎯 Pattern Matching Playground</h1>
+        <p>Explore OCaml's most powerful feature interactively. Write match expressions, see how values flow through patterns, and practice with challenges.</p>
+
+        <div class="stats-bar">
+            <div class="stat">
+                <div class="stat-num" id="challengesDone">0</div>
+                <div class="stat-label">Challenges Done</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num" id="totalMatches">0</div>
+                <div class="stat-label">Matches Evaluated</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num" id="streak">0</div>
+                <div class="stat-label">Current Streak</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="sandbox">Sandbox</div>
+            <div class="tab" data-tab="challenges">Challenges</div>
+            <div class="tab" data-tab="reference">Reference</div>
+        </div>
+
+        <!-- SANDBOX TAB -->
+        <div id="tab-sandbox" class="tab-content active">
+            <div class="playground-grid">
+                <div class="panel">
+                    <h3>📝 Match Expression</h3>
+                    <textarea class="match-editor" id="matchExpr" spellcheck="false" placeholder="match value with&#10;| pattern1 -> result1&#10;| pattern2 -> result2&#10;| _ -> default">match [1; 2; 3] with
+| [] -> "empty"
+| [x] -> "singleton: " ^ string_of_int x
+| x :: y :: _ -> "starts with " ^ string_of_int x ^ " and " ^ string_of_int y
+| _ -> "other"</textarea>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="evaluate()">▶ Evaluate</button>
+                        <button class="btn" onclick="stepThrough()">🔍 Step Through</button>
+                        <button class="btn" onclick="clearAll()">✕ Clear</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3>📤 Result</h3>
+                    <div class="result-box" id="resultBox">
+                        <span class="result-info">Press ▶ Evaluate or Ctrl+Enter to run</span>
+                    </div>
+                    <div class="match-trace" id="traceBox" style="display:none">
+                        <h3 style="margin-bottom: 0.5rem">🔍 Match Trace</h3>
+                        <div id="traceSteps"></div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 1.5rem; font-size: 1.1rem; color: var(--accent4);">Quick Examples</h2>
+            <div class="examples-grid" id="examplesGrid"></div>
+        </div>
+
+        <!-- CHALLENGES TAB -->
+        <div id="tab-challenges" class="tab-content">
+            <p style="color: var(--text-dim); margin-bottom: 1rem;">Complete challenges to practice pattern matching. Click one to load it into the sandbox.</p>
+            <div id="challengesList"></div>
+            <div id="challengeHint" class="hint-box"></div>
+        </div>
+
+        <!-- REFERENCE TAB -->
+        <div id="tab-reference" class="tab-content">
+            <div class="panel" style="margin-bottom: 1rem;">
+                <h3>Pattern Types in OCaml</h3>
+                <div class="result-box" style="min-height: auto;">
+<span class="result-binding">Constant</span>      | 42, "hello", true, 3.14
+<span class="result-binding">Variable</span>      | x, name, _  (binds any value)
+<span class="result-binding">Wildcard</span>      | _  (matches anything, no binding)
+<span class="result-binding">Tuple</span>         | (x, y), (1, _, z)
+<span class="result-binding">List</span>          | [], [x], [x; y], x :: rest
+<span class="result-binding">Constructor</span>   | Some x, None, Ok v, Error e
+<span class="result-binding">Or-pattern</span>    | p1 | p2  (match either)
+<span class="result-binding">As-pattern</span>    | pattern as name  (bind whole match)
+<span class="result-binding">Guard</span>         | pattern when condition
+<span class="result-binding">Nested</span>        | Some (x, [a; b])  (compose freely)
+<span class="result-binding">Record</span>        | { field1; field2 }
+<span class="result-binding">Literal range</span> | 'a'..'z'  (char ranges)</div>
+            </div>
+            <div class="panel" style="margin-bottom: 1rem;">
+                <h3>Exhaustiveness</h3>
+                <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem;">OCaml checks that your patterns cover all possible cases at compile time. This playground simulates that check.</p>
+                <div class="result-box" style="min-height: auto;">
+<span class="result-match">(* Complete - all cases covered *)</span>
+match opt with
+| Some x -> x
+| None -> 0
+
+<span class="result-no-match">(* Incomplete - compiler warns! *)</span>
+match opt with
+| Some x -> x
+<span class="result-error">(* Warning: this pattern-matching is not exhaustive.
+   Missing case: None *)</span></div>
+            </div>
+            <div class="panel">
+                <h3>Common Patterns & Idioms</h3>
+                <div class="result-box" style="min-height: auto;">
+<span class="result-binding">(* Recursive list processing *)</span>
+let rec sum = function
+  | [] -> 0
+  | x :: rest -> x + sum rest
+
+<span class="result-binding">(* Option handling *)</span>
+let get_or_default default = function
+  | Some v -> v
+  | None -> default
+
+<span class="result-binding">(* Nested destructuring *)</span>
+match config with
+| { mode = Auto; retries = n } when n > 0 -> retry n
+| { mode = Manual } -> prompt_user ()
+| _ -> use_defaults ()
+
+<span class="result-binding">(* Result chaining *)</span>
+match parse input with
+| Ok ast -> Ok (eval ast)
+| Error msg -> Error ("Parse: " ^ msg)</div>
+            </div>
+        </div>
+    </main>
+
+<script>
+// ─── Pattern Matching Engine ───────────────────────────────
+// Lightweight OCaml-subset pattern matching evaluator
+
+const state = {
+    challengesDone: new Set(JSON.parse(localStorage.getItem('pm_done') || '[]')),
+    totalMatches: parseInt(localStorage.getItem('pm_total') || '0'),
+    streak: parseInt(localStorage.getItem('pm_streak') || '0'),
+    activeChallenge: null
+};
+
+function saveState() {
+    localStorage.setItem('pm_done', JSON.stringify([...state.challengesDone]));
+    localStorage.setItem('pm_total', String(state.totalMatches));
+    localStorage.setItem('pm_streak', String(state.streak));
+    updateStats();
+}
+
+function updateStats() {
+    document.getElementById('challengesDone').textContent = state.challengesDone.size;
+    document.getElementById('totalMatches').textContent = state.totalMatches;
+    document.getElementById('streak').textContent = state.streak;
+}
+
+// ─── Tokenizer ─────────────────────────────────────────────
+function tokenize(src) {
+    const tokens = [];
+    let i = 0;
+    while (i < src.length) {
+        if (/\s/.test(src[i])) { i++; continue; }
+        if (src[i] === '(' && src[i+1] === '*') {
+            let depth = 1; i += 2;
+            while (i < src.length && depth > 0) {
+                if (src[i] === '(' && src[i+1] === '*') { depth++; i += 2; }
+                else if (src[i] === '*' && src[i+1] === ')') { depth--; i += 2; }
+                else i++;
+            }
+            continue;
+        }
+        if (src[i] === '"') {
+            let s = ''; i++;
+            while (i < src.length && src[i] !== '"') {
+                if (src[i] === '\\' && i+1 < src.length) { s += src[i+1]; i += 2; }
+                else { s += src[i]; i++; }
+            }
+            i++;
+            tokens.push({ type: 'STRING', value: s });
+            continue;
+        }
+        if (src[i] === '\'' && src[i+2] === '\'') {
+            tokens.push({ type: 'CHAR', value: src[i+1] }); i += 3; continue;
+        }
+        if (src[i] === '-' && i+1 < src.length && /\d/.test(src[i+1])) {
+            let n = '-'; i++;
+            while (i < src.length && /[\d.]/.test(src[i])) { n += src[i]; i++; }
+            tokens.push({ type: 'NUM', value: parseFloat(n) }); continue;
+        }
+        if (/\d/.test(src[i])) {
+            let n = '';
+            while (i < src.length && /[\d.]/.test(src[i])) { n += src[i]; i++; }
+            tokens.push({ type: 'NUM', value: parseFloat(n) }); continue;
+        }
+        if (src[i] === ':' && src[i+1] === ':') { tokens.push({ type: 'CONS' }); i += 2; continue; }
+        if (src[i] === '-' && src[i+1] === '>') { tokens.push({ type: 'ARROW' }); i += 2; continue; }
+        if (src[i] === '.' && src[i+1] === '.') { tokens.push({ type: 'DOTDOT' }); i += 2; continue; }
+        if (src[i] === '^') { tokens.push({ type: 'CARET' }); i++; continue; }
+        const singles = { '(': 'LPAREN', ')': 'RPAREN', '[': 'LBRACK', ']': 'RBRACK', '{': 'LBRACE', '}': 'RBRACE',
+                          '|': 'PIPE', ',': 'COMMA', ';': 'SEMI', '_': 'WILD', '=': 'EQ', '+': 'PLUS', '-': 'MINUS',
+                          '*': 'STAR', '/': 'SLASH', '<': 'LT', '>': 'GT' };
+        if (singles[src[i]]) { tokens.push({ type: singles[src[i]] }); i++; continue; }
+        if (/[a-zA-Z_]/.test(src[i])) {
+            let id = '';
+            while (i < src.length && /[a-zA-Z0-9_']/.test(src[i])) { id += src[i]; i++; }
+            const kw = ['match','with','when','as','true','false','Some','None','Ok','Error',
+                         'fst','snd','string_of_int','string_of_float','string_of_bool','not','mod'];
+            if (kw.includes(id)) tokens.push({ type: 'KW', value: id });
+            else if (id[0] === id[0].toUpperCase() && /[a-zA-Z]/.test(id[0])) tokens.push({ type: 'CTOR', value: id });
+            else tokens.push({ type: 'IDENT', value: id });
+            continue;
+        }
+        i++;
+    }
+    return tokens;
+}
+
+// ─── Value types ───────────────────────────────────────────
+class Val {
+    constructor(type, data) { this.type = type; this.data = data; }
+    toString() {
+        switch (this.type) {
+            case 'int': case 'float': return String(this.data);
+            case 'string': return `"${this.data}"`;
+            case 'char': return `'${this.data}'`;
+            case 'bool': return this.data ? 'true' : 'false';
+            case 'unit': return '()';
+            case 'tuple': return `(${this.data.map(v => v.toString()).join(', ')})`;
+            case 'list': return `[${this.data.map(v => v.toString()).join('; ')}]`;
+            case 'option': return this.data === null ? 'None' : `Some ${this.data.toString()}`;
+            case 'result': return this.data.ok !== undefined ? `Ok ${this.data.ok.toString()}` : `Error ${this.data.err.toString()}`;
+            case 'ctor': return this.data.arg ? `${this.data.name} ${this.data.arg.toString()}` : this.data.name;
+            case 'record': {
+                const fields = Object.entries(this.data).map(([k,v]) => `${k} = ${v.toString()}`).join('; ');
+                return `{ ${fields} }`;
+            }
+            default: return String(this.data);
+        }
+    }
+}
+
+const V = {
+    int: n => new Val('int', n),
+    float: n => new Val('float', n),
+    str: s => new Val('string', s),
+    char: c => new Val('char', c),
+    bool: b => new Val('bool', b),
+    unit: () => new Val('unit', null),
+    tuple: vs => new Val('tuple', vs),
+    list: vs => new Val('list', vs),
+    some: v => new Val('option', v),
+    none: () => new Val('option', null),
+    ok: v => new Val('result', { ok: v }),
+    err: v => new Val('result', { err: v }),
+    ctor: (name, arg) => new Val('ctor', { name, arg: arg || null }),
+    record: obj => new Val('record', obj),
+};
+
+// ─── Expression Parser ────────────────────────────────────
+function parseExpr(tokens, pos) {
+    let [left, p] = parseExprAtom(tokens, pos);
+    // handle string concatenation with ^
+    while (p < tokens.length && tokens[p].type === 'CARET') {
+        p++;
+        let [right, p2] = parseExprAtom(tokens, p);
+        left = { type: 'concat', left, right };
+        p = p2;
+    }
+    // handle :: cons
+    if (p < tokens.length && tokens[p].type === 'CONS') {
+        p++;
+        let [right, p2] = parseExpr(tokens, p);
+        left = { type: 'cons', head: left, tail: right };
+        p = p2;
+    }
+    return [left, p];
+}
+
+function parseExprAtom(tokens, pos) {
+    if (pos >= tokens.length) throw new Error('Unexpected end of expression');
+    const t = tokens[pos];
+    // function application: string_of_int, etc.
+    if (t.type === 'KW' && ['string_of_int','string_of_float','string_of_bool','not','fst','snd'].includes(t.value)) {
+        let [arg, p] = parseExprAtom(tokens, pos + 1);
+        return [{ type: 'app', fn: t.value, arg }, p];
+    }
+    if (t.type === 'NUM') return [{ type: 'lit', value: t.value % 1 === 0 ? V.int(t.value) : V.float(t.value) }, pos + 1];
+    if (t.type === 'STRING') return [{ type: 'lit', value: V.str(t.value) }, pos + 1];
+    if (t.type === 'CHAR') return [{ type: 'lit', value: V.char(t.value) }, pos + 1];
+    if (t.type === 'KW' && t.value === 'true') return [{ type: 'lit', value: V.bool(true) }, pos + 1];
+    if (t.type === 'KW' && t.value === 'false') return [{ type: 'lit', value: V.bool(false) }, pos + 1];
+    if (t.type === 'KW' && t.value === 'None') return [{ type: 'lit', value: V.none() }, pos + 1];
+    if (t.type === 'KW' && t.value === 'Some') {
+        let [arg, p] = parseExprAtom(tokens, pos + 1);
+        return [{ type: 'some', arg }, p];
+    }
+    if (t.type === 'KW' && t.value === 'Ok') {
+        let [arg, p] = parseExprAtom(tokens, pos + 1);
+        return [{ type: 'ok', arg }, p];
+    }
+    if (t.type === 'KW' && t.value === 'Error') {
+        let [arg, p] = parseExprAtom(tokens, pos + 1);
+        return [{ type: 'error', arg }, p];
+    }
+    if (t.type === 'CTOR') {
+        if (pos + 1 < tokens.length && !['PIPE','ARROW','RPAREN','RBRACK','COMMA','SEMI'].includes(tokens[pos+1].type)) {
+            let [arg, p] = parseExprAtom(tokens, pos + 1);
+            return [{ type: 'ctor_app', name: t.value, arg }, p];
+        }
+        return [{ type: 'ctor_val', name: t.value }, pos + 1];
+    }
+    if (t.type === 'IDENT') return [{ type: 'var', name: t.value }, pos + 1];
+    if (t.type === 'LPAREN') {
+        if (tokens[pos + 1] && tokens[pos + 1].type === 'RPAREN') return [{ type: 'lit', value: V.unit() }, pos + 2];
+        let [first, p] = parseExpr(tokens, pos + 1);
+        if (tokens[p] && tokens[p].type === 'COMMA') {
+            const elems = [first];
+            while (tokens[p] && tokens[p].type === 'COMMA') {
+                p++;
+                let [next, p2] = parseExpr(tokens, p);
+                elems.push(next);
+                p = p2;
+            }
+            if (tokens[p] && tokens[p].type === 'RPAREN') p++;
+            return [{ type: 'tuple', elems }, p];
+        }
+        if (tokens[p] && tokens[p].type === 'RPAREN') p++;
+        return [first, p];
+    }
+    if (t.type === 'LBRACK') {
+        if (tokens[pos + 1] && tokens[pos + 1].type === 'RBRACK') return [{ type: 'lit', value: V.list([]) }, pos + 2];
+        const elems = [];
+        let p = pos + 1;
+        while (true) {
+            let [elem, p2] = parseExpr(tokens, p);
+            elems.push(elem);
+            p = p2;
+            if (tokens[p] && tokens[p].type === 'SEMI') { p++; continue; }
+            break;
+        }
+        if (tokens[p] && tokens[p].type === 'RBRACK') p++;
+        return [{ type: 'list', elems }, p];
+    }
+    if (t.type === 'LBRACE') {
+        const fields = {};
+        let p = pos + 1;
+        while (tokens[p] && tokens[p].type !== 'RBRACE') {
+            const name = tokens[p].value; p++;
+            if (tokens[p] && tokens[p].type === 'EQ') {
+                p++;
+                let [val, p2] = parseExpr(tokens, p);
+                fields[name] = val; p = p2;
+            } else {
+                fields[name] = { type: 'var', name };
+            }
+            if (tokens[p] && tokens[p].type === 'SEMI') p++;
+        }
+        if (tokens[p] && tokens[p].type === 'RBRACE') p++;
+        return [{ type: 'record', fields }, p];
+    }
+    throw new Error(`Unexpected token: ${t.type} ${t.value || ''}`);
+}
+
+function evalExpr(node, env = {}) {
+    switch (node.type) {
+        case 'lit': return node.value;
+        case 'var': return env[node.name] || V.str(`<unbound:${node.name}>`);
+        case 'tuple': return V.tuple(node.elems.map(e => evalExpr(e, env)));
+        case 'list': return V.list(node.elems.map(e => evalExpr(e, env)));
+        case 'some': return V.some(evalExpr(node.arg, env));
+        case 'ok': return V.ok(evalExpr(node.arg, env));
+        case 'error': return V.err(evalExpr(node.arg, env));
+        case 'ctor_app': return V.ctor(node.name, evalExpr(node.arg, env));
+        case 'ctor_val': return V.ctor(node.name);
+        case 'record': {
+            const obj = {};
+            for (const [k, v] of Object.entries(node.fields)) obj[k] = evalExpr(v, env);
+            return V.record(obj);
+        }
+        case 'cons': {
+            const head = evalExpr(node.head, env);
+            const tail = evalExpr(node.tail, env);
+            if (tail.type === 'list') return V.list([head, ...tail.data]);
+            return V.list([head]);
+        }
+        case 'concat': {
+            const l = evalExpr(node.left, env), r = evalExpr(node.right, env);
+            return V.str(String(l.data) + String(r.data));
+        }
+        case 'app': {
+            const arg = evalExpr(node.arg, env);
+            switch (node.fn) {
+                case 'string_of_int': case 'string_of_float': return V.str(String(arg.data));
+                case 'string_of_bool': return V.str(arg.data ? 'true' : 'false');
+                case 'not': return V.bool(!arg.data);
+                case 'fst': return arg.data[0];
+                case 'snd': return arg.data[1];
+            }
+        }
+        default: return V.str('<?>');
+    }
+}
+
+// ─── Pattern Parser ───────────────────────────────────────
+function parsePat(tokens, pos) {
+    let [pat, p] = parsePatAtom(tokens, pos);
+    // Or-pattern
+    while (p < tokens.length && tokens[p].type === 'PIPE' && p + 1 < tokens.length && tokens[p+1].type !== 'WILD' && tokens[p+1].type !== 'KW') {
+        // Peek: if next pipe is followed by something that looks like another arm (has ->), don't consume
+        let lookAhead = p + 1;
+        let depth = 0;
+        let hasArrow = false;
+        while (lookAhead < tokens.length) {
+            if (tokens[lookAhead].type === 'LPAREN' || tokens[lookAhead].type === 'LBRACK') depth++;
+            if (tokens[lookAhead].type === 'RPAREN' || tokens[lookAhead].type === 'RBRACK') depth--;
+            if (depth === 0 && tokens[lookAhead].type === 'ARROW') { hasArrow = true; break; }
+            if (depth === 0 && tokens[lookAhead].type === 'PIPE') break;
+            lookAhead++;
+        }
+        if (hasArrow) break;
+        p++;
+        let [right, p2] = parsePatAtom(tokens, p);
+        pat = { type: 'por', left: pat, right };
+        p = p2;
+    }
+    // Cons pattern
+    if (p < tokens.length && tokens[p].type === 'CONS') {
+        p++;
+        let [tail, p2] = parsePat(tokens, p);
+        pat = { type: 'pcons', head: pat, tail };
+        p = p2;
+    }
+    // As-pattern
+    if (p < tokens.length && tokens[p].type === 'KW' && tokens[p].value === 'as') {
+        p++;
+        const name = tokens[p].value; p++;
+        pat = { type: 'pas', pattern: pat, name };
+    }
+    return [pat, p];
+}
+
+function parsePatAtom(tokens, pos) {
+    if (pos >= tokens.length) throw new Error('Unexpected end of pattern');
+    const t = tokens[pos];
+    if (t.type === 'WILD') return [{ type: 'pwild' }, pos + 1];
+    if (t.type === 'NUM') return [{ type: 'plit', value: t.value }, pos + 1];
+    if (t.type === 'STRING') return [{ type: 'plit', value: t.value }, pos + 1];
+    if (t.type === 'CHAR') {
+        // Check for range
+        if (tokens[pos+1] && tokens[pos+1].type === 'DOTDOT' && tokens[pos+2] && tokens[pos+2].type === 'CHAR') {
+            return [{ type: 'prange', from: t.value, to: tokens[pos+2].value }, pos + 3];
+        }
+        return [{ type: 'plit', value: t.value }, pos + 1];
+    }
+    if (t.type === 'KW' && t.value === 'true') return [{ type: 'plit', value: true }, pos + 1];
+    if (t.type === 'KW' && t.value === 'false') return [{ type: 'plit', value: false }, pos + 1];
+    if (t.type === 'KW' && t.value === 'None') return [{ type: 'pnone' }, pos + 1];
+    if (t.type === 'KW' && t.value === 'Some') {
+        let [arg, p] = parsePatAtom(tokens, pos + 1);
+        return [{ type: 'psome', arg }, p];
+    }
+    if (t.type === 'KW' && t.value === 'Ok') {
+        let [arg, p] = parsePatAtom(tokens, pos + 1);
+        return [{ type: 'pok', arg }, p];
+    }
+    if (t.type === 'KW' && t.value === 'Error') {
+        let [arg, p] = parsePatAtom(tokens, pos + 1);
+        return [{ type: 'perror', arg }, p];
+    }
+    if (t.type === 'CTOR') {
+        // Constructor pattern
+        if (pos + 1 < tokens.length && !['PIPE','ARROW','RPAREN','RBRACK','COMMA','SEMI','CONS','KW'].includes(tokens[pos+1].type)
+            && !(tokens[pos+1].type === 'KW' && ['when','as','with'].includes(tokens[pos+1].value))) {
+            let [arg, p] = parsePatAtom(tokens, pos + 1);
+            return [{ type: 'pctor', name: t.value, arg }, p];
+        }
+        return [{ type: 'pctor', name: t.value, arg: null }, pos + 1];
+    }
+    if (t.type === 'IDENT') return [{ type: 'pvar', name: t.value }, pos + 1];
+    if (t.type === 'LPAREN') {
+        if (tokens[pos+1] && tokens[pos+1].type === 'RPAREN') return [{ type: 'plit', value: 'unit' }, pos + 2];
+        let [first, p] = parsePat(tokens, pos + 1);
+        if (tokens[p] && tokens[p].type === 'COMMA') {
+            const elems = [first];
+            while (tokens[p] && tokens[p].type === 'COMMA') {
+                p++;
+                let [next, p2] = parsePat(tokens, p);
+                elems.push(next); p = p2;
+            }
+            if (tokens[p] && tokens[p].type === 'RPAREN') p++;
+            return [{ type: 'ptuple', elems }, p];
+        }
+        if (tokens[p] && tokens[p].type === 'RPAREN') p++;
+        return [first, p];
+    }
+    if (t.type === 'LBRACK') {
+        if (tokens[pos+1] && tokens[pos+1].type === 'RBRACK') return [{ type: 'plist', elems: [] }, pos + 2];
+        const elems = [];
+        let p = pos + 1;
+        while (true) {
+            let [elem, p2] = parsePat(tokens, p);
+            elems.push(elem); p = p2;
+            if (tokens[p] && tokens[p].type === 'SEMI') { p++; continue; }
+            break;
+        }
+        if (tokens[p] && tokens[p].type === 'RBRACK') p++;
+        return [{ type: 'plist', elems }, p];
+    }
+    if (t.type === 'LBRACE') {
+        const fields = {};
+        let p = pos + 1;
+        while (tokens[p] && tokens[p].type !== 'RBRACE') {
+            const name = tokens[p].value; p++;
+            if (tokens[p] && tokens[p].type === 'EQ') {
+                p++;
+                let [pat, p2] = parsePat(tokens, p);
+                fields[name] = pat; p = p2;
+            } else {
+                fields[name] = { type: 'pvar', name };
+            }
+            if (tokens[p] && tokens[p].type === 'SEMI') p++;
+        }
+        if (tokens[p] && tokens[p].type === 'RBRACE') p++;
+        return [{ type: 'precord', fields }, p];
+    }
+    throw new Error(`Unexpected in pattern: ${t.type} ${t.value || ''}`);
+}
+
+// ─── Pattern Matching ─────────────────────────────────────
+function matchPat(pat, val, bindings = {}, trace = []) {
+    switch (pat.type) {
+        case 'pwild':
+            trace.push({ ok: true, msg: `_ matches anything` });
+            return { ok: true, bindings };
+        case 'pvar':
+            trace.push({ ok: true, msg: `${pat.name} bound to ${val.toString()}` });
+            return { ok: true, bindings: { ...bindings, [pat.name]: val } };
+        case 'plit': {
+            const v = (val.type === 'string' || val.type === 'char') ? val.data : val.data;
+            const matches = v === pat.value;
+            trace.push({ ok: matches, msg: `${val.toString()} ${matches ? '=' : '≠'} ${typeof pat.value === 'string' ? `"${pat.value}"` : pat.value}` });
+            return matches ? { ok: true, bindings } : { ok: false };
+        }
+        case 'prange': {
+            const c = val.data;
+            const matches = c >= pat.from && c <= pat.to;
+            trace.push({ ok: matches, msg: `'${c}' ${matches ? 'in' : 'not in'} '${pat.from}'..'${pat.to}'` });
+            return matches ? { ok: true, bindings } : { ok: false };
+        }
+        case 'ptuple': {
+            if (val.type !== 'tuple' || val.data.length !== pat.elems.length) {
+                trace.push({ ok: false, msg: `tuple size mismatch` });
+                return { ok: false };
+            }
+            let b = bindings;
+            for (let i = 0; i < pat.elems.length; i++) {
+                const r = matchPat(pat.elems[i], val.data[i], b, trace);
+                if (!r.ok) return { ok: false };
+                b = r.bindings;
+            }
+            return { ok: true, bindings: b };
+        }
+        case 'plist': {
+            if (val.type !== 'list' || val.data.length !== pat.elems.length) {
+                trace.push({ ok: false, msg: `list: expected ${pat.elems.length} elems, got ${val.type === 'list' ? val.data.length : val.type}` });
+                return { ok: false };
+            }
+            let b = bindings;
+            for (let i = 0; i < pat.elems.length; i++) {
+                const r = matchPat(pat.elems[i], val.data[i], b, trace);
+                if (!r.ok) return { ok: false };
+                b = r.bindings;
+            }
+            return { ok: true, bindings: b };
+        }
+        case 'pcons': {
+            if (val.type !== 'list' || val.data.length === 0) {
+                trace.push({ ok: false, msg: `cannot cons-match empty or non-list` });
+                return { ok: false };
+            }
+            const head = val.data[0];
+            const tail = V.list(val.data.slice(1));
+            trace.push({ ok: true, msg: `cons split: ${head.toString()} :: ${tail.toString()}` });
+            const r1 = matchPat(pat.head, head, bindings, trace);
+            if (!r1.ok) return { ok: false };
+            return matchPat(pat.tail, tail, r1.bindings, trace);
+        }
+        case 'psome': {
+            if (val.type !== 'option' || val.data === null) {
+                trace.push({ ok: false, msg: `expected Some, got ${val.toString()}` });
+                return { ok: false };
+            }
+            trace.push({ ok: true, msg: `unwrapped Some` });
+            return matchPat(pat.arg, val.data, bindings, trace);
+        }
+        case 'pnone': {
+            const matches = val.type === 'option' && val.data === null;
+            trace.push({ ok: matches, msg: matches ? `matched None` : `expected None, got ${val.toString()}` });
+            return matches ? { ok: true, bindings } : { ok: false };
+        }
+        case 'pok': {
+            if (val.type !== 'result' || val.data.ok === undefined) {
+                trace.push({ ok: false, msg: `expected Ok, got ${val.toString()}` });
+                return { ok: false };
+            }
+            trace.push({ ok: true, msg: `unwrapped Ok` });
+            return matchPat(pat.arg, val.data.ok, bindings, trace);
+        }
+        case 'perror': {
+            if (val.type !== 'result' || val.data.err === undefined) {
+                trace.push({ ok: false, msg: `expected Error, got ${val.toString()}` });
+                return { ok: false };
+            }
+            trace.push({ ok: true, msg: `unwrapped Error` });
+            return matchPat(pat.arg, val.data.err, bindings, trace);
+        }
+        case 'pctor': {
+            if (val.type !== 'ctor' || val.data.name !== pat.name) {
+                trace.push({ ok: false, msg: `expected ${pat.name}, got ${val.toString()}` });
+                return { ok: false };
+            }
+            if (pat.arg === null) {
+                trace.push({ ok: true, msg: `matched constructor ${pat.name}` });
+                return { ok: true, bindings };
+            }
+            trace.push({ ok: true, msg: `matched constructor ${pat.name}` });
+            return matchPat(pat.arg, val.data.arg, bindings, trace);
+        }
+        case 'precord': {
+            if (val.type !== 'record') {
+                trace.push({ ok: false, msg: `expected record` });
+                return { ok: false };
+            }
+            let b = bindings;
+            for (const [k, p] of Object.entries(pat.fields)) {
+                if (!(k in val.data)) {
+                    trace.push({ ok: false, msg: `missing field: ${k}` });
+                    return { ok: false };
+                }
+                const r = matchPat(p, val.data[k], b, trace);
+                if (!r.ok) return { ok: false };
+                b = r.bindings;
+            }
+            return { ok: true, bindings: b };
+        }
+        case 'por': {
+            const traceL = [];
+            const r = matchPat(pat.left, val, bindings, traceL);
+            if (r.ok) { trace.push(...traceL); return r; }
+            return matchPat(pat.right, val, bindings, trace);
+        }
+        case 'pas': {
+            const r = matchPat(pat.pattern, val, bindings, trace);
+            if (!r.ok) return { ok: false };
+            trace.push({ ok: true, msg: `${pat.name} bound to ${val.toString()} (as)` });
+            return { ok: true, bindings: { ...r.bindings, [pat.name]: val } };
+        }
+        default:
+            trace.push({ ok: false, msg: `unknown pattern: ${pat.type}` });
+            return { ok: false };
+    }
+}
+
+// ─── Full match expression parser ─────────────────────────
+function parseMatch(src) {
+    const tokens = tokenize(src);
+    let pos = 0;
+    // parse "match <expr> with"
+    if (tokens[pos] && tokens[pos].type === 'KW' && tokens[pos].value === 'match') pos++;
+    let [scrutineeAst, p] = parseExpr(tokens, pos);
+    if (tokens[p] && tokens[p].type === 'KW' && tokens[p].value === 'with') p++;
+
+    const arms = [];
+    while (p < tokens.length) {
+        if (tokens[p].type === 'PIPE') p++;
+        let [pat, p2] = parsePat(tokens, p);
+        p = p2;
+        // Guard
+        let guard = null;
+        if (tokens[p] && tokens[p].type === 'KW' && tokens[p].value === 'when') {
+            p++;
+            // Simple guard: just grab tokens until ->
+            let guardTokens = [];
+            while (p < tokens.length && tokens[p].type !== 'ARROW') {
+                guardTokens.push(tokens[p]); p++;
+            }
+            guard = guardTokens;
+        }
+        if (tokens[p] && tokens[p].type === 'ARROW') p++;
+        let [body, p3] = parseExpr(tokens, p);
+        p = p3;
+        arms.push({ pat, guard, body });
+    }
+
+    return { scrutineeAst, arms };
+}
+
+function evalGuard(guardTokens, bindings) {
+    // Simple guard evaluator for common patterns
+    if (!guardTokens || guardTokens.length === 0) return true;
+    // Try to parse as a simple comparison
+    try {
+        const src = guardTokens.map(t => t.value !== undefined ? t.value : ({ 'GT': '>', 'LT': '<', 'EQ': '=', 'PLUS': '+', 'MINUS': '-', 'STAR': '*', 'SLASH': '/' }[t.type] || '')).join(' ');
+        // Replace bound variables with their values
+        let evSrc = src;
+        for (const [k, v] of Object.entries(bindings)) {
+            evSrc = evSrc.replace(new RegExp(`\\b${k}\\b`, 'g'), v.type === 'string' ? `"${v.data}"` : String(v.data));
+        }
+        // Simple eval of comparisons (safe subset)
+        evSrc = evSrc.replace(/\bmod\b/g, '%');
+        if (/^[\d\s+\-*/%().<>=!&|true false]+$/.test(evSrc)) {
+            evSrc = evSrc.replace(/([^<>=!])=([^=])/g, '$1===$2');
+            return Function(`"use strict"; return (${evSrc})`)();
+        }
+    } catch(e) {}
+    return true; // Default to true if we can't evaluate
+}
+
+function runMatch(src) {
+    const { scrutineeAst, arms } = parseMatch(src);
+    const scrutinee = evalExpr(scrutineeAst);
+    const allTraces = [];
+
+    for (let i = 0; i < arms.length; i++) {
+        const arm = arms[i];
+        const trace = [];
+        const result = matchPat(arm.pat, scrutinee, {}, trace);
+
+        if (result.ok) {
+            // Check guard
+            if (arm.guard) {
+                const guardOk = evalGuard(arm.guard, result.bindings);
+                trace.push({ ok: guardOk, msg: guardOk ? 'guard passed' : 'guard failed' });
+                if (!guardOk) {
+                    allTraces.push({ armIndex: i, trace, matched: false });
+                    continue;
+                }
+            }
+            const bodyVal = evalExpr(arm.body, result.bindings);
+            allTraces.push({ armIndex: i, trace, matched: true, bindings: result.bindings, result: bodyVal });
+            return { matched: true, armIndex: i, scrutinee, result: bodyVal, bindings: result.bindings, allTraces };
+        } else {
+            allTraces.push({ armIndex: i, trace, matched: false });
+        }
+    }
+    return { matched: false, scrutinee, allTraces };
+}
+
+// ─── UI ───────────────────────────────────────────────────
+function evaluate() {
+    const src = document.getElementById('matchExpr').value.trim();
+    if (!src) return;
+    try {
+        const res = runMatch(src);
+        state.totalMatches++;
+        const box = document.getElementById('resultBox');
+
+        if (res.matched) {
+            let html = `<span class="result-match">✓ Matched arm ${res.armIndex + 1}</span>\n\n`;
+            html += `<span class="result-info">Scrutinee:</span> ${esc(res.scrutinee.toString())}\n`;
+            html += `<span class="result-info">Result:</span>    ${esc(res.result.toString())}\n`;
+            if (Object.keys(res.bindings).length > 0) {
+                html += `\n<span class="result-binding">Bindings:</span>\n`;
+                for (const [k, v] of Object.entries(res.bindings)) {
+                    html += `  ${k} = ${esc(v.toString())}\n`;
+                }
+            }
+            box.innerHTML = html;
+
+            if (state.activeChallenge) {
+                const ch = challenges[state.activeChallenge];
+                if (ch.check && ch.check(src, res)) {
+                    state.challengesDone.add(state.activeChallenge);
+                    state.streak++;
+                    box.innerHTML += `\n<span class="result-match">🎉 Challenge completed!</span>`;
+                    renderChallenges();
+                } else {
+                    state.streak = 0;
+                }
+            }
+        } else {
+            box.innerHTML = `<span class="result-no-match">✗ No arm matched</span>\n\n<span class="result-info">Scrutinee:</span> ${esc(res.scrutinee.toString())}\n\n<span class="result-error">Match_failure: this match expression has no matching case.</span>`;
+            state.streak = 0;
+        }
+        saveState();
+        showTrace(res.allTraces);
+    } catch (e) {
+        document.getElementById('resultBox').innerHTML = `<span class="result-error">Error: ${esc(e.message)}</span>`;
+    }
+}
+
+function stepThrough() {
+    const src = document.getElementById('matchExpr').value.trim();
+    if (!src) return;
+    try {
+        const res = runMatch(src);
+        state.totalMatches++;
+        saveState();
+        const box = document.getElementById('resultBox');
+        box.innerHTML = `<span class="result-info">Step-through mode — see trace below</span>\n\n<span class="result-info">Scrutinee:</span> ${esc(res.scrutinee.toString())}`;
+
+        if (res.matched) {
+            box.innerHTML += `\n<span class="result-match">→ Arm ${res.armIndex + 1} matched: ${esc(res.result.toString())}</span>`;
+        } else {
+            box.innerHTML += `\n<span class="result-no-match">→ No arm matched</span>`;
+        }
+        showTrace(res.allTraces, true);
+    } catch(e) {
+        document.getElementById('resultBox').innerHTML = `<span class="result-error">Error: ${esc(e.message)}</span>`;
+    }
+}
+
+function showTrace(allTraces, expanded = false) {
+    const traceBox = document.getElementById('traceBox');
+    const stepsEl = document.getElementById('traceSteps');
+    if (!allTraces || allTraces.length === 0) { traceBox.style.display = 'none'; return; }
+    traceBox.style.display = 'block';
+    let html = '';
+    for (const arm of allTraces) {
+        const icon = arm.matched ? '✅' : '❌';
+        html += `<div class="trace-step"><span class="trace-icon">${icon}</span><span class="trace-text" style="color:var(--text);font-weight:600">Arm ${arm.armIndex + 1}</span></div>`;
+        if (expanded || arm.matched) {
+            for (const step of arm.trace) {
+                const si = step.ok ? '  ✓' : '  ✗';
+                html += `<div class="trace-step"><span class="trace-icon" style="font-size:0.8rem">${si}</span><span class="trace-text"><em>${esc(step.msg)}</em></span></div>`;
+            }
+        }
+    }
+    stepsEl.innerHTML = html;
+}
+
+function clearAll() {
+    document.getElementById('matchExpr').value = '';
+    document.getElementById('resultBox').innerHTML = '<span class="result-info">Press ▶ Evaluate or Ctrl+Enter to run</span>';
+    document.getElementById('traceBox').style.display = 'none';
+    state.activeChallenge = null;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ─── Examples ─────────────────────────────────────────────
+const examples = [
+    { label: 'List head/tail', code: 'match [10; 20; 30] with\n| [] -> "empty"\n| x :: _ -> string_of_int x' },
+    { label: 'Option unwrap', code: 'match Some 42 with\n| Some n -> string_of_int n\n| None -> "nothing"' },
+    { label: 'Tuple destructure', code: 'match (1, "hello", true) with\n| (_, s, true) -> s\n| (n, _, false) -> string_of_int n' },
+    { label: 'Nested patterns', code: 'match Some [1; 2; 3] with\n| Some (x :: _) -> string_of_int x\n| Some [] -> "empty list"\n| None -> "none"' },
+    { label: 'Guard clause', code: 'match 15 with\n| n when n > 10 -> "big"\n| n when n > 5 -> "medium"\n| _ -> "small"' },
+    { label: 'Result type', code: 'match Ok "success" with\n| Ok msg -> msg\n| Error e -> "failed: " ^ e' },
+    { label: 'As-pattern', code: 'match [1; 2; 3] with\n| (x :: _ as whole) -> string_of_int x\n| [] -> "empty"' },
+    { label: 'Record matching', code: 'match { name = "Alice"; age = 30 } with\n| { name = "Alice"; age } -> string_of_int age\n| { name } -> name' },
+];
+
+function renderExamples() {
+    document.getElementById('examplesGrid').innerHTML = examples.map((ex, i) =>
+        `<div class="example-card" onclick="loadExample(${i})"><div class="label">${ex.label}</div><code>${esc(ex.code)}</code></div>`
+    ).join('');
+}
+
+function loadExample(i) {
+    document.getElementById('matchExpr').value = examples[i].code;
+    state.activeChallenge = null;
+    switchTab('sandbox');
+    evaluate();
+}
+
+// ─── Challenges ───────────────────────────────────────────
+const challenges = [
+    {
+        id: 'c1', level: 'beginner', title: 'Empty or not?',
+        desc: 'Write a match that returns "empty" for an empty list and "not empty" for any non-empty list. Scrutinee: []',
+        starter: 'match [] with\n| (* your patterns here *)',
+        check: (src, res) => res.matched && res.result.data === 'empty'
+    },
+    {
+        id: 'c2', level: 'beginner', title: 'Unwrap the option',
+        desc: 'Match Some 7 and return the number as a string. Return "none" for None.',
+        starter: 'match Some 7 with\n| ',
+        check: (src, res) => res.matched && res.result.data === '7'
+    },
+    {
+        id: 'c3', level: 'beginner', title: 'Tuple swap',
+        desc: 'Match the tuple (1, 2) and return (2, 1) — but as a string "2, 1".',
+        starter: 'match (1, 2) with\n| ',
+        check: (src, res) => res.matched && res.result.data.includes('2') && res.result.data.includes('1')
+    },
+    {
+        id: 'c4', level: 'intermediate', title: 'Second element',
+        desc: 'Extract the second element of [10; 20; 30] as a string. Handle lists with <2 elements.',
+        starter: 'match [10; 20; 30] with\n| ',
+        check: (src, res) => res.matched && res.result.data === '20'
+    },
+    {
+        id: 'c5', level: 'intermediate', title: 'Guard duty',
+        desc: 'Classify 42: "even-big" if even and >20, "even-small" if even and ≤20, "odd" otherwise. Use guards!',
+        starter: 'match 42 with\n| ',
+        check: (src, res) => res.matched && res.result.data === 'even-big' && src.includes('when')
+    },
+    {
+        id: 'c6', level: 'intermediate', title: 'Nested option-list',
+        desc: 'Match Some [5; 10] and return the sum (15) as a string.',
+        starter: 'match Some [5; 10] with\n| ',
+        check: (src, res) => res.matched && res.result.data === '15'
+    },
+    {
+        id: 'c7', level: 'advanced', title: 'Result pipeline',
+        desc: 'Match Ok (Some 99) and extract the inner value as a string. Handle Ok None and Error cases.',
+        starter: 'match Ok (Some 99) with\n| ',
+        check: (src, res) => res.matched && res.result.data === '99'
+    },
+    {
+        id: 'c8', level: 'advanced', title: 'Record + guard',
+        desc: 'Match {score = 85; passing = true} — return "pass: 85" if score >= 70 and passing is true.',
+        starter: 'match { score = 85; passing = true } with\n| ',
+        check: (src, res) => res.matched && res.result.data === 'pass: 85' && src.includes('when')
+    },
+    {
+        id: 'c9', level: 'advanced', title: 'Three-way split',
+        desc: 'Split [1; 2; 3; 4; 5] into first, second, and rest. Return "1 2 [3; 4; 5]" format.',
+        starter: 'match [1; 2; 3; 4; 5] with\n| ',
+        check: (src, res) => res.matched && res.result.data.includes('1') && res.result.data.includes('2')
+    },
+];
+
+function renderChallenges() {
+    document.getElementById('challengesList').innerHTML = challenges.map((ch, i) =>
+        `<div class="challenge-card ${state.challengesDone.has(i) ? 'completed' : ''}" onclick="loadChallenge(${i})">
+            <span class="tag tag-${ch.level}">${ch.level}</span>
+            ${state.challengesDone.has(i) ? '<span class="tag" style="background:rgba(158,206,106,0.15);color:var(--accent3)">✓ done</span>' : ''}
+            <div class="challenge-title">${ch.title}</div>
+            <div class="challenge-desc">${ch.desc}</div>
+        </div>`
+    ).join('');
+}
+
+function loadChallenge(i) {
+    document.getElementById('matchExpr').value = challenges[i].starter;
+    state.activeChallenge = i;
+    document.getElementById('resultBox').innerHTML = `<span class="result-info">Challenge: ${esc(challenges[i].title)}\n\n${esc(challenges[i].desc)}\n\nEdit the match expression and press ▶ Evaluate</span>`;
+    document.getElementById('traceBox').style.display = 'none';
+    switchTab('sandbox');
+    document.getElementById('matchExpr').focus();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${name}`));
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+// ─── Keyboard shortcut ────────────────────────────────────
+document.getElementById('matchExpr').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); evaluate(); }
+});
+
+// ─── Init ─────────────────────────────────────────────────
+updateStats();
+renderExamples();
+renderChallenges();
+</script>
+</body>
+</html>
