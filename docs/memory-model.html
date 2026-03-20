@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCaml Memory Model Visualizer</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.mem-container { max-width: 1100px; margin: 0 auto; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.mem-header { text-align: center; margin-bottom: 2rem; }
+.mem-header h1 { font-size: 2rem; color: #e07020; margin-bottom: 0.5rem; }
+.mem-header p { color: #666; font-size: 1.1rem; }
+
+.mem-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.mem-tab { padding: 0.6rem 1.2rem; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; background: #f8f8f8; font-weight: 500; transition: all 0.2s; }
+.mem-tab:hover { border-color: #e07020; }
+.mem-tab.active { background: #e07020; color: white; border-color: #e07020; }
+
+.mem-panel { display: none; }
+.mem-panel.active { display: block; }
+
+/* Value representation */
+.val-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.val-card { border: 2px solid #e0e0e0; border-radius: 10px; padding: 1rem; background: #fafafa; }
+.val-card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.val-card .ocaml-code { background: #1e1e2e; color: #cdd6f4; padding: 0.5rem 0.8rem; border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 0.9rem; margin-bottom: 0.5rem; }
+.val-card .mem-diagram { font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.5; background: #f0f0f0; padding: 0.5rem; border-radius: 6px; white-space: pre; overflow-x: auto; }
+.tag-unboxed { display: inline-block; background: #4caf50; color: white; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.3rem; }
+.tag-boxed { display: inline-block; background: #2196f3; color: white; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.3rem; }
+.tag-heap { display: inline-block; background: #ff9800; color: white; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+
+/* Interactive sandbox */
+.sandbox { margin-top: 1rem; }
+.sandbox textarea { width: 100%; height: 80px; font-family: 'Fira Code', monospace; font-size: 0.95rem; padding: 0.8rem; border: 2px solid #ddd; border-radius: 8px; resize: vertical; box-sizing: border-box; }
+.sandbox textarea:focus { outline: none; border-color: #e07020; }
+.sandbox button { margin-top: 0.5rem; padding: 0.5rem 1.5rem; background: #e07020; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; }
+.sandbox button:hover { background: #c85a10; }
+.sandbox-output { margin-top: 1rem; background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 0.9rem; min-height: 100px; white-space: pre-wrap; line-height: 1.6; }
+
+/* GC simulation */
+.gc-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.gc-controls button { padding: 0.4rem 1rem; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; background: #f8f8f8; font-size: 0.9rem; }
+.gc-controls button:hover { border-color: #e07020; }
+.gc-controls button.active { background: #e07020; color: white; border-color: #e07020; }
+.gc-heap { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin-top: 0.5rem; }
+.gc-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; color: white; transition: all 0.3s; cursor: pointer; }
+.gc-cell.free { background: #e0e0e0; color: #999; }
+.gc-cell.minor { background: #4caf50; }
+.gc-cell.major { background: #2196f3; }
+.gc-cell.root { background: #e07020; }
+.gc-cell.garbage { background: #f44336; }
+.gc-cell.moved { background: #9c27b0; }
+.gc-legend { display: flex; gap: 1rem; margin-top: 0.8rem; flex-wrap: wrap; font-size: 0.85rem; }
+.gc-legend span { display: flex; align-items: center; gap: 0.3rem; }
+.gc-legend-dot { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.gc-stats { margin-top: 0.8rem; background: #f8f8f8; padding: 0.8rem; border-radius: 8px; font-size: 0.9rem; }
+.gc-log { margin-top: 0.5rem; background: #1e1e2e; color: #a6e3a1; padding: 0.8rem; border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+
+/* Cheat sheet */
+.cs-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+.cs-table th, .cs-table td { padding: 0.6rem 0.8rem; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+.cs-table th { background: #f8f8f8; font-weight: 600; position: sticky; top: 0; }
+.cs-table tr:hover { background: #fff5ee; }
+.cs-table code { background: #f0f0f0; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="mem-container">
+<div class="mem-header">
+<h1>🧠 OCaml Memory Model Visualizer</h1>
+<p>Understand how OCaml represents values in memory — boxed vs unboxed, stack vs heap, and garbage collection</p>
+</div>
+
+<div class="mem-tabs">
+<div class="mem-tab active" onclick="showPanel('representations')">Value Representations</div>
+<div class="mem-tab" onclick="showPanel('sandbox')">Interactive Sandbox</div>
+<div class="mem-tab" onclick="showPanel('gc')">GC Simulator</div>
+<div class="mem-tab" onclick="showPanel('cheatsheet')">Cheat Sheet</div>
+</div>
+
+<!-- Panel 1: Value Representations -->
+<div id="panel-representations" class="mem-panel active">
+<h2>How OCaml Stores Values</h2>
+<p>OCaml uses a <strong>uniform representation</strong>: every value is either an <strong>unboxed immediate</strong> (fits in a machine word) or a <strong>boxed pointer</strong> to a heap-allocated block.</p>
+
+<div class="val-grid">
+<div class="val-card">
+<h3>Integers <span class="tag-unboxed">Unboxed</span></h3>
+<div class="ocaml-code">let x = 42</div>
+<div class="mem-diagram">Stack:
+┌──────────────────┐
+│ x = 85 (42&lt;&lt;1|1) │  ← tagged: n*2+1
+└──────────────────┘
+No heap allocation!
+Tag bit 0 = 1 → immediate</div>
+</div>
+
+<div class="val-card">
+<h3>Booleans <span class="tag-unboxed">Unboxed</span></h3>
+<div class="ocaml-code">let b = true  (* = 1 *)
+let b = false (* = 0 *)</div>
+<div class="mem-diagram">Stack:
+┌──────────┐
+│ true  = 3 │  ← 1&lt;&lt;1|1
+│ false = 1 │  ← 0&lt;&lt;1|1
+└──────────┘</div>
+</div>
+
+<div class="val-card">
+<h3>Unit &amp; Chars <span class="tag-unboxed">Unboxed</span></h3>
+<div class="ocaml-code">let u = ()    (* = 0 *)
+let c = 'A'   (* = 65 *)</div>
+<div class="mem-diagram">Stack:
+┌──────────────────┐
+│ ()  = 1  (0&lt;&lt;1|1) │
+│ 'A' = 131 (65&lt;&lt;1|1)│
+└──────────────────┘</div>
+</div>
+
+<div class="val-card">
+<h3>Floats <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let f = 3.14</div>
+<div class="mem-diagram">Stack:           Heap:
+┌─────────┐    ┌─────────────────┐
+│ f = ptr ─┼───→│ hdr: Double_tag │
+└─────────┘    │ 3.14 (64-bit)   │
+               └─────────────────┘</div>
+</div>
+
+<div class="val-card">
+<h3>Strings <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let s = "hello"</div>
+<div class="mem-diagram">Stack:           Heap:
+┌─────────┐    ┌──────────────────┐
+│ s = ptr ─┼───→│ hdr: String_tag  │
+└─────────┘    │ size: 5          │
+               │ 'h''e''l''l''o'  │
+               │ padding + last=3 │
+               └──────────────────┘</div>
+</div>
+
+<div class="val-card">
+<h3>Tuples <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let t = (1, "hi", 3.0)</div>
+<div class="mem-diagram">Stack:           Heap:
+┌─────────┐    ┌──────────────────┐
+│ t = ptr ─┼───→│ hdr: tag=0 sz=3  │
+└─────────┘    │ field0: 3 (int 1)│
+               │ field1: ptr→"hi" │
+               │ field2: ptr→3.0  │
+               └──────────────────┘</div>
+</div>
+
+<div class="val-card">
+<h3>Lists <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let l = [1; 2; 3]</div>
+<div class="mem-diagram">┌────────┐  ┌────────┐  ┌────────┐
+│tag=0   │  │tag=0   │  │tag=0   │
+│hd: 3   ├→ │hd: 5   ├→ │hd: 7   ├→ 0 (nil)
+│tl: ptr │  │tl: ptr │  │tl: ptr │
+└────────┘  └────────┘  └────────┘
+[] = immediate 0 (no allocation)</div>
+</div>
+
+<div class="val-card">
+<h3>Variants <span class="tag-unboxed">Unboxed</span>/<span class="tag-boxed">Boxed</span></h3>
+<div class="ocaml-code">type t = A | B of int | C of int * string</div>
+<div class="mem-diagram">A   → immediate 0 (no payload)
+B 5 → heap block tag=0, field=11
+C (1,"x") → heap block tag=1
+            field0=3, field1=ptr→"x"
+
+Constant ctors: numbered 0,1,2...
+Non-const ctors: tagged 0,1,2...</div>
+</div>
+
+<div class="val-card">
+<h3>Records <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">type point = { x: int; y: int }
+let p = { x = 10; y = 20 }</div>
+<div class="mem-diagram">Stack:           Heap:
+┌─────────┐    ┌──────────────────┐
+│ p = ptr ─┼───→│ hdr: tag=0 sz=2  │
+└─────────┘    │ field0: 21 (x=10)│
+               │ field1: 41 (y=20)│
+               └──────────────────┘
+Same layout as a tuple!</div>
+</div>
+
+<div class="val-card">
+<h3>Arrays <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let a = [| 10; 20; 30 |]
+let fa = [| 1.0; 2.0 |]</div>
+<div class="mem-diagram">Int array → tag=0, unboxed ints
+Float array → Double_array_tag
+              stores raw 64-bit floats
+              (no per-element boxing!)
+
+This is a key optimization.</div>
+</div>
+
+<div class="val-card">
+<h3>Closures <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let add x = fun y -> x + y
+let add5 = add 5</div>
+<div class="mem-diagram">Stack:             Heap:
+┌────────────┐    ┌─────────────────┐
+│ add5 = ptr ─┼───→│ hdr: Closure_tag│
+└────────────┘    │ code_ptr → λy   │
+                  │ env: x = 11     │
+                  └─────────────────┘
+Captured variables stored in closure</div>
+</div>
+
+<div class="val-card">
+<h3>Refs (Mutable) <span class="tag-boxed">Boxed</span> <span class="tag-heap">Heap</span></h3>
+<div class="ocaml-code">let r = ref 42
+r := 99</div>
+<div class="mem-diagram">Stack:           Heap:
+┌─────────┐    ┌──────────────────┐
+│ r = ptr ─┼───→│ hdr: tag=0 sz=1  │
+└─────────┘    │ field0: 85→199   │
+               └──────────────────┘
+ref is just a 1-field mutable record
+{mutable contents: 'a}</div>
+</div>
+</div>
+</div>
+
+<!-- Panel 2: Interactive Sandbox -->
+<div id="panel-sandbox" class="mem-panel">
+<h2>Memory Layout Explorer</h2>
+<p>Type an OCaml expression and see its memory representation.</p>
+<div class="sandbox">
+<textarea id="sandbox-input" placeholder="Try: 42, &quot;hello&quot;, (1, 2, 3), [1; 2; 3], Some 42, fun x -> x + 1">42</textarea>
+<button onclick="analyzeExpr()">Visualize Memory →</button>
+<div class="sandbox-output" id="sandbox-output">Enter an expression above and click Visualize...</div>
+</div>
+
+<h3 style="margin-top:2rem">Presets</h3>
+<div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+<button class="mem-tab" onclick="setExpr('42')">Integer</button>
+<button class="mem-tab" onclick="setExpr('3.14')">Float</button>
+<button class="mem-tab" onclick="setExpr('\"hello world\"')">String</button>
+<button class="mem-tab" onclick="setExpr('(1, 2.0, \"a\")')">Tuple</button>
+<button class="mem-tab" onclick="setExpr('[1; 2; 3; 4; 5]')">List</button>
+<button class="mem-tab" onclick="setExpr('Some 42')">Option</button>
+<button class="mem-tab" onclick="setExpr('[| 1.0; 2.0; 3.0 |]')">Float Array</button>
+<button class="mem-tab" onclick="setExpr('fun x -> x * 2 + 1')">Closure</button>
+<button class="mem-tab" onclick="setExpr('ref [1; 2]')">Ref</button>
+<button class="mem-tab" onclick="setExpr('{name=\"Alice\"; age=30}')">Record</button>
+</div>
+</div>
+
+<!-- Panel 3: GC Simulator -->
+<div id="panel-gc" class="mem-panel">
+<h2>Garbage Collection Simulator</h2>
+<p>OCaml uses a <strong>generational GC</strong> with a <strong>minor heap</strong> (copying) and <strong>major heap</strong> (mark-sweep-compact). Watch it in action!</p>
+
+<div class="gc-controls">
+<button onclick="gcAllocate()" class="active">🟢 Allocate</button>
+<button onclick="gcMinorCollect()">♻️ Minor GC</button>
+<button onclick="gcMajorCollect()">🔵 Major GC</button>
+<button onclick="gcAddRoot()">📌 Add Root</button>
+<button onclick="gcReset()">🗑️ Reset</button>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+<div>
+<h3 style="margin:0 0 0.5rem">Minor Heap (nursery)</h3>
+<div class="gc-heap" id="minor-heap"></div>
+</div>
+<div>
+<h3 style="margin:0 0 0.5rem">Major Heap</h3>
+<div class="gc-heap" id="major-heap"></div>
+</div>
+</div>
+
+<div class="gc-legend">
+<span><span class="gc-legend-dot" style="background:#e0e0e0"></span> Free</span>
+<span><span class="gc-legend-dot" style="background:#4caf50"></span> Minor (young)</span>
+<span><span class="gc-legend-dot" style="background:#2196f3"></span> Major (old)</span>
+<span><span class="gc-legend-dot" style="background:#e07020"></span> Root</span>
+<span><span class="gc-legend-dot" style="background:#f44336"></span> Garbage</span>
+<span><span class="gc-legend-dot" style="background:#9c27b0"></span> Promoted</span>
+</div>
+
+<div class="gc-stats" id="gc-stats">
+Allocations: 0 | Minor GCs: 0 | Major GCs: 0 | Live objects: 0 | Promoted: 0
+</div>
+<div class="gc-log" id="gc-log">GC Simulator ready. Click "Allocate" to create objects.</div>
+</div>
+
+<!-- Panel 4: Cheat Sheet -->
+<div id="panel-cheatsheet" class="mem-panel">
+<h2>OCaml Memory Cheat Sheet</h2>
+
+<h3>Value Representation Rules</h3>
+<table class="cs-table">
+<tr><th>Type</th><th>Representation</th><th>Size (words)</th><th>Notes</th></tr>
+<tr><td><code>int</code></td><td>Immediate (tagged)</td><td>0 (in-register)</td><td>63-bit on 64-bit systems, tag bit stolen</td></tr>
+<tr><td><code>bool</code></td><td>Immediate</td><td>0</td><td>false=0, true=1 (tagged)</td></tr>
+<tr><td><code>char</code></td><td>Immediate</td><td>0</td><td>Code point as tagged int</td></tr>
+<tr><td><code>unit</code></td><td>Immediate</td><td>0</td><td>Represented as 0</td></tr>
+<tr><td><code>float</code></td><td>Boxed (Double_tag)</td><td>1 header + 1 data</td><td>64-bit IEEE 754</td></tr>
+<tr><td><code>string</code></td><td>Boxed (String_tag)</td><td>1 header + ⌈len/8⌉</td><td>Includes padding byte</td></tr>
+<tr><td><code>'a * 'b</code></td><td>Boxed block (tag 0)</td><td>1 header + n fields</td><td>Same as records</td></tr>
+<tr><td><code>'a list</code></td><td>Cons cells (tag 0)</td><td>1 header + 2 per cons</td><td>[] is immediate 0</td></tr>
+<tr><td><code>'a option</code></td><td>None=immediate 0</td><td>Some: 1 header + 1</td><td>None costs nothing</td></tr>
+<tr><td><code>'a array</code></td><td>Boxed block (tag 0)</td><td>1 header + n elems</td><td>Mutable, bounds-checked</td></tr>
+<tr><td><code>float array</code></td><td>Flat (Double_array)</td><td>1 header + n×1</td><td>Unboxed floats! Fast</td></tr>
+<tr><td><code>'a ref</code></td><td>1-field mutable block</td><td>1 header + 1</td><td><code>{mutable contents: 'a}</code></td></tr>
+<tr><td><code>closure</code></td><td>Closure_tag</td><td>1 hdr + 1 code + env</td><td>Env = captured vars</td></tr>
+<tr><td>Constant variant</td><td>Immediate</td><td>0</td><td>Numbered 0,1,2...</td></tr>
+<tr><td>Non-const variant</td><td>Boxed block</td><td>1 header + n fields</td><td>Tag = constructor index</td></tr>
+</table>
+
+<h3 style="margin-top:2rem">GC Quick Facts</h3>
+<table class="cs-table">
+<tr><th>Property</th><th>Minor Heap</th><th>Major Heap</th></tr>
+<tr><td>Strategy</td><td>Copying (semi-space)</td><td>Mark-sweep-compact</td></tr>
+<tr><td>Default size</td><td>256 KB</td><td>Grows as needed</td></tr>
+<tr><td>Speed</td><td>Very fast (µs)</td><td>Slower (ms)</td></tr>
+<tr><td>When triggered</td><td>Minor heap full</td><td>Major heap grows past threshold</td></tr>
+<tr><td>Objects survive</td><td>Promoted to major</td><td>Stay until unreachable</td></tr>
+<tr><td>Allocation</td><td>Bump pointer (fast!)</td><td>Free-list based</td></tr>
+</table>
+
+<h3 style="margin-top:2rem">Performance Tips</h3>
+<table class="cs-table">
+<tr><th>Tip</th><th>Why</th></tr>
+<tr><td>Use <code>int</code> over <code>float</code> when possible</td><td>Unboxed = no allocation</td></tr>
+<tr><td>Use <code>float array</code> for numeric work</td><td>Flat layout, no per-element boxing</td></tr>
+<tr><td>Prefer <code>Array</code> over <code>List</code> for random access</td><td>Contiguous memory, O(1) access</td></tr>
+<tr><td>Avoid excessive <code>ref</code> usage</td><td>Each ref = heap allocation</td></tr>
+<tr><td>Use <code>[@unboxed]</code> for single-field records</td><td>Eliminates wrapper allocation</td></tr>
+<tr><td>Reuse buffers with <code>Buffer.t</code></td><td>Avoids repeated string allocations</td></tr>
+<tr><td>Profile with <code>Gc.stat()</code></td><td>Shows allocation rates and GC frequency</td></tr>
+</table>
+</div>
+
+</div>
+
+<script>
+// Tab switching
+function showPanel(name) {
+  document.querySelectorAll('.mem-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mem-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Sandbox
+function setExpr(expr) {
+  document.getElementById('sandbox-input').value = expr;
+  analyzeExpr();
+}
+
+function analyzeExpr() {
+  const expr = document.getElementById('sandbox-input').value.trim();
+  const out = document.getElementById('sandbox-output');
+  out.textContent = analyzeValue(expr);
+}
+
+function tagInt(n) { return (n << 1) | 1; }
+
+function analyzeValue(expr) {
+  // Integer
+  if (/^-?\d+$/.test(expr)) {
+    const n = parseInt(expr);
+    const tagged = tagInt(n);
+    return `Expression: ${expr}\nType: int (immediate, unboxed)\n\n` +
+      `📦 Stack representation:\n` +
+      `┌─────────────────────────┐\n` +
+      `│ value = ${tagged} (0x${(tagged>>>0).toString(16)})${' '.repeat(Math.max(0, 10 - tagged.toString().length))}│\n` +
+      `└─────────────────────────┘\n` +
+      `\nEncoding: ${n} × 2 + 1 = ${tagged}\n` +
+      `Tag bit (LSB): 1 → immediate value\n` +
+      `Heap allocations: 0\n` +
+      `\n✅ Zero-cost: no GC pressure`;
+  }
+
+  // Float
+  if (/^-?\d+\.\d*$/.test(expr)) {
+    const f = parseFloat(expr);
+    return `Expression: ${expr}\nType: float (boxed, heap-allocated)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌───────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: Double_tag (253)│\n` +
+      `└──────────┘          │ data: ${f} (64-bit IEEE) │\n` +
+      `                      └───────────────────────┘\n` +
+      `\nSize: 1 header word + 1 data word = 16 bytes\n` +
+      `Heap allocations: 1\n` +
+      `\n⚠️ Each float = 1 allocation. Use float arrays for bulk.`;
+  }
+
+  // String
+  if (/^"(.*)"$/.test(expr)) {
+    const s = expr.slice(1, -1);
+    const len = s.length;
+    const words = Math.ceil(len / 8) || 1;
+    const padding = words * 8 - len;
+    return `Expression: ${expr}\nType: string (boxed, heap-allocated)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌─────────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: String_tag (252) │\n` +
+      `└──────────┘          │ length: ${len}                 │\n` +
+      `                      │ data: "${s}"${' '.repeat(Math.max(0,10-len))}     │\n` +
+      `                      │ padding: ${padding} bytes           │\n` +
+      `                      └─────────────────────────┘\n` +
+      `\nSize: 1 header + ${words} data word(s) = ${(1 + words) * 8} bytes\n` +
+      `Last byte stores (${padding}) for padding calculation\n` +
+      `Heap allocations: 1`;
+  }
+
+  // Tuple
+  if (/^\((.+)\)$/.test(expr)) {
+    const inner = expr.slice(1, -1);
+    const fields = splitFields(inner);
+    const n = fields.length;
+    let fieldLines = fields.map((f, i) => {
+      const rep = isImmediate(f) ? `${tagInt(parseInt(f))} (tagged int)` : `ptr → ${f}`;
+      return `│ field${i}: ${rep}${' '.repeat(Math.max(0, 22 - rep.length))}│`;
+    }).join('\n');
+    return `Expression: ${expr}\nType: ${n}-tuple (boxed, heap-allocated)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌─────────────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: tag=0 size=${n}        │\n` +
+      `└──────────┘          ${fieldLines}\n` +
+      `                      └─────────────────────────────┘\n` +
+      `\nSize: 1 header + ${n} fields = ${(1 + n) * 8} bytes\n` +
+      `Heap allocations: 1 (+ sub-values if boxed)`;
+  }
+
+  // List
+  if (/^\[(.+)\]$/.test(expr) && !expr.startsWith('[|')) {
+    const items = expr.slice(1, -1).split(';').map(s => s.trim());
+    const n = items.length;
+    let chain = items.map((item, i) => {
+      const v = isImmediate(item) ? tagInt(parseInt(item)) : `ptr→${item}`;
+      return `┌────────────┐${i < n-1 ? '    ' : ''}`;
+    }).join('') + '\n';
+    chain += items.map((item, i) => {
+      const v = isImmediate(item) ? tagInt(parseInt(item)) : `ptr`;
+      return `│hd:${(v+'').padEnd(4)} tl:─┼──→ `;
+    }).join('') + '0 ([])\n';
+    chain += items.map(() => '└────────────┘    ').join('');
+
+    return `Expression: ${expr}\nType: list (linked cons cells)\n\n` +
+      `🏠 Heap (${n} cons cells):\n${chain}\n\n` +
+      `Each cons cell: 1 header + 2 fields = 24 bytes\n` +
+      `Total: ${n} × 24 = ${n * 24} bytes\n` +
+      `[] (nil) is immediate 0 — no allocation\n` +
+      `Heap allocations: ${n}`;
+  }
+
+  // Float array
+  if (/^\[\|(.+)\|\]$/.test(expr)) {
+    const items = expr.slice(2, -2).split(';').map(s => s.trim());
+    const n = items.length;
+    const isFloat = items.some(i => i.includes('.'));
+    if (isFloat) {
+      return `Expression: ${expr}\nType: float array (flat, Double_array_tag)\n\n` +
+        `📦 Stack:              🏠 Heap:\n` +
+        `┌──────────┐          ┌────────────────────────────────┐\n` +
+        `│ ptr ──────┼─────────→│ header: Double_array_tag (254)  │\n` +
+        `└──────────┘          │ size: ${n}                          │\n` +
+        items.map((v, i) => `                      │ [${i}]: ${v} (raw 64-bit)${' '.repeat(Math.max(0, 12 - v.length))}│`).join('\n') + '\n' +
+        `                      └────────────────────────────────┘\n` +
+        `\n🚀 FLAT LAYOUT: floats stored unboxed inline!\n` +
+        `Size: 1 header + ${n} × 8 = ${(1 + n) * 8} bytes\n` +
+        `Compare: boxed would be ${(1 + n) * 8 + n * 16} bytes\n` +
+        `Heap allocations: 1 (not ${1 + n}!)`;
+    }
+    return `Expression: ${expr}\nType: int array\n\n` +
+      `Heap block tag=0, size=${n}\n` +
+      items.map((v, i) => `[${i}] = ${tagInt(parseInt(v))} (tagged ${v})`).join('\n') + '\n' +
+      `\nSize: ${(1 + n) * 8} bytes | Allocations: 1`;
+  }
+
+  // Option
+  if (/^None$/.test(expr)) {
+    return `Expression: None\nType: 'a option\n\n` +
+      `Representation: immediate 0\n` +
+      `┌──────────────┐\n` +
+      `│ None = 0     │  ← no allocation!\n` +
+      `└──────────────┘\n` +
+      `\n✅ None is free — constant constructor = immediate`;
+  }
+  if (/^Some (.+)$/.test(expr)) {
+    const inner = expr.replace(/^Some /, '');
+    return `Expression: ${expr}\nType: 'a option\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌───────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: tag=0 sz=1│\n` +
+      `└──────────┘          │ field0: ${isImmediate(inner) ? tagInt(parseInt(inner)) + ' (tagged)' : 'ptr→' + inner} │\n` +
+      `                      └───────────────────┘\n` +
+      `\nSome wraps its value in a 1-field block\n` +
+      `Size: 16 bytes | Heap allocations: 1`;
+  }
+
+  // Closure
+  if (/^fun /.test(expr)) {
+    const match = expr.match(/^fun (\w+) -> (.+)$/);
+    const param = match ? match[1] : 'x';
+    const body = match ? match[2] : '...';
+    return `Expression: ${expr}\nType: closure (boxed, Closure_tag)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌──────────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: Closure_tag (247) │\n` +
+      `└──────────┘          │ code_ptr → λ${param}. ${body.substring(0,12)}│\n` +
+      `                      │ env: (empty — no captures)│\n` +
+      `                      └──────────────────────────┘\n` +
+      `\nClosure = code pointer + captured environment\n` +
+      `No free variables → minimal closure\n` +
+      `Size: 1 header + 1 code ptr = 16 bytes\n` +
+      `Heap allocations: 1`;
+  }
+
+  // ref
+  if (/^ref (.+)$/.test(expr)) {
+    const inner = expr.replace(/^ref /, '');
+    return `Expression: ${expr}\nType: ref (mutable 1-field record)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌─────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: tag=0 sz=1  │\n` +
+      `└──────────┘          │ contents: → ${inner.substring(0,10)}${' '.repeat(Math.max(0, 4-inner.length))}│\n` +
+      `                      └─────────────────────┘\n` +
+      `\nref α ≡ { mutable contents : α }\n` +
+      `Assignment (:=) mutates field0 in-place\n` +
+      `Heap allocations: 1 (+ inner value)`;
+  }
+
+  // Record
+  if (/^\{.+=.+\}$/.test(expr)) {
+    const fields = expr.slice(1, -1).split(';').map(s => s.trim());
+    const n = fields.length;
+    return `Expression: ${expr}\nType: record (boxed block, tag=0)\n\n` +
+      `📦 Stack:              🏠 Heap:\n` +
+      `┌──────────┐          ┌────────────────────────────┐\n` +
+      `│ ptr ──────┼─────────→│ header: tag=0 size=${n}       │\n` +
+      `└──────────┘          ` + fields.map((f, i) => `│ field${i}: ${f.substring(0, 20)}${' '.repeat(Math.max(0, 12 - f.length))}│`).join('\n                      ') + `\n` +
+      `                      └────────────────────────────┘\n` +
+      `\nRecords = tuples at runtime (field order = declaration order)\n` +
+      `Size: 1 header + ${n} fields = ${(1+n)*8} bytes\n` +
+      `Heap allocations: 1`;
+  }
+
+  return `Could not parse: ${expr}\n\nTry one of these patterns:\n` +
+    `  42              — integer\n` +
+    `  3.14            — float\n` +
+    `  "hello"         — string\n` +
+    `  (1, 2, 3)       — tuple\n` +
+    `  [1; 2; 3]       — list\n` +
+    `  Some 42         — option\n` +
+    `  None            — option\n` +
+    `  [| 1.0; 2.0 |]  — float array\n` +
+    `  fun x -> x + 1  — closure\n` +
+    `  ref 42          — reference\n` +
+    `  {name="A"; x=1} — record`;
+}
+
+function isImmediate(s) { return /^-?\d+$/.test(s.trim()); }
+function splitFields(s) {
+  const fields = []; let depth = 0; let cur = '';
+  for (const ch of s) {
+    if (ch === '(' || ch === '[') depth++;
+    if (ch === ')' || ch === ']') depth--;
+    if (ch === ',' && depth === 0) { fields.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  if (cur.trim()) fields.push(cur.trim());
+  return fields;
+}
+
+// GC Simulator
+const HEAP_SIZE = 64;
+let minorHeap = new Array(HEAP_SIZE).fill(null);
+let majorHeap = new Array(HEAP_SIZE).fill(null);
+let gcStats = { allocs: 0, minorGCs: 0, majorGCs: 0, live: 0, promoted: 0 };
+let nextMinor = 0;
+let gcLog = [];
+let objId = 0;
+
+function renderHeap(heap, elementId) {
+  const el = document.getElementById(elementId);
+  el.innerHTML = '';
+  heap.forEach((cell, i) => {
+    const div = document.createElement('div');
+    div.className = 'gc-cell ' + (cell ? cell.state : 'free');
+    div.textContent = cell ? cell.id : '';
+    div.title = cell ? `Object #${cell.id} (${cell.state})${cell.root ? ' [ROOT]' : ''}` : `Cell ${i}: free`;
+    if (cell && cell.root) div.className = 'gc-cell root';
+    el.appendChild(div);
+  });
+}
+
+function renderAll() {
+  renderHeap(minorHeap, 'minor-heap');
+  renderHeap(majorHeap, 'major-heap');
+  const live = minorHeap.filter(c => c).length + majorHeap.filter(c => c).length;
+  gcStats.live = live;
+  document.getElementById('gc-stats').textContent =
+    `Allocations: ${gcStats.allocs} | Minor GCs: ${gcStats.minorGCs} | Major GCs: ${gcStats.majorGCs} | Live objects: ${live} | Promoted: ${gcStats.promoted}`;
+  document.getElementById('gc-log').textContent = gcLog.slice(-15).join('\n');
+}
+
+function gcAllocate() {
+  if (nextMinor >= HEAP_SIZE) {
+    gcLog.push('⚠️ Minor heap full! Triggering minor GC...');
+    gcMinorCollect();
+  }
+  const count = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count && nextMinor < HEAP_SIZE; i++) {
+    objId++;
+    const hasRef = Math.random() > 0.4;
+    minorHeap[nextMinor] = { id: objId, state: 'minor', root: false, refs: hasRef ? [Math.floor(Math.random() * objId)] : [] };
+    nextMinor++;
+    gcStats.allocs++;
+  }
+  gcLog.push(`+ Allocated ${count} object(s). Minor heap: ${nextMinor}/${HEAP_SIZE}`);
+  renderAll();
+}
+
+function gcMinorCollect() {
+  gcStats.minorGCs++;
+  const roots = minorHeap.filter(c => c && c.root);
+  const survivors = minorHeap.filter(c => c && (c.root || Math.random() > 0.5));
+  let promoted = 0;
+  survivors.forEach(obj => {
+    const slot = majorHeap.findIndex(c => !c);
+    if (slot !== -1) {
+      majorHeap[slot] = { ...obj, state: 'major' };
+      promoted++;
+    }
+  });
+  gcStats.promoted += promoted;
+  minorHeap.fill(null);
+  nextMinor = 0;
+  gcLog.push(`♻️ Minor GC: ${promoted} promoted, ${minorHeap.length} cells freed`);
+  renderAll();
+}
+
+function gcMajorCollect() {
+  gcStats.majorGCs++;
+  let swept = 0;
+  majorHeap.forEach((cell, i) => {
+    if (cell && !cell.root && Math.random() > 0.4) {
+      majorHeap[i] = null;
+      swept++;
+    }
+  });
+  // compact
+  const live = majorHeap.filter(c => c);
+  majorHeap.fill(null);
+  live.forEach((obj, i) => { majorHeap[i] = obj; });
+  gcLog.push(`🔵 Major GC: swept ${swept}, compacted ${live.length} live objects`);
+  renderAll();
+}
+
+function gcAddRoot() {
+  const minorObjs = minorHeap.map((c, i) => c && !c.root ? i : -1).filter(i => i >= 0);
+  const majorObjs = majorHeap.map((c, i) => c && !c.root ? i : -1).filter(i => i >= 0);
+  const all = [...minorObjs.map(i => ['minor', i]), ...majorObjs.map(i => ['major', i])];
+  if (all.length === 0) { gcLog.push('📌 No objects to pin as root'); renderAll(); return; }
+  const [heap, idx] = all[Math.floor(Math.random() * all.length)];
+  const h = heap === 'minor' ? minorHeap : majorHeap;
+  h[idx].root = true;
+  gcLog.push(`📌 Pinned object #${h[idx].id} as GC root (${heap} heap)`);
+  renderAll();
+}
+
+function gcReset() {
+  minorHeap.fill(null); majorHeap.fill(null); nextMinor = 0; objId = 0;
+  gcStats = { allocs: 0, minorGCs: 0, majorGCs: 0, live: 0, promoted: 0 };
+  gcLog = ['GC Simulator reset.'];
+  renderAll();
+}
+
+// Init
+renderAll();
+</script>
+</body>
+</html>
