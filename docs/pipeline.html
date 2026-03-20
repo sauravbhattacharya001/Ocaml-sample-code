@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Builder — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .pipeline-app { max-width: 900px; }
+        .pipeline-header { margin-bottom: 2rem; }
+        .pipeline-header h2 { color: var(--accent2); margin-bottom: .5rem; }
+
+        .input-section { margin-bottom: 1.5rem; }
+        .input-section label { display: block; color: var(--text-dim); font-size: .85rem; margin-bottom: .4rem; }
+        .input-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+        .input-row select, .input-row input { background: var(--code-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .5rem .75rem; font-size: .95rem; }
+        .input-row select { min-width: 180px; }
+        .input-row input { flex: 1; min-width: 200px; font-family: 'Fira Code', 'Consolas', monospace; }
+
+        .pipeline-chain { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; }
+        .pipeline-step { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; position: relative; }
+        .pipeline-step:not(:last-child) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+        .pipeline-step:not(:first-child) { border-top-left-radius: 0; border-top-right-radius: 0; border-top: none; }
+        .step-num { background: var(--accent2); color: var(--bg); width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 700; flex-shrink: 0; }
+        .step-pipe { color: var(--accent); font-family: 'Fira Code', 'Consolas', monospace; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+        .step-fn { color: var(--accent3); font-family: 'Fira Code', 'Consolas', monospace; font-size: .95rem; flex: 1; }
+        .step-result { color: var(--accent4); font-family: 'Fira Code', 'Consolas', monospace; font-size: .85rem; margin-left: auto; background: var(--code-bg); padding: .25rem .6rem; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; flex-shrink: 0; }
+        .step-remove { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem; padding: .25rem; flex-shrink: 0; }
+        .step-remove:hover { color: var(--accent); }
+        .step-error .step-result { color: var(--accent); }
+
+        .add-step { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+        .add-step button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: .4rem .8rem; border-radius: 6px; cursor: pointer; font-size: .85rem; transition: all .15s; }
+        .add-step button:hover { background: var(--surface-hover); border-color: var(--accent2); color: var(--accent2); }
+
+        .ocaml-output { margin-top: 2rem; }
+        .ocaml-output h3 { color: var(--accent4); margin-bottom: .5rem; font-size: .95rem; }
+        .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: 'Fira Code', 'Consolas', monospace; font-size: .9rem; white-space: pre-wrap; position: relative; }
+        .copy-btn { position: absolute; top: .5rem; right: .5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); padding: .25rem .5rem; border-radius: 4px; cursor: pointer; font-size: .75rem; }
+        .copy-btn:hover { color: var(--accent2); border-color: var(--accent2); }
+
+        .presets { margin-bottom: 1.5rem; }
+        .presets label { display: block; color: var(--text-dim); font-size: .85rem; margin-bottom: .4rem; }
+        .preset-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .preset-btns button { background: var(--surface); border: 1px solid var(--border); color: var(--accent3); padding: .35rem .7rem; border-radius: 6px; cursor: pointer; font-size: .8rem; }
+        .preset-btns button:hover { border-color: var(--accent3); background: var(--surface-hover); }
+
+        .explanation { margin-top: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .explanation h3 { color: var(--accent2); margin-bottom: .75rem; font-size: .95rem; }
+        .explanation p { color: var(--text-dim); font-size: .9rem; margin-bottom: .5rem; }
+        .explanation code { color: var(--accent3); background: var(--code-bg); padding: .15rem .4rem; border-radius: 3px; font-size: .85rem; }
+
+        .stats { display: flex; gap: 1.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        .stat { text-align: center; }
+        .stat-val { font-size: 1.4rem; font-weight: 700; color: var(--accent2); }
+        .stat-label { font-size: .75rem; color: var(--text-dim); }
+
+        @media (max-width: 768px) {
+            .step-result { max-width: 150px; }
+            .input-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link">🌀 Recursion Visualizer</a>
+            <a href="pattern-matching.html" class="nav-link">🎯 Pattern Matching</a>
+            <a href="modules.html" class="nav-link">🧱 Module System</a>
+            <a href="memory-model.html" class="nav-link">🧠 Memory Model</a>
+            <a href="pipeline.html" class="nav-link active">🔗 Pipeline Builder</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🧠 Flashcards</a>
+            <a href="type-inference.html" class="nav-link">🔍 Type Inference</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container pipeline-app">
+            <header class="pipeline-header">
+                <h1>🔗 Pipeline Builder</h1>
+                <p class="subtitle">Visually compose OCaml pipelines with the <code>|&gt;</code> operator — see data transform at every step</p>
+            </header>
+
+            <div class="presets">
+                <label>Quick Presets</label>
+                <div class="preset-btns">
+                    <button onclick="loadPreset('strings')">String Processing</button>
+                    <button onclick="loadPreset('numbers')">Number Crunching</button>
+                    <button onclick="loadPreset('lists')">List Transform</button>
+                    <button onclick="loadPreset('fizzbuzz')">FizzBuzz Pipeline</button>
+                    <button onclick="loadPreset('wordcount')">Word Counter</button>
+                    <button onclick="loadPreset('csv')">CSV Parser</button>
+                    <button onclick="clearPipeline()">Clear</button>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <label>Initial Value</label>
+                <div class="input-row">
+                    <select id="inputType" onchange="updatePipeline()">
+                        <option value="string">String</option>
+                        <option value="int">Int</option>
+                        <option value="float">Float</option>
+                        <option value="intlist">Int List</option>
+                        <option value="stringlist">String List</option>
+                        <option value="tuple">Tuple (int * int)</option>
+                    </select>
+                    <input id="inputValue" value='"Hello, OCaml World!"' onchange="updatePipeline()" placeholder="Enter initial value...">
+                </div>
+            </div>
+
+            <div id="pipelineChain" class="pipeline-chain"></div>
+
+            <div class="add-step">
+                <button onclick="addFn('String.lowercase_ascii')">lowercase</button>
+                <button onclick="addFn('String.uppercase_ascii')">UPPERCASE</button>
+                <button onclick="addFn('String.trim')">trim</button>
+                <button onclick="addFn('String.length')">String.length</button>
+                <button onclick="addFn('String.split_on_char \\'\\' \\'')" id="splitBtn">split</button>
+                <button onclick="addFn('String.concat \"-\"')">concat "-"</button>
+                <button onclick="addFn('List.map (fun x -> x * 2)')">map ×2</button>
+                <button onclick="addFn('List.filter (fun x -> x > 0)')">filter >0</button>
+                <button onclick="addFn('List.rev')">reverse</button>
+                <button onclick="addFn('List.sort compare')">sort</button>
+                <button onclick="addFn('List.length')">List.length</button>
+                <button onclick="addFn('List.fold_left (+) 0')">sum</button>
+                <button onclick="addFn('( * ) 2')">×2</button>
+                <button onclick="addFn('(+) 1')">+1</button>
+                <button onclick="addFn('float_of_int')">to float</button>
+                <button onclick="addFn('sqrt')">sqrt</button>
+                <button onclick="addFn('int_of_float')">to int</button>
+                <button onclick="addFn('string_of_int')">to string</button>
+                <button onclick="addFn('Printf.sprintf \"Result: %s\"')">format</button>
+                <button onclick="addCustomFn()">+ Custom</button>
+            </div>
+
+            <div class="ocaml-output">
+                <h3>Generated OCaml Code</h3>
+                <div class="code-block" id="codeOutput">
+                    <button class="copy-btn" onclick="copyCode()">Copy</button>
+                    <span id="codeText"></span>
+                </div>
+            </div>
+
+            <div class="stats" id="stats"></div>
+
+            <div class="explanation">
+                <h3>The Pipe Operator <code>|&gt;</code></h3>
+                <p>OCaml's pipe operator passes the result of the left expression as the <strong>last argument</strong> to the function on the right. It's defined as:</p>
+                <div class="code-block" style="margin: .75rem 0;">let ( |> ) x f = f x</div>
+                <p>Instead of deeply nested calls like <code>f (g (h x))</code>, you write <code>x |> h |> g |> f</code> — reading left-to-right, like a data processing pipeline.</p>
+                <p><strong>Tips:</strong> Use <code>Fun.tap</code> for side-effects mid-pipeline. Combine with partial application: <code>List.map (( * ) 2)</code> doubles every element.</p>
+            </div>
+        </div>
+    </main>
+
+<script>
+let steps = [];
+
+const FUNCTIONS = {
+    // String → String
+    'String.lowercase_ascii': { in: ['string'], out: 'string', eval: v => v.toLowerCase() },
+    'String.uppercase_ascii': { in: ['string'], out: 'string', eval: v => v.toUpperCase() },
+    'String.trim': { in: ['string'], out: 'string', eval: v => v.trim() },
+    'String.escaped': { in: ['string'], out: 'string', eval: v => v.replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n') },
+    // String → Int
+    'String.length': { in: ['string'], out: 'int', eval: v => v.length },
+    // String → String List
+    "String.split_on_char ' ' ": { in: ['string'], out: 'stringlist', eval: v => v.split(' ').filter(s=>s) },
+    "String.split_on_char ',' ": { in: ['string'], out: 'stringlist', eval: v => v.split(',').map(s=>s.trim()).filter(s=>s) },
+    // String List → String
+    'String.concat "-"': { in: ['stringlist'], out: 'string', eval: v => v.join('-') },
+    'String.concat " "': { in: ['stringlist'], out: 'string', eval: v => v.join(' ') },
+    'String.concat ", "': { in: ['stringlist'], out: 'string', eval: v => v.join(', ') },
+    'String.concat ""': { in: ['stringlist'], out: 'string', eval: v => v.join('') },
+    // List ops
+    'List.rev': { in: ['intlist','stringlist'], out: 'same', eval: v => [...v].reverse() },
+    'List.length': { in: ['intlist','stringlist'], out: 'int', eval: v => v.length },
+    'List.sort compare': { in: ['intlist','stringlist'], out: 'same', eval: v => [...v].sort((a,b)=>typeof a==='string'?a.localeCompare(b):a-b) },
+    'List.hd': { in: ['intlist','stringlist'], out: 'element', eval: v => v[0] },
+    // Int list ops
+    'List.map (fun x -> x * 2)': { in: ['intlist'], out: 'intlist', eval: v => v.map(x=>x*2) },
+    'List.map (fun x -> x * x)': { in: ['intlist'], out: 'intlist', eval: v => v.map(x=>x*x) },
+    'List.filter (fun x -> x > 0)': { in: ['intlist'], out: 'intlist', eval: v => v.filter(x=>x>0) },
+    'List.filter (fun x -> x mod 2 = 0)': { in: ['intlist'], out: 'intlist', eval: v => v.filter(x=>x%2===0) },
+    'List.fold_left (+) 0': { in: ['intlist'], out: 'int', eval: v => v.reduce((a,b)=>a+b,0) },
+    'List.fold_left ( * ) 1': { in: ['intlist'], out: 'int', eval: v => v.reduce((a,b)=>a*b,1) },
+    'List.fold_left max min_int': { in: ['intlist'], out: 'int', eval: v => Math.max(...v) },
+    'List.fold_left min max_int': { in: ['intlist'], out: 'int', eval: v => Math.min(...v) },
+    // String list → String list
+    'List.map String.uppercase_ascii': { in: ['stringlist'], out: 'stringlist', eval: v => v.map(s=>s.toUpperCase()) },
+    'List.map String.lowercase_ascii': { in: ['stringlist'], out: 'stringlist', eval: v => v.map(s=>s.toLowerCase()) },
+    'List.map String.length': { in: ['stringlist'], out: 'intlist', eval: v => v.map(s=>s.length) },
+    'List.filter (fun s -> String.length s > 3)': { in: ['stringlist'], out: 'stringlist', eval: v => v.filter(s=>s.length>3) },
+    // Int → Int
+    '( * ) 2': { in: ['int'], out: 'int', eval: v => v*2 },
+    '(+) 1': { in: ['int'], out: 'int', eval: v => v+1 },
+    'succ': { in: ['int'], out: 'int', eval: v => v+1 },
+    'pred': { in: ['int'], out: 'int', eval: v => v-1 },
+    'abs': { in: ['int','float'], out: 'same', eval: v => Math.abs(v) },
+    // Int → Float
+    'float_of_int': { in: ['int'], out: 'float', eval: v => v*1.0 },
+    // Float → Float
+    'sqrt': { in: ['float'], out: 'float', eval: v => Math.sqrt(v) },
+    'ceil': { in: ['float'], out: 'float', eval: v => Math.ceil(v) },
+    'floor': { in: ['float'], out: 'float', eval: v => Math.floor(v) },
+    '( *. ) 2.0': { in: ['float'], out: 'float', eval: v => v*2.0 },
+    // Float → Int
+    'int_of_float': { in: ['float'], out: 'int', eval: v => Math.trunc(v) },
+    // Conversions
+    'string_of_int': { in: ['int'], out: 'string', eval: v => String(v) },
+    'string_of_float': { in: ['float'], out: 'string', eval: v => { let s=String(v); return s.includes('.')?s:s+'.'; } },
+    'int_of_string': { in: ['string'], out: 'int', eval: v => parseInt(v)||0 },
+    'float_of_string': { in: ['string'], out: 'float', eval: v => parseFloat(v)||0.0 },
+    // Formatting
+    'Printf.sprintf "Result: %s"': { in: ['string'], out: 'string', eval: v => `Result: ${v}` },
+    'Printf.sprintf "Count: %d"': { in: ['int'], out: 'string', eval: v => `Count: ${v}` },
+    'Printf.sprintf "Value: %.2f"': { in: ['float'], out: 'string', eval: v => `Value: ${v.toFixed(2)}` },
+};
+
+const PRESETS = {
+    strings: { type: 'string', value: '"  Hello, OCaml World!  "', steps: ['String.trim','String.lowercase_ascii',"String.split_on_char ' ' ",'List.rev','String.concat "-"'] },
+    numbers: { type: 'intlist', value: '[3; -1; 4; 1; 5; -9; 2; 6]', steps: ['List.filter (fun x -> x > 0)','List.sort compare','List.map (fun x -> x * x)','List.fold_left (+) 0','float_of_int','sqrt','Printf.sprintf "Value: %.2f"'] },
+    lists: { type: 'stringlist', value: '["the"; "quick"; "brown"; "fox"; "jumps"]', steps: ['List.filter (fun s -> String.length s > 3)','List.map String.uppercase_ascii','List.sort compare','String.concat ", "'] },
+    fizzbuzz: { type: 'int', value: '15', steps: ['( * ) 2','(+) 1','string_of_int','Printf.sprintf "Result: %s"'] },
+    wordcount: { type: 'string', value: '"the cat sat on the mat the cat"', steps: ["String.split_on_char ' ' ",'List.sort compare','List.length','Printf.sprintf "Count: %d"'] },
+    csv: { type: 'string', value: '"Alice,Bob,Charlie,Dave"', steps: ["String.split_on_char ',' ",'List.map String.uppercase_ascii','List.sort compare','String.concat " | "'] },
+};
+
+function parseInput(type, raw) {
+    try {
+        switch(type) {
+            case 'string': return raw.replace(/^"|"$/g,'');
+            case 'int': return parseInt(raw)||0;
+            case 'float': return parseFloat(raw)||0.0;
+            case 'intlist': return JSON.parse(raw.replace(/\[/g,'[').replace(/;/g,','));
+            case 'stringlist': return JSON.parse(raw.replace(/;/g,','));
+            case 'tuple': { let m=raw.match(/\(?\s*(-?\d+)\s*,\s*(-?\d+)\s*\)?/); return m?[parseInt(m[1]),parseInt(m[2])]:[0,0]; }
+            default: return raw;
+        }
+    } catch(e) { return raw; }
+}
+
+function formatVal(v, type) {
+    if (v === undefined || v === null) return 'error';
+    if (Array.isArray(v)) {
+        if (v.length === 0) return '[]';
+        if (typeof v[0] === 'string') return '[' + v.map(s=>`"${s}"`).join('; ') + ']';
+        return '[' + v.join('; ') + ']';
+    }
+    if (typeof v === 'string') return `"${v}"`;
+    if (typeof v === 'number' && type === 'float' && !String(v).includes('.')) return v + '.';
+    return String(v);
+}
+
+function getType(v) {
+    if (Array.isArray(v)) return typeof v[0] === 'string' ? 'stringlist' : 'intlist';
+    if (typeof v === 'string') return 'string';
+    if (typeof v === 'number') return Number.isInteger(v) ? 'int' : 'float';
+    return 'unknown';
+}
+
+function addFn(name) {
+    steps.push(name);
+    updatePipeline();
+}
+
+function addCustomFn() {
+    const fn = prompt('Enter OCaml function expression:\ne.g. List.map (fun x -> x + 1)');
+    if (fn && fn.trim()) { steps.push(fn.trim()); updatePipeline(); }
+}
+
+function removeStep(i) { steps.splice(i,1); updatePipeline(); }
+
+function moveStep(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    [steps[i], steps[j]] = [steps[j], steps[i]];
+    updatePipeline();
+}
+
+function updatePipeline() {
+    const type = document.getElementById('inputType').value;
+    const raw = document.getElementById('inputValue').value;
+    let current = parseInput(type, raw);
+    let currentType = type;
+
+    const chain = document.getElementById('pipelineChain');
+    let html = `<div class="pipeline-step"><span class="step-num">0</span><span class="step-fn">input</span><span class="step-result">${formatVal(current, currentType)}</span></div>`;
+
+    let errorIdx = -1;
+    const results = [{ val: current, type: currentType }];
+
+    for (let i = 0; i < steps.length; i++) {
+        const fn = steps[i];
+        const def = FUNCTIONS[fn];
+        let error = false;
+        let result, outType;
+
+        if (def) {
+            const actualType = getType(current);
+            if (!def.in.includes(actualType) && !def.in.includes(currentType)) {
+                error = true;
+                result = `type error: expected ${def.in.join('|')}, got ${actualType}`;
+            } else {
+                try {
+                    result = def.eval(current);
+                    outType = def.out === 'same' ? currentType : def.out === 'element' ? (currentType === 'stringlist' ? 'string' : 'int') : def.out;
+                } catch(e) { error = true; result = e.message; }
+            }
+        } else {
+            // Custom function — show as unknown
+            result = '?';
+            outType = currentType;
+        }
+
+        const cls = error ? 'pipeline-step step-error' : 'pipeline-step';
+        html += `<div class="${cls}">
+            <span class="step-num">${i+1}</span>
+            <span class="step-pipe">|&gt;</span>
+            <span class="step-fn">${escHtml(fn)}</span>
+            <span class="step-result">${error ? escHtml(String(result)) : formatVal(result, outType)}</span>
+            <button class="step-remove" onclick="removeStep(${i})" title="Remove">✕</button>
+        </div>`;
+
+        if (!error && def) {
+            current = result;
+            currentType = outType;
+        } else if (error && errorIdx === -1) {
+            errorIdx = i;
+        }
+        results.push({ val: error ? null : result, type: error ? null : outType, error });
+    }
+
+    chain.innerHTML = html;
+
+    // Code output
+    const inputStr = raw;
+    let code = inputStr + '\n' + steps.map(fn => `|> ${fn}`).join('\n');
+    if (steps.length > 0) code = `let result =\n  ${inputStr}\n  ${steps.map(fn => `|> ${fn}`).join('\n  ')}`;
+    document.getElementById('codeText').textContent = code;
+
+    // Stats
+    const statsEl = document.getElementById('stats');
+    const validSteps = results.filter(r => !r.error).length - 1;
+    const types = [...new Set(results.filter(r=>r.type).map(r=>r.type))];
+    statsEl.innerHTML = `
+        <div class="stat"><div class="stat-val">${steps.length}</div><div class="stat-label">Pipeline Steps</div></div>
+        <div class="stat"><div class="stat-val">${types.length}</div><div class="stat-label">Type Changes</div></div>
+        <div class="stat"><div class="stat-val">${errorIdx >= 0 ? '⚠️' : '✓'}</div><div class="stat-label">${errorIdx >= 0 ? 'Error at step '+(errorIdx+1) : 'All Valid'}</div></div>
+    `;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyCode() {
+    const code = document.getElementById('codeText').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+}
+
+function loadPreset(name) {
+    const p = PRESETS[name];
+    if (!p) return;
+    document.getElementById('inputType').value = p.type;
+    document.getElementById('inputValue').value = p.value;
+    steps = [...p.steps];
+    updatePipeline();
+}
+
+function clearPipeline() { steps = []; updatePipeline(); }
+
+// Init
+updatePipeline();
+</script>
+</body>
+</html>
