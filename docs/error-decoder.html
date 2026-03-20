@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCaml Error Decoder — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .error-decoder { max-width: 900px; margin: 0 auto; }
+        .error-input-area {
+            width: 100%;
+            min-height: 120px;
+            background: var(--code-bg);
+            color: var(--accent);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        .error-input-area:focus {
+            outline: none;
+            border-color: var(--accent2);
+        }
+        .error-input-area::placeholder { color: var(--text-dim); }
+
+        .decode-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.7rem 1.5rem;
+            background: var(--accent2);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .decode-btn:hover { opacity: 0.85; }
+
+        .result-card {
+            margin-top: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .result-header .severity {
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .severity-error { background: rgba(247,118,142,0.2); color: var(--accent); }
+        .severity-warning { background: rgba(224,175,104,0.2); color: var(--accent4); }
+        .severity-info { background: rgba(122,162,247,0.2); color: var(--accent2); }
+
+        .result-header .error-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .result-body { padding: 1.25rem; }
+        .result-body h4 {
+            color: var(--accent2);
+            margin: 1rem 0 0.5rem;
+            font-size: 0.95rem;
+        }
+        .result-body h4:first-child { margin-top: 0; }
+        .result-body p, .result-body li {
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 0.92rem;
+        }
+        .result-body ul { padding-left: 1.5rem; }
+        .result-body code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--accent3);
+        }
+        .result-body pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .result-body pre code {
+            background: none;
+            padding: 0;
+            color: var(--text);
+        }
+
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .example-chip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+        .example-chip:hover {
+            border-color: var(--accent2);
+            background: var(--surface-hover);
+        }
+
+        .search-filter {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 0.4rem 0.9rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-dim);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            border-color: var(--accent2);
+            color: var(--accent2);
+            background: rgba(122,162,247,0.1);
+        }
+
+        .no-match {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+        }
+        .no-match span { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            margin: 1rem 0;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        .stats-bar strong { color: var(--accent2); }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link">🌀 Recursion Visualizer</a>
+            <a href="pattern-matching.html" class="nav-link">🎯 Pattern Matching</a>
+            <a href="modules.html" class="nav-link">🧱 Module System</a>
+            <a href="memory-model.html" class="nav-link">🧠 Memory Model</a>
+            <a href="pipeline.html" class="nav-link">🔗 Pipeline Builder</a>
+            <a href="error-decoder.html" class="nav-link active">🚨 Error Decoder</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+            <a href="quiz.html" class="nav-link">❓ Quiz</a>
+            <a href="concepts.html" class="nav-link">💡 Key Concepts</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <h1>🚨 OCaml Error Decoder</h1>
+        <p class="subtitle">Paste an OCaml compiler error and get a friendly, beginner-oriented explanation with examples and fixes.</p>
+
+        <div class="stats-bar">
+            <span><strong id="errorCount">0</strong> errors in database</span>
+            <span><strong id="categoryCount">0</strong> categories</span>
+        </div>
+
+        <div class="error-decoder">
+            <textarea class="error-input-area" id="errorInput" placeholder="Paste your OCaml error here, e.g.:&#10;Error: This expression has type string but an expression of type int was expected&#10;&#10;Or type keywords like 'unbound' or 'type mismatch'"></textarea>
+            <button class="decode-btn" id="decodeBtn" onclick="decodeError()">🔍 Decode Error</button>
+
+            <div id="resultArea"></div>
+
+            <h3 style="margin-top:2rem; color:var(--text);">Browse by Category</h3>
+            <div class="search-filter" id="categoryFilter"></div>
+
+            <h3 style="margin-top:1.5rem; color:var(--text);">Common Errors — Click to Decode</h3>
+            <div class="examples-grid" id="examplesGrid"></div>
+        </div>
+    </main>
+
+    <script>
+    // ── Error Database ──────────────────────────────────────────
+    const ERROR_DB = [
+        {
+            id: 'type-mismatch',
+            name: 'Type Mismatch',
+            category: 'types',
+            severity: 'error',
+            patterns: ['has type .+ but .+ of type .+ was expected', 'type .+ is not compatible with type', 'this expression has type'],
+            example: 'Error: This expression has type string but an expression of type int was expected',
+            explanation: 'OCaml found a value of one type where it expected a different type. OCaml is statically typed, so every expression must have a consistent type.',
+            causes: [
+                'Passing a string where an int is expected (or vice versa)',
+                'Using the wrong operator — e.g. <code>+</code> is for ints, <code>+.</code> is for floats',
+                'Returning different types from if/else branches',
+                'Forgetting to convert between types'
+            ],
+            fix: `(* Wrong: mixing int and string *)
+let x = 5 + "hello"  (* Error! *)
+
+(* Fix: convert types explicitly *)
+let x = 5 + int_of_string "42"  (* OK *)
+let s = string_of_int 5 ^ " hello"  (* OK *)
+
+(* Wrong: + with floats *)
+let y = 3.0 + 2.0  (* Error! *)
+
+(* Fix: use float operators *)
+let y = 3.0 +. 2.0  (* OK *)`,
+            tips: [
+                'OCaml never implicitly converts types — you must be explicit',
+                'Use <code>int_of_string</code>, <code>string_of_int</code>, <code>float_of_int</code> etc.',
+                'Int operators: <code>+ - * /</code> — Float operators: <code>+. -. *. /.</code>'
+            ]
+        },
+        {
+            id: 'unbound-value',
+            name: 'Unbound Value',
+            category: 'scope',
+            severity: 'error',
+            patterns: ['unbound value', 'unbound module', 'unbound constructor', 'unbound record field', 'unbound type constructor'],
+            example: 'Error: Unbound value foo',
+            explanation: 'OCaml cannot find a definition for the name you used. The variable, function, module, or type has not been defined in the current scope.',
+            causes: [
+                'Typo in the variable or function name',
+                'Using a value before defining it (OCaml reads top-to-bottom)',
+                'Forgetting to <code>open</code> a module',
+                'The definition is in a different scope (e.g. inside a <code>let ... in</code>)'
+            ],
+            fix: `(* Wrong: using before defining *)
+let y = foo 5  (* Error: Unbound value foo *)
+let foo x = x + 1
+
+(* Fix: define before use *)
+let foo x = x + 1
+let y = foo 5  (* OK *)
+
+(* Wrong: forgot to open module *)
+let len = length [1;2;3]  (* Error *)
+
+(* Fix: open or qualify *)
+let len = List.length [1;2;3]  (* OK *)
+open List
+let len = length [1;2;3]      (* OK *)`,
+            tips: [
+                'In OCaml, order matters — definitions must come before their use',
+                'Use <code>let rec</code> for recursive functions',
+                'Qualify with module name: <code>List.map</code>, <code>Array.length</code>'
+            ]
+        },
+        {
+            id: 'syntax-error',
+            name: 'Syntax Error',
+            category: 'syntax',
+            severity: 'error',
+            patterns: ['syntax error', 'unexpected token', 'parse error'],
+            example: 'Error: Syntax error',
+            explanation: 'The OCaml parser could not understand your code. Something is structurally wrong with the expression.',
+            causes: [
+                'Missing <code>in</code> after <code>let ... = ...</code> inside expressions',
+                'Missing <code>;;</code> at the top level (in the REPL)',
+                'Unbalanced parentheses, brackets, or <code>begin ... end</code>',
+                'Using a keyword as a variable name'
+            ],
+            fix: `(* Wrong: missing "in" *)
+let x = 5
+x + 1  (* Syntax error *)
+
+(* Fix: add "in" for local bindings *)
+let x = 5 in
+x + 1  (* OK *)
+
+(* Wrong: unbalanced parens *)
+let f x = (x + 1  (* Error *)
+
+(* Fix *)
+let f x = (x + 1)  (* OK *)
+
+(* In utop/REPL, end expressions with ;; *)
+let x = 42;;`,
+            tips: [
+                'The error location might be AFTER the actual mistake — check the line before',
+                'Every <code>let ... = ...</code> inside an expression needs <code>in</code>',
+                'Top-level definitions don\'t need <code>in</code>'
+            ]
+        },
+        {
+            id: 'non-exhaustive',
+            name: 'Non-Exhaustive Pattern Match',
+            category: 'patterns',
+            severity: 'warning',
+            patterns: ['not exhaustive', 'non-exhaustive', 'pattern-matching is not exhaustive', 'this pattern matching is not exhaustive'],
+            example: 'Warning 8: this pattern-matching is not exhaustive.\nHere is an example of a case that is not matched: []',
+            explanation: 'Your <code>match</code> expression doesn\'t cover all possible cases. OCaml warns you because the missing case would cause a runtime exception.',
+            causes: [
+                'Forgetting the empty list <code>[]</code> case when matching lists',
+                'Not handling all constructors of a variant type',
+                'Missing a wildcard <code>_</code> catch-all pattern'
+            ],
+            fix: `(* Warning: not exhaustive — missing [] case *)
+let head = function
+  | x :: _ -> x
+(* Warning: case [] not matched *)
+
+(* Fix: handle all cases *)
+let head = function
+  | x :: _ -> x
+  | [] -> failwith "empty list"
+
+(* Or use Option for safety *)
+let head_opt = function
+  | x :: _ -> Some x
+  | [] -> None
+
+(* Variant example *)
+type color = Red | Green | Blue
+let name = function
+  | Red -> "red"
+  | Green -> "green"
+  (* Warning: Blue not matched *)
+
+(* Fix: add all cases or use _ *)
+let name = function
+  | Red -> "red"
+  | Green -> "green"
+  | Blue -> "blue"`,
+            tips: [
+                'Always handle the exhaustiveness warning — it prevents crashes',
+                'Use <code>_</code> as a catch-all, but be careful: you won\'t get warned about new constructors',
+                'Consider <code>Option</code> types instead of <code>failwith</code>'
+            ]
+        },
+        {
+            id: 'unused-variable',
+            name: 'Unused Variable',
+            category: 'warnings',
+            severity: 'warning',
+            patterns: ['unused variable', 'unused value', 'this .+ will never be read'],
+            example: 'Warning 26: unused variable x',
+            explanation: 'You defined a variable but never used it. While not an error, it often indicates a bug — you might have meant to use it somewhere.',
+            causes: [
+                'Leftover variable from refactoring',
+                'Typo — you used a different name elsewhere',
+                'Intentionally ignoring a value without indicating it'
+            ],
+            fix: `(* Warning: unused variable x *)
+let x = 42
+let y = 10
+
+(* Fix: use _ to indicate you intentionally ignore it *)
+let _x = 42  (* prefix with _ *)
+let _ = some_side_effect ()  (* discard result *)
+
+(* In function args *)
+let f _ = 42  (* ignore argument *)
+let f ~label:_ = 42  (* ignore labeled arg *)`,
+            tips: [
+                'Prefix unused variables with <code>_</code> to silence the warning',
+                'Use plain <code>_</code> when you don\'t need a name at all',
+                'Don\'t ignore this warning carelessly — it catches real bugs'
+            ]
+        },
+        {
+            id: 'recursive-no-rec',
+            name: 'Missing rec Keyword',
+            category: 'scope',
+            severity: 'error',
+            patterns: ['unbound value .+ \\(maybe.*recursive\\)', 'did you mean.*rec'],
+            example: 'Error: Unbound value factorial\nHint: If this is a recursive definition, you should add the "rec" keyword',
+            explanation: 'You\'re trying to call a function from within its own body, but you forgot to declare it as recursive with <code>let rec</code>.',
+            causes: [
+                'Using <code>let</code> instead of <code>let rec</code> for recursive functions',
+                'Forgetting that OCaml requires explicit recursion annotation'
+            ],
+            fix: `(* Wrong: missing rec *)
+let factorial n =
+  if n <= 1 then 1
+  else n * factorial (n - 1)  (* Error: Unbound value factorial *)
+
+(* Fix: add rec *)
+let rec factorial n =
+  if n <= 1 then 1
+  else n * factorial (n - 1)  (* OK *)
+
+(* Mutual recursion uses "and" *)
+let rec even n = if n = 0 then true else odd (n - 1)
+and odd n = if n = 0 then false else even (n - 1)`,
+            tips: [
+                'In OCaml, <code>let</code> does NOT allow self-reference — use <code>let rec</code>',
+                'For mutually recursive functions, use <code>let rec ... and ...</code>',
+                'This is different from many other languages where functions are always self-referencing'
+            ]
+        },
+        {
+            id: 'wrong-num-args',
+            name: 'Wrong Number of Arguments',
+            category: 'types',
+            severity: 'error',
+            patterns: ['too many arguments', 'is applied to too many arguments', 'this function .+ applied to .+ argument'],
+            example: 'Error: This function has type int -> int\n       It is applied to too many arguments; maybe you forgot a `;`',
+            explanation: 'You\'re passing more arguments to a function than it accepts. Since OCaml functions are curried, this manifests as a type error.',
+            causes: [
+                'Passing extra arguments to a function',
+                'Forgetting a semicolon between sequential expressions',
+                'Missing parentheses around a tuple argument',
+                'A function returned a non-function value that you\'re trying to call'
+            ],
+            fix: `(* Wrong: too many arguments *)
+let f x = x + 1
+let y = f 5 10  (* Error: too many arguments *)
+
+(* Fix: correct number of arguments *)
+let y = f 5  (* OK *)
+
+(* Wrong: missing semicolon *)
+let () =
+  print_endline "hello"
+  print_endline "world"  (* Error: "hello" applied to too many args *)
+
+(* Fix: add semicolons *)
+let () =
+  print_endline "hello";
+  print_endline "world"`,
+            tips: [
+                'In sequential code, separate expressions with <code>;</code>',
+                'Currying means <code>f a b</code> is <code>(f a) b</code> — if <code>f a</code> returns an int, you can\'t apply <code>b</code>',
+                'Check if you need parentheses around tuple arguments: <code>f (a, b)</code> vs <code>f a b</code>'
+            ]
+        },
+        {
+            id: 'if-branches-type',
+            name: 'If Branch Type Mismatch',
+            category: 'types',
+            severity: 'error',
+            patterns: ['else.+has type .+ but .+ has type', 'if branch.*type.*else branch.*type', 'then.*has type.*but.*else.*has type'],
+            example: 'Error: This expression has type int but an expression of type unit was expected',
+            explanation: 'In OCaml, <code>if/else</code> is an expression, not a statement. Both branches must return the same type. If there\'s no <code>else</code>, the <code>then</code> branch must return <code>unit</code>.',
+            causes: [
+                'Returning different types from <code>then</code> and <code>else</code> branches',
+                'Using <code>if</code> without <code>else</code> when the then-branch returns a non-unit value',
+                'Accidentally returning a value in one branch and not the other'
+            ],
+            fix: `(* Wrong: branches return different types *)
+let x = if true then 42 else "hello"  (* Error *)
+
+(* Fix: both branches same type *)
+let x = if true then 42 else 0  (* OK *)
+
+(* Wrong: no else, but then-branch returns int *)
+let x = if true then 42  (* Error: unit expected *)
+
+(* Fix: either add else or make then-branch return unit *)
+let x = if true then 42 else 0
+(* or *)
+let () = if true then print_int 42  (* OK: then-branch is unit *)`,
+            tips: [
+                '<code>if/else</code> in OCaml is like the ternary operator <code>? :</code> in other languages',
+                'Without <code>else</code>, OCaml assumes <code>else ()</code> — so the then-branch must be <code>unit</code>',
+                'Use <code>if cond then expr1 else expr2</code> where both have the same type'
+            ]
+        },
+        {
+            id: 'semicolon-vs-in',
+            name: 'Unexpected Semicolon / Missing in',
+            category: 'syntax',
+            severity: 'error',
+            patterns: ['this expression has type .+ but an expression of type unit was expected.*semicolon', 'consider using.*let.*in', 'unexpected semicolon'],
+            example: 'Error: This expression has type int but an expression of type unit was expected\n(hint: consider using let ... in)',
+            explanation: 'You\'re mixing up top-level definitions with expression-level <code>let</code> bindings, or using <code>;</code> where <code>in</code> is needed.',
+            causes: [
+                'Using <code>;</code> after a <code>let</code> binding inside a function body',
+                'Mixing imperative-style <code>;</code> with functional <code>let ... in</code>',
+                'Writing a series of <code>let</code>s without <code>in</code> inside a function'
+            ],
+            fix: `(* Wrong: ; after let inside expression *)
+let f () =
+  let x = 5;  (* Error *)
+  x + 1
+
+(* Fix: use "in" *)
+let f () =
+  let x = 5 in
+  x + 1
+
+(* ; is for sequencing side-effects *)
+let f () =
+  print_endline "hello";   (* ; between unit expressions *)
+  print_endline "world";
+  42  (* last expression is the return value *)`,
+            tips: [
+                '<code>;</code> sequences side effects (both sides should be <code>unit</code>)',
+                '<code>let x = ... in ...</code> creates a local binding',
+                'At the top level, <code>let x = ...</code> doesn\'t need <code>in</code>'
+            ]
+        },
+        {
+            id: 'immutable-field',
+            name: 'Assignment to Immutable Field',
+            category: 'mutation',
+            severity: 'error',
+            patterns: ['the record field .+ is not mutable', 'not mutable', 'this record field is not mutable'],
+            example: 'Error: The record field name is not mutable',
+            explanation: 'You\'re trying to modify a record field, but OCaml records are immutable by default. You must explicitly mark fields as <code>mutable</code>.',
+            causes: [
+                'Trying to use <code>&lt;-</code> on a regular record field',
+                'Forgetting to declare the field as <code>mutable</code> in the type definition'
+            ],
+            fix: `(* Wrong: immutable field *)
+type person = { name: string; age: int }
+let p = { name = "Alice"; age = 30 }
+p.age <- 31  (* Error: not mutable *)
+
+(* Fix option 1: make field mutable *)
+type person = { name: string; mutable age: int }
+let p = { name = "Alice"; age = 30 }
+p.age <- 31  (* OK *)
+
+(* Fix option 2: functional update (preferred) *)
+type person = { name: string; age: int }
+let p = { name = "Alice"; age = 30 }
+let p2 = { p with age = 31 }  (* new record, p unchanged *)`,
+            tips: [
+                'Prefer functional update <code>{ r with field = value }</code> — it\'s idiomatic OCaml',
+                'Only use <code>mutable</code> when you truly need in-place mutation',
+                'Refs (<code>ref</code>) are mutable single-value cells: <code>let x = ref 0 in x := 1</code>'
+            ]
+        },
+        {
+            id: 'physical-vs-structural',
+            name: 'Physical vs Structural Equality',
+            category: 'types',
+            severity: 'warning',
+            patterns: ['physical equal', '== vs =', 'physical inequality'],
+            example: 'Warning: using == (physical equality) where = (structural equality) is likely intended',
+            explanation: 'OCaml has two equality operators: <code>=</code> (structural, compares values) and <code>==</code> (physical, compares memory addresses). You almost always want <code>=</code>.',
+            causes: [
+                'Habit from other languages where <code>==</code> is the normal equality operator',
+                'Not knowing the difference between <code>=</code> and <code>==</code>'
+            ],
+            fix: `(* Wrong (usually): physical equality *)
+let same = [1;2;3] == [1;2;3]  (* false! different allocations *)
+
+(* Fix: structural equality *)
+let same = [1;2;3] = [1;2;3]   (* true *)
+
+(* Similarly for inequality *)
+(* != is physical; <> is structural *)
+let diff = 1 <> 2   (* structural: true *)`,
+            tips: [
+                'Use <code>=</code> and <code>&lt;&gt;</code> for value comparison (almost always what you want)',
+                '<code>==</code> and <code>!=</code> check if two values are the exact same object in memory',
+                'In C/Java, <code>==</code> compares values — in OCaml, it compares identity'
+            ]
+        },
+        {
+            id: 'string-concat',
+            name: 'String Concatenation Type Error',
+            category: 'types',
+            severity: 'error',
+            patterns: ['\\+ .*string', 'string.*\\+', 'operator.*\\+.*string'],
+            example: 'Error: This expression has type string but an expression of type int was expected (using + with strings)',
+            explanation: 'In OCaml, <code>+</code> is only for integers. String concatenation uses <code>^</code>.',
+            causes: [
+                'Using <code>+</code> to concatenate strings (habit from Python/JS)',
+                'Mixing strings and numbers without explicit conversion'
+            ],
+            fix: `(* Wrong: + with strings *)
+let s = "hello" + " world"  (* Error *)
+
+(* Fix: use ^ for string concatenation *)
+let s = "hello" ^ " world"  (* OK *)
+
+(* Combining strings and numbers *)
+let msg = "Count: " ^ string_of_int 42  (* OK *)
+
+(* Printf for complex formatting *)
+let () = Printf.printf "Name: %s, Age: %d\\n" "Alice" 30`,
+            tips: [
+                '<code>^</code> is the string concatenation operator',
+                '<code>+</code> only works on integers, <code>+.</code> on floats',
+                'Use <code>Printf.sprintf</code> for complex string formatting'
+            ]
+        },
+        {
+            id: 'circular-type',
+            name: 'Circular / Recursive Type Error',
+            category: 'types',
+            severity: 'error',
+            patterns: ['the type variable .+ occurs inside', 'circular type', 'recursive type', 'occurs check'],
+            example: 'Error: This expression has type \'a but an expression of type \'a list was expected\nThe type variable \'a occurs inside \'a list',
+            explanation: 'OCaml detected an infinite/circular type. A type variable would need to be equal to a type containing itself, which is not allowed by default.',
+            causes: [
+                'Trying to put a list inside itself',
+                'Writing a function that applies itself to itself',
+                'Missing arguments in a recursive call'
+            ],
+            fix: `(* Wrong: value that refers to its own type circularly *)
+let rec x = [x]  (* Error: occurs check *)
+
+(* Wrong: function applying itself *)
+let f x = x x  (* Error: \'a occurs inside \'a -> \'b *)
+
+(* This usually means a logic error in your code.
+   Check that recursive calls pass the right arguments: *)
+
+(* Wrong: forgot to recurse on tail *)
+let rec sum lst = match lst with
+  | [] -> 0
+  | x :: xs -> x + sum lst  (* Bug: should be 'xs' not 'lst' *)
+
+(* Fix *)
+let rec sum lst = match lst with
+  | [] -> 0
+  | x :: xs -> x + sum xs  (* OK *)`,
+            tips: [
+                'The "occurs check" prevents infinite types',
+                'This error often means you have a bug in recursive code',
+                'Check that you\'re passing substructures (like list tails) to recursive calls'
+            ]
+        },
+        {
+            id: 'list-cons-type',
+            name: 'List Construction Type Error',
+            category: 'types',
+            severity: 'error',
+            patterns: ['has type .+ list but .+ of type .+ was expected.*::', ':: .*type', 'cons.*type'],
+            example: 'Error: This expression has type int but an expression of type int list was expected (using :: wrong)',
+            explanation: 'The cons operator <code>::</code> prepends a single element to a list. The left side must be an element and the right side must be a list of that element type.',
+            causes: [
+                'Swapping the arguments of <code>::</code>',
+                'Using <code>::</code> to append (it only prepends)',
+                'Confusing <code>::</code> (cons) with <code>@</code> (list concat)'
+            ],
+            fix: `(* Wrong: reversed arguments *)
+let lst = [1;2;3] :: 4  (* Error *)
+
+(* Fix: element :: list *)
+let lst = 4 :: [1;2;3]  (* OK: [4;1;2;3] *)
+
+(* Wrong: using :: to join two lists *)
+let lst = [1;2] :: [3;4]  (* Error *)
+
+(* Fix: use @ for list concatenation *)
+let lst = [1;2] @ [3;4]  (* OK: [1;2;3;4] *)
+
+(* :: in pattern matching *)
+match lst with
+| [] -> "empty"
+| x :: rest -> "head is " ^ string_of_int x`,
+            tips: [
+                '<code>::</code> is cons: <code>element :: list</code>',
+                '<code>@</code> is append: <code>list @ list</code>',
+                '<code>@</code> is O(n) — prefer <code>::</code> and <code>List.rev</code> for building lists'
+            ]
+        },
+        {
+            id: 'missing-type-annotation',
+            name: 'Value Restriction / Polymorphism Error',
+            category: 'types',
+            severity: 'error',
+            patterns: ['value restriction', 'type of this expression.*contains type variables that cannot be generalized', 'weak type variable'],
+            example: 'Error: The type of this expression, \'_weak1 list, contains type variables that cannot be generalized',
+            explanation: 'The "value restriction" prevents certain expressions from being polymorphic. OCaml can only generalize types of values (not arbitrary computations) to keep the type system sound with mutable references.',
+            causes: [
+                'Partial application at the top level: <code>let f = List.map succ</code>',
+                'Using mutable state with generic types',
+                'Eta-reducing a function that should stay eta-expanded'
+            ],
+            fix: `(* Triggers value restriction *)
+let f = List.map (fun x -> x)
+(* f has type '_weak1 list -> '_weak1 list — not polymorphic *)
+
+(* Fix: eta-expand — add the parameter explicitly *)
+let f lst = List.map (fun x -> x) lst
+(* f has type 'a list -> 'a list — fully polymorphic *)
+
+(* Another common case *)
+let empty = ref []  (* '_weak1 list ref — not polymorphic *)
+
+(* Fix: add a type annotation *)
+let empty : int list ref = ref []  (* OK *)`,
+            tips: [
+                'If a top-level definition gives <code>\'_weak</code> types, try eta-expanding it',
+                'The value restriction exists to prevent unsound behavior with mutable state',
+                'Adding an explicit type annotation can resolve ambiguity'
+            ]
+        },
+        {
+            id: 'unit-expected',
+            name: 'Unit Expected (Ignored Result)',
+            category: 'warnings',
+            severity: 'warning',
+            patterns: ['should have type unit', 'expression should have type unit', 'this expression has type .+ but.*unit'],
+            example: 'Warning 10: this expression should have type unit',
+            explanation: 'You wrote an expression whose result is being discarded. In OCaml, only <code>unit</code> values should be silently discarded. This warning catches accidentally ignored return values.',
+            causes: [
+                'Calling a function for its side effect but it also returns a value',
+                'Using <code>;</code> between expressions where the first returns non-unit',
+                'Forgetting to bind the result with <code>let</code>'
+            ],
+            fix: `(* Warning: result ignored *)
+let f () =
+  List.map succ [1;2;3];  (* Warning: int list should be unit *)
+  print_endline "done"
+
+(* Fix: use ignore to explicitly discard *)
+let f () =
+  ignore (List.map succ [1;2;3]);
+  print_endline "done"
+
+(* Or bind the result *)
+let f () =
+  let _result = List.map succ [1;2;3] in
+  print_endline "done"`,
+            tips: [
+                'Use <code>ignore</code> to explicitly discard non-unit values',
+                'This warning catches bugs where you forgot to use a return value',
+                'Binding to <code>_</code> or <code>_name</code> also works'
+            ]
+        },
+        {
+            id: 'tuple-vs-curried',
+            name: 'Tuple vs Curried Arguments',
+            category: 'types',
+            severity: 'error',
+            patterns: ['has type .+ \\* .+ but', 'tuple.*expected', 'not a function.*applied'],
+            example: 'Error: This expression has type int * int but an expression of type int was expected',
+            explanation: 'OCaml distinguishes between curried arguments <code>f a b</code> and tuple arguments <code>f (a, b)</code>. You passed one style when the function expects the other.',
+            causes: [
+                'Calling a curried function with a tuple: <code>f (1, 2)</code> instead of <code>f 1 2</code>',
+                'Calling a tuple-taking function without the tuple: <code>f 1 2</code> instead of <code>f (1, 2)</code>',
+                'Confusing OCaml style (curried) with C/Python style (tuple)'
+            ],
+            fix: `(* Curried: two separate parameters *)
+let add x y = x + y
+let sum = add 3 4       (* OK *)
+let sum = add (3, 4)    (* Error: expected int, got int * int *)
+
+(* Tuple: one tuple parameter *)
+let add (x, y) = x + y
+let sum = add (3, 4)    (* OK *)
+let sum = add 3 4       (* Error: too many arguments *)
+
+(* Standard library can use either style *)
+(* Printf uses curried *)
+Printf.printf "%d %d" 1 2
+(* Some functions take tuples *)
+List.nth_opt [1;2;3] 1`,
+            tips: [
+                'Curried style <code>f a b</code> is idiomatic OCaml — prefer it',
+                'Tuple style <code>f (a, b)</code> is one argument that happens to be a pair',
+                'Parentheses in <code>f (a)</code> are just grouping — not a tuple!'
+            ]
+        },
+        {
+            id: 'unmatched-open',
+            name: 'Unmatched Opening / Closing',
+            category: 'syntax',
+            severity: 'error',
+            patterns: ['unmatched', 'unclosed', 'end of input', 'this .* might be unmatched'],
+            example: 'Error: This \'(\' might be unmatched',
+            explanation: 'You have an opening delimiter (<code>(</code>, <code>[</code>, <code>{</code>, <code>begin</code>) that doesn\'t have a matching closing delimiter.',
+            causes: [
+                'Missing closing parenthesis, bracket, or <code>end</code>',
+                'Nested structures with incorrect pairing',
+                'Unclosed string literal or comment'
+            ],
+            fix: `(* Wrong: missing closing paren *)
+let x = (1 + 2
+let y = x + 3  (* Error: unmatched ( *)
+
+(* Fix *)
+let x = (1 + 2)
+
+(* Wrong: unclosed comment *)
+(* this comment never ends
+let x = 42  (* Error: end of input *)
+
+(* Fix: close the comment *)
+(* this comment ends here *)
+let x = 42
+
+(* Wrong: unmatched begin *)
+let f x = begin
+  print_int x
+  (* missing end *)
+
+(* Fix *)
+let f x = begin
+  print_int x
+end`,
+            tips: [
+                'OCaml comments nest: <code>(* (* inner *) outer *)</code> — every <code>(*</code> needs a <code>*)</code>',
+                'Use an editor with bracket matching to spot these quickly',
+                'The error location points to the opening delimiter, not where the close should be'
+            ]
+        },
+        {
+            id: 'module-not-found',
+            name: 'Module Not Found / Missing Dependency',
+            category: 'scope',
+            severity: 'error',
+            patterns: ['unbound module', 'no implementations provided', 'required module .+ is unavailable'],
+            example: 'Error: Unbound module Lwt',
+            explanation: 'OCaml can\'t find the module you\'re trying to use. It either isn\'t installed or isn\'t listed as a dependency in your build configuration.',
+            causes: [
+                'The opam package isn\'t installed',
+                'The library isn\'t listed in <code>dune</code> file\'s <code>libraries</code> field',
+                'Typo in the module name (modules are PascalCase)'
+            ],
+            fix: `(* Install the package *)
+(* $ opam install lwt *)
+
+(* Add to dune file *)
+(executable
+ (name main)
+ (libraries lwt lwt.unix))
+
+(* Module names are PascalCase *)
+open Lwt.Infix   (* not lwt.infix *)
+
+(* For standard library modules *)
+open List         (* always available *)
+open Printf       (* always available *)`,
+            tips: [
+                'Run <code>opam list</code> to see installed packages',
+                'Run <code>opam install &lt;package&gt;</code> to install',
+                'The <code>libraries</code> field in dune is where you declare dependencies'
+            ]
+        }
+    ];
+
+    // ── Category config ──────────────────────────────────────
+    const CATEGORIES = {
+        types: { label: 'Type Errors', icon: '🔤' },
+        syntax: { label: 'Syntax Errors', icon: '📝' },
+        scope: { label: 'Scope & Binding', icon: '🔭' },
+        patterns: { label: 'Pattern Matching', icon: '🎯' },
+        mutation: { label: 'Mutation', icon: '🔄' },
+        warnings: { label: 'Warnings', icon: '⚠️' }
+    };
+
+    // ── State ────────────────────────────────────────────────
+    let activeCategory = null;
+
+    // ── Init ─────────────────────────────────────────────────
+    function init() {
+        document.getElementById('errorCount').textContent = ERROR_DB.length;
+        document.getElementById('categoryCount').textContent = Object.keys(CATEGORIES).length;
+        renderCategoryFilter();
+        renderExamples();
+        document.getElementById('errorInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) decodeError();
+        });
+    }
+
+    // ── Category filter ──────────────────────────────────────
+    function renderCategoryFilter() {
+        const container = document.getElementById('categoryFilter');
+        const allBtn = document.createElement('button');
+        allBtn.className = 'filter-btn active';
+        allBtn.textContent = 'All';
+        allBtn.onclick = () => { activeCategory = null; updateFilter(); };
+        container.appendChild(allBtn);
+
+        for (const [key, cat] of Object.entries(CATEGORIES)) {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn';
+            btn.textContent = cat.icon + ' ' + cat.label;
+            btn.dataset.cat = key;
+            btn.onclick = () => {
+                activeCategory = activeCategory === key ? null : key;
+                updateFilter();
+            };
+            container.appendChild(btn);
+        }
+    }
+
+    function updateFilter() {
+        document.querySelectorAll('.filter-btn').forEach(b => {
+            b.classList.toggle('active', activeCategory === null ? b.textContent === 'All' : b.dataset.cat === activeCategory);
+        });
+        renderExamples();
+    }
+
+    // ── Example chips ────────────────────────────────────────
+    function renderExamples() {
+        const grid = document.getElementById('examplesGrid');
+        grid.innerHTML = '';
+        const items = activeCategory ? ERROR_DB.filter(e => e.category === activeCategory) : ERROR_DB;
+        items.forEach(err => {
+            const chip = document.createElement('div');
+            chip.className = 'example-chip';
+            chip.textContent = err.example.split('\n')[0].substring(0, 80);
+            chip.onclick = () => {
+                document.getElementById('errorInput').value = err.example;
+                decodeError();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+            grid.appendChild(chip);
+        });
+    }
+
+    // ── Decode ───────────────────────────────────────────────
+    function decodeError() {
+        const input = document.getElementById('errorInput').value.trim().toLowerCase();
+        if (!input) return;
+
+        const results = ERROR_DB.map(err => {
+            let score = 0;
+            // Check pattern matches
+            for (const pat of err.patterns) {
+                if (new RegExp(pat, 'i').test(input)) score += 10;
+            }
+            // Check example similarity
+            if (err.example.toLowerCase().includes(input) || input.includes(err.example.toLowerCase())) score += 5;
+            // Keyword overlap
+            const words = input.split(/\s+/);
+            const errWords = (err.name + ' ' + err.explanation + ' ' + err.example).toLowerCase();
+            for (const w of words) {
+                if (w.length > 3 && errWords.includes(w)) score += 1;
+            }
+            return { err, score };
+        }).filter(r => r.score > 0).sort((a, b) => b.score - a.score);
+
+        const area = document.getElementById('resultArea');
+        if (results.length === 0) {
+            area.innerHTML = '<div class="no-match"><span>🤷</span>No matching error found in the database.<br>Try pasting the exact compiler output, or browse by category below.</div>';
+            return;
+        }
+
+        area.innerHTML = results.slice(0, 3).map(({ err, score }, i) => renderResult(err, i === 0)).join('');
+    }
+
+    function renderResult(err, primary) {
+        const sev = err.severity === 'error' ? 'severity-error' : err.severity === 'warning' ? 'severity-warning' : 'severity-info';
+        const cat = CATEGORIES[err.category] || { label: err.category, icon: '📌' };
+        return `
+        <div class="result-card" style="${primary ? '' : 'opacity:0.7;margin-top:1rem;'}">
+            <div class="result-header">
+                <span class="severity ${sev}">${err.severity}</span>
+                <span class="error-name">${err.name}</span>
+                <span style="margin-left:auto;color:var(--text-dim);font-size:0.8rem;">${cat.icon} ${cat.label}</span>
+            </div>
+            <div class="result-body">
+                <h4>💡 What This Means</h4>
+                <p>${err.explanation}</p>
+
+                <h4>🔍 Common Causes</h4>
+                <ul>${err.causes.map(c => '<li>' + c + '</li>').join('')}</ul>
+
+                <h4>✅ How to Fix</h4>
+                <pre><code>${escapeHtml(err.fix)}</code></pre>
+
+                <h4>💎 Tips</h4>
+                <ul>${err.tips.map(t => '<li>' + t + '</li>').join('')}</ul>
+            </div>
+        </div>`;
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Boot ─────────────────────────────────────────────────
+    init();
+    </script>
+</body>
+</html>
