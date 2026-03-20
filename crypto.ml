@@ -54,31 +54,38 @@ let caesar_brute_force s =
 
 (* ── Vigenère Cipher ─────────────────────────────────────────────── *)
 
-let vigenere_encrypt key plaintext =
-  if String.length key = 0 then
-    invalid_arg "vigenere_encrypt: key must not be empty"
-  else
-  let key_upper = String.uppercase_ascii key in
-  let key_len = String.length key_upper in
-  let ki = ref 0 in
-  String.map (fun c ->
-    if is_alpha c then begin
-      let shift = Char.code key_upper.[!ki mod key_len] - Char.code 'A' in
-      ki := !ki + 1;
-      if is_upper c then char_shift 'A' c shift
-      else char_shift 'a' c shift
-    end else c
-  ) plaintext
+(** Core Vigenère transform: applies [shift_fn] (a function from key-char
+    shift value to the actual shift) to each alphabetic character using the
+    corresponding key letter.  Non-alpha characters pass through unchanged
+    without consuming a key position.
 
-let vigenere_decrypt key ciphertext =
+    This eliminates the mutable [ref] counter by threading [key_index]
+    through a fold and also deduplicates the encrypt/decrypt logic. *)
+let vigenere_core shift_fn key text =
   if String.length key = 0 then
-    invalid_arg "vigenere_decrypt: key must not be empty"
+    invalid_arg "vigenere: key must not be empty"
   else
-  let key_upper = String.uppercase_ascii key in
-  let inv_key = String.map (fun c ->
-    Char.chr (Char.code 'A' + (26 - (Char.code c - Char.code 'A')) mod 26)
-  ) key_upper in
-  vigenere_encrypt inv_key ciphertext
+    let key_upper = String.uppercase_ascii key in
+    let key_len = String.length key_upper in
+    let buf = Buffer.create (String.length text) in
+    let _final_ki =
+      String.fold_left (fun ki c ->
+        if is_alpha c then begin
+          let raw_shift = Char.code key_upper.[ki mod key_len] - Char.code 'A' in
+          let shift = shift_fn raw_shift in
+          let base = if is_upper c then 'A' else 'a' in
+          Buffer.add_char buf (char_shift base c shift);
+          ki + 1
+        end else begin
+          Buffer.add_char buf c;
+          ki
+        end
+      ) 0 text
+    in
+    Buffer.contents buf
+
+let vigenere_encrypt key plaintext  = vigenere_core Fun.id key plaintext
+let vigenere_decrypt key ciphertext = vigenere_core (fun s -> 26 - s) key ciphertext
 
 (* ── XOR Cipher ──────────────────────────────────────────────────── *)
 
@@ -134,19 +141,29 @@ let constant_time_equal a b =
 
 (* ── Rail Fence Cipher ───────────────────────────────────────────── *)
 
+(** Compute the zigzag rail assignment for each character position.
+    Returns an array where [pattern.(i)] is the rail index for position [i].
+    Shared between encrypt and decrypt to eliminate duplicated zigzag logic. *)
+let rail_fence_pattern rails n =
+  let pattern = Array.make n 0 in
+  let rail = ref 0 in
+  let dir = ref 1 in
+  for i = 0 to n - 1 do
+    pattern.(i) <- !rail;
+    if !rail = 0 then dir := 1
+    else if !rail = rails - 1 then dir := -1;
+    rail := !rail + !dir
+  done;
+  pattern
+
 let rail_fence_encrypt rails plaintext =
   if rails <= 1 then plaintext
   else begin
     let n = String.length plaintext in
-    let rows = Array.make rails (Buffer.create 16) in
-    Array.iteri (fun i _ -> rows.(i) <- Buffer.create (n / rails + 1)) rows;
-    let rail = ref 0 in
-    let dir = ref 1 in
+    let pattern = rail_fence_pattern rails n in
+    let rows = Array.init rails (fun _ -> Buffer.create (n / rails + 1)) in
     for i = 0 to n - 1 do
-      Buffer.add_char rows.(!rail) plaintext.[i];
-      if !rail = 0 then dir := 1
-      else if !rail = rails - 1 then dir := -1;
-      rail := !rail + !dir
+      Buffer.add_char rows.(pattern.(i)) plaintext.[i]
     done;
     let result = Buffer.create n in
     Array.iter (fun b -> Buffer.add_buffer result b) rows;
@@ -157,15 +174,7 @@ let rail_fence_decrypt rails ciphertext =
   if rails <= 1 then ciphertext
   else begin
     let n = String.length ciphertext in
-    let pattern = Array.make n 0 in
-    let rail = ref 0 in
-    let dir = ref 1 in
-    for i = 0 to n - 1 do
-      pattern.(i) <- !rail;
-      if !rail = 0 then dir := 1
-      else if !rail = rails - 1 then dir := -1;
-      rail := !rail + !dir
-    done;
+    let pattern = rail_fence_pattern rails n in
     let result = Array.make n ' ' in
     let ci = ref 0 in
     for r = 0 to rails - 1 do
