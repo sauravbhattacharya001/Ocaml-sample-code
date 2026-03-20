@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Precedence Explorer — OCaml Sample Code</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.op-main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.op-main h1 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1.8rem; }
+.op-main .subtitle { color: var(--text-dim); margin-bottom: 2rem; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.tab-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+.tab-btn:hover { border-color: var(--accent2); color: var(--text); }
+.tab-btn.active { background: var(--accent2); color: #1a1b26; border-color: var(--accent2); font-weight: 600; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Table */
+.prec-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.prec-table th { text-align: left; padding: 0.6rem 0.8rem; background: var(--surface); color: var(--accent2);
+  border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 2; }
+.prec-table td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+.prec-table tr:hover td { background: var(--surface-hover); }
+.prec-table .op-cell { font-family: 'JetBrains Mono', 'Fira Code', monospace; color: var(--accent); font-weight: 600; }
+.prec-level { display: inline-block; min-width: 1.8rem; text-align: center; padding: 0.15rem 0.4rem;
+  border-radius: 4px; font-weight: 700; font-size: 0.85rem; }
+.assoc-left { color: var(--accent3); }
+.assoc-right { color: var(--accent4); }
+.assoc-none { color: var(--text-dim); }
+
+/* Level bar */
+.level-bar { height: 6px; border-radius: 3px; background: var(--border); position: relative; width: 80px; display: inline-block; vertical-align: middle; margin-left: 0.5rem; }
+.level-fill { height: 100%; border-radius: 3px; background: var(--accent2); }
+
+/* Search */
+.search-box { width: 100%; padding: 0.7rem 1rem; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; font-size: 0.95rem; margin-bottom: 1rem; }
+.search-box:focus { outline: none; border-color: var(--accent2); }
+
+/* Parenthesizer */
+.paren-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+.paren-input { width: 100%; padding: 0.8rem 1rem; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; }
+.paren-input:focus { outline: none; border-color: var(--accent); }
+.paren-output { margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; min-height: 2.5rem; }
+.paren-output .added { color: var(--accent); font-weight: 700; }
+.paren-output .op-highlight { color: var(--accent2); }
+.paren-output .placeholder { color: var(--text-dim); font-style: italic; font-family: inherit; font-size: 0.95rem; }
+.paren-examples { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.paren-example { padding: 0.3rem 0.7rem; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; font-family: monospace; font-size: 0.85rem; cursor: pointer; color: var(--text-dim); transition: all 0.2s; }
+.paren-example:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Quiz */
+.quiz-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+.quiz-expr { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; color: var(--accent); margin: 1rem 0; }
+.quiz-options { display: flex; flex-direction: column; gap: 0.5rem; }
+.quiz-opt { padding: 0.6rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; font-family: monospace; transition: all 0.2s; color: var(--text); }
+.quiz-opt:hover { border-color: var(--accent2); }
+.quiz-opt.correct { border-color: var(--accent3); background: rgba(158,206,106,0.15); }
+.quiz-opt.wrong { border-color: var(--accent); background: rgba(247,118,142,0.15); }
+.quiz-score { color: var(--accent2); font-weight: 600; }
+.quiz-controls { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.quiz-btn { padding: 0.5rem 1rem; background: var(--accent2); color: #1a1b26; border: none; border-radius: 6px;
+  cursor: pointer; font-weight: 600; }
+.quiz-btn:hover { opacity: 0.9; }
+
+/* Category badges */
+.cat-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; }
+.cat-arith { background: rgba(247,118,142,0.2); color: var(--accent); }
+.cat-comp { background: rgba(122,162,247,0.2); color: var(--accent2); }
+.cat-logic { background: rgba(158,206,106,0.2); color: var(--accent3); }
+.cat-string { background: rgba(224,175,104,0.2); color: var(--accent4); }
+.cat-list { background: rgba(187,154,247,0.2); color: #bb9af7; }
+.cat-func { background: rgba(125,207,207,0.2); color: #7dcfcf; }
+.cat-ref { background: rgba(255,158,100,0.2); color: #ff9e64; }
+.cat-other { background: rgba(192,202,245,0.15); color: var(--text-dim); }
+
+@media (max-width: 700px) {
+  .op-main { padding: 1rem; }
+  .prec-table { font-size: 0.8rem; }
+  .level-bar { display: none; }
+}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <h2>🐫 OCaml</h2>
+    <span>Sample Code</span>
+  </div>
+  <a href="index.html">📚 Index</a>
+  <a href="learning-path.html">🗺️ Learning Path</a>
+  <a href="exercises.html">💪 Exercises</a>
+  <a href="sort-visualizer.html">📊 Sort Viz</a>
+  <a href="recursion-viz.html">🔄 Recursion</a>
+  <a href="pattern-matching.html">🎯 Patterns</a>
+  <a href="pipeline.html">🔗 Pipelines</a>
+  <a href="modules.html">📦 Modules</a>
+  <a href="memory-model.html">🧠 Memory</a>
+  <a href="error-decoder.html">🔍 Errors</a>
+  <a href="complexity.html">⏱️ Complexity</a>
+  <a href="operators.html" class="active">⚡ Operators</a>
+</nav>
+
+<main class="op-main">
+<h1>⚡ Operator Precedence Explorer</h1>
+<p class="subtitle">Master OCaml's operator precedence, associativity, and expression grouping</p>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="table">📋 Reference Table</button>
+  <button class="tab-btn" data-tab="paren">🔍 Parenthesizer</button>
+  <button class="tab-btn" data-tab="quiz">🎮 Quiz</button>
+</div>
+
+<!-- Reference Table -->
+<div class="tab-panel active" id="tab-table">
+  <input class="search-box" type="text" placeholder="Search operators... (e.g. +, mod, ::, |>)" id="opSearch">
+  <div style="overflow-x:auto;">
+  <table class="prec-table" id="opTable">
+    <thead><tr>
+      <th>Level</th><th>Operator</th><th>Description</th><th>Assoc.</th><th>Category</th>
+    </tr></thead>
+    <tbody id="opBody"></tbody>
+  </table>
+  </div>
+  <p style="color:var(--text-dim);font-size:0.8rem;margin-top:0.8rem;">Higher level = binds tighter. Level 0 is lowest precedence.</p>
+</div>
+
+<!-- Parenthesizer -->
+<div class="tab-panel" id="tab-paren">
+  <div class="paren-section">
+    <label style="font-weight:600;color:var(--accent2);display:block;margin-bottom:0.5rem;">Enter an OCaml expression:</label>
+    <input class="paren-input" type="text" id="parenInput" placeholder="e.g. 1 + 2 * 3 - 4" autocomplete="off">
+    <div class="paren-output" id="parenOutput"><span class="placeholder">Type an expression to see how OCaml parenthesizes it</span></div>
+    <div class="paren-examples" id="parenExamples"></div>
+    <p style="color:var(--text-dim);font-size:0.8rem;margin-top:1rem;">
+      Supported: arithmetic (<code>+ - * / mod</code>), comparison (<code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code>),
+      logical (<code>&& ||</code>), string (<code>^</code>), list (<code>:: @</code>),
+      function (<code>|&gt;</code>), references (<code>:= !</code>), composition (<code>@@</code>)
+    </p>
+  </div>
+</div>
+
+<!-- Quiz -->
+<div class="tab-panel" id="tab-quiz">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <span class="quiz-score" id="quizScore">Score: 0 / 0</span>
+    <button class="quiz-btn" id="quizNew">New Question</button>
+  </div>
+  <div id="quizArea"></div>
+</div>
+
+<script>
+// ─── OPERATOR DATA ───
+const OPS = [
+  { level: 0, op: ';', desc: 'Sequence', assoc: 'right', cat: 'other' },
+  { level: 1, op: '<-', desc: 'Assignment', assoc: 'right', cat: 'ref' },
+  { level: 1, op: ':=', desc: 'Ref assignment', assoc: 'right', cat: 'ref' },
+  { level: 2, op: 'if...then...else', desc: 'Conditional', assoc: 'none', cat: 'other' },
+  { level: 3, op: '||', desc: 'Logical OR', assoc: 'right', cat: 'logic' },
+  { level: 4, op: '&&', desc: 'Logical AND', assoc: 'right', cat: 'logic' },
+  { level: 5, op: 'not', desc: 'Logical NOT (prefix)', assoc: 'none', cat: 'logic' },
+  { level: 6, op: '=', desc: 'Structural equality', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '<>', desc: 'Structural inequality', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '<', desc: 'Less than', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '>', desc: 'Greater than', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '<=', desc: 'Less or equal', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '>=', desc: 'Greater or equal', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '==', desc: 'Physical equality', assoc: 'left', cat: 'comp' },
+  { level: 6, op: '!=', desc: 'Physical inequality', assoc: 'left', cat: 'comp' },
+  { level: 7, op: '@', desc: 'List append', assoc: 'right', cat: 'list' },
+  { level: 7, op: '^', desc: 'String concat', assoc: 'right', cat: 'string' },
+  { level: 8, op: '::', desc: 'List cons', assoc: 'right', cat: 'list' },
+  { level: 9, op: '+', desc: 'Integer addition', assoc: 'left', cat: 'arith' },
+  { level: 9, op: '-', desc: 'Integer subtraction', assoc: 'left', cat: 'arith' },
+  { level: 9, op: '+.', desc: 'Float addition', assoc: 'left', cat: 'arith' },
+  { level: 9, op: '-.', desc: 'Float subtraction', assoc: 'left', cat: 'arith' },
+  { level: 10, op: '*', desc: 'Integer multiplication', assoc: 'left', cat: 'arith' },
+  { level: 10, op: '/', desc: 'Integer division', assoc: 'left', cat: 'arith' },
+  { level: 10, op: 'mod', desc: 'Integer modulo', assoc: 'left', cat: 'arith' },
+  { level: 10, op: '*.', desc: 'Float multiplication', assoc: 'left', cat: 'arith' },
+  { level: 10, op: '/.', desc: 'Float division', assoc: 'left', cat: 'arith' },
+  { level: 11, op: '**', desc: 'Float exponentiation', assoc: 'right', cat: 'arith' },
+  { level: 12, op: '- (unary)', desc: 'Negation', assoc: 'none', cat: 'arith' },
+  { level: 12, op: '!', desc: 'Dereference', assoc: 'none', cat: 'ref' },
+  { level: 13, op: 'f x (apply)', desc: 'Function application', assoc: 'left', cat: 'func' },
+  { level: 7, op: '|>', desc: 'Pipe forward', assoc: 'left', cat: 'func' },
+  { level: 14, op: '@@', desc: 'Reverse application', assoc: 'right', cat: 'func' },
+  { level: 15, op: '.( ) .[ ] .{ }', desc: 'Field/index access', assoc: 'left', cat: 'other' },
+];
+
+const CAT_LABELS = { arith:'Arithmetic', comp:'Comparison', logic:'Logical', string:'String', list:'List', func:'Function', ref:'Reference', other:'Other' };
+const maxLevel = Math.max(...OPS.map(o=>o.level));
+
+function renderTable(filter='') {
+  const f = filter.toLowerCase();
+  const rows = OPS.filter(o => !f || o.op.toLowerCase().includes(f) || o.desc.toLowerCase().includes(f) || CAT_LABELS[o.cat].toLowerCase().includes(f));
+  rows.sort((a,b) => b.level - a.level || a.op.localeCompare(b.op));
+  const body = document.getElementById('opBody');
+  body.innerHTML = rows.map(o => {
+    const pct = Math.round(o.level/maxLevel*100);
+    const ac = o.assoc==='left'?'assoc-left':o.assoc==='right'?'assoc-right':'assoc-none';
+    return `<tr>
+      <td><span class="prec-level" style="background:hsl(${pct*2.4},50%,25%);color:hsl(${pct*2.4},80%,70%);">${o.level}</span>
+        <span class="level-bar"><span class="level-fill" style="width:${pct}%;background:hsl(${pct*2.4},70%,55%);"></span></span></td>
+      <td class="op-cell">${esc(o.op)}</td>
+      <td>${esc(o.desc)}</td>
+      <td class="${ac}">${o.assoc}</td>
+      <td><span class="cat-badge cat-${o.cat}">${CAT_LABELS[o.cat]}</span></td>
+    </tr>`;
+  }).join('');
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+document.getElementById('opSearch').addEventListener('input', e => renderTable(e.target.value));
+renderTable();
+
+// ─── TABS ───
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── PARENTHESIZER (simple precedence climbing) ───
+const BINARY_OPS = {
+  '||':{p:3,a:'r'}, '&&':{p:4,a:'r'},
+  '=':{p:6,a:'l'}, '<>':{p:6,a:'l'}, '<':{p:6,a:'l'}, '>':{p:6,a:'l'}, '<=':{p:6,a:'l'}, '>=':{p:6,a:'l'}, '==':{p:6,a:'l'}, '!=':{p:6,a:'l'},
+  '@':{p:7,a:'r'}, '^':{p:7,a:'r'}, '|>':{p:7,a:'l'},
+  '::':{p:8,a:'r'},
+  '+':{p:9,a:'l'}, '-':{p:9,a:'l'}, '+.':{p:9,a:'l'}, '-.':{p:9,a:'l'},
+  '*':{p:10,a:'l'}, '/':{p:10,a:'l'}, 'mod':{p:10,a:'l'}, '*.':{p:10,a:'l'}, '/.':{p:10,a:'l'},
+  '**':{p:11,a:'r'},
+};
+const OP_RE = /^(\|\||&&|<>|<=|>=|==|!=|\|>|::|:=|\+\.|-\.|\.|\*\.?|\/\.?|\*\*|mod|[+\-<>=@^!])/;
+
+function tokenize(s) {
+  const toks = []; let i = 0;
+  while (i < s.length) {
+    if (s[i]===' '||s[i]==='\t'){i++;continue;}
+    if (s[i]==='('){ toks.push({t:'('}); i++; continue; }
+    if (s[i]===')'){ toks.push({t:')'}); i++; continue; }
+    const rest = s.slice(i);
+    const om = rest.match(OP_RE);
+    if (om && (toks.length===0 || toks[toks.length-1].t==='(' || toks[toks.length-1].t==='op') && (om[1]==='-'||om[1]==='-.')) {
+      toks.push({t:'uop', v:om[1]}); i+=om[1].length; continue;
+    }
+    if (om && BINARY_OPS[om[1]]) { toks.push({t:'op', v:om[1]}); i+=om[1].length; continue; }
+    const nm = rest.match(/^([a-zA-Z_]\w*|[0-9]+(\.[0-9]+)?)/);
+    if (nm) {
+      if (nm[1]==='mod' && BINARY_OPS['mod']) { toks.push({t:'op',v:'mod'}); }
+      else { toks.push({t:'num', v:nm[1]}); }
+      i+=nm[1].length; continue;
+    }
+    toks.push({t:'num',v:s[i]}); i++;
+  }
+  return toks;
+}
+
+function parse(toks) {
+  let pos = 0;
+  function peek(){ return pos<toks.length ? toks[pos] : null; }
+  function next(){ return toks[pos++]; }
+
+  function expr(minP) {
+    let left = atom();
+    while(true) {
+      const t = peek();
+      if (!t || t.t!=='op') break;
+      const info = BINARY_OPS[t.v];
+      if (!info || info.p < minP) break;
+      next();
+      const nextMin = info.a==='r' ? info.p : info.p+1;
+      const right = expr(nextMin);
+      left = {t:'bin', op:t.v, l:left, r:right, prec:info.p};
+    }
+    return left;
+  }
+  function atom() {
+    const t = peek();
+    if (!t) return {t:'val',v:'?'};
+    if (t.t==='uop') { next(); const a=atom(); return {t:'un',op:t.v,arg:a}; }
+    if (t.t==='(') { next(); const e=expr(0); if(peek()&&peek().t===')')next(); return {t:'paren',inner:e}; }
+    next(); return {t:'val',v:t.v};
+  }
+  const r = expr(0);
+  return r;
+}
+
+function toStringWithParens(node, parentPrec, side) {
+  if (node.t==='val') return esc(node.v);
+  if (node.t==='un') return `<span class="op-highlight">${esc(node.op)}</span>${toStringWithParens(node.arg,12,'r')}`;
+  if (node.t==='paren') return `(${toStringWithParens(node.inner,0,'l')})`;
+  if (node.t==='bin') {
+    const info = BINARY_OPS[node.op];
+    const l = toStringWithParens(node.l, info.p, 'l');
+    const r = toStringWithParens(node.r, info.p, 'r');
+    const inner = `${l} <span class="op-highlight">${esc(node.op)}</span> ${r}`;
+    const needParen = parentPrec !== undefined && info.p < parentPrec;
+    if (needParen) return `<span class="added">(</span>${inner}<span class="added">)</span>`;
+    return inner;
+  }
+  return '?';
+}
+
+const EXAMPLES = [
+  '1 + 2 * 3',
+  'a + b * c - d / e',
+  'x :: y :: z @ w',
+  'a || b && c',
+  'f |> g |> h',
+  'a + b = c * d',
+  '2 ** 3 ** 4',
+  'a ^ b ^ c',
+  'x + y mod z',
+  '-a * b + c',
+  'a * b + c |> f',
+  'a && b || c && d',
+];
+
+const exDiv = document.getElementById('parenExamples');
+exDiv.innerHTML = EXAMPLES.map(e => `<span class="paren-example">${esc(e)}</span>`).join('');
+exDiv.querySelectorAll('.paren-example').forEach(el => {
+  el.addEventListener('click', () => {
+    document.getElementById('parenInput').value = el.textContent;
+    doParen();
+  });
+});
+
+function doParen() {
+  const v = document.getElementById('parenInput').value.trim();
+  const out = document.getElementById('parenOutput');
+  if (!v) { out.innerHTML = '<span class="placeholder">Type an expression to see how OCaml parenthesizes it</span>'; return; }
+  try {
+    const toks = tokenize(v);
+    const tree = parse(toks);
+    out.innerHTML = toStringWithParens(tree, undefined, 'l');
+  } catch(e) { out.innerHTML = `<span class="placeholder">Could not parse: ${esc(e.message)}</span>`; }
+}
+document.getElementById('parenInput').addEventListener('input', doParen);
+
+// ─── QUIZ ───
+let quizCorrect=0, quizTotal=0;
+
+function genQuiz() {
+  const templates = [
+    { expr: () => { const a=rv(),b=rv(),c=rv(); return `${a} + ${b} * ${c}`; },
+      correct: (a,b,c) => `${a} + (${b} * ${c})`,
+      wrong: (a,b,c) => [`(${a} + ${b}) * ${c}`, `${a} + ${b} * ${c}`, `(${a}) + (${b}) * (${c})`] },
+  ];
+
+  // Generate dynamic quiz
+  const ops1 = ['+','-'], ops2 = ['*','/',  'mod'];
+  const cops = ['=','<>','<','>','<=','>='];
+  const a=rv(),b=rv(),c=rv(),d=rv();
+  const type = Math.floor(Math.random()*6);
+  let expr, correct, wrongs;
+
+  if (type===0) { // arith precedence
+    const o1=pick(ops1),o2=pick(ops2);
+    expr=`${a} ${o1} ${b} ${o2} ${c}`;
+    correct=`${a} ${o1} (${b} ${o2} ${c})`;
+    wrongs=[`(${a} ${o1} ${b}) ${o2} ${c}`, `(${a}) ${o1} (${b}) ${o2} (${c})`];
+  } else if (type===1) { // right assoc ::
+    expr=`${a} :: ${b} :: ${c}`;
+    correct=`${a} :: (${b} :: ${c})`;
+    wrongs=[`(${a} :: ${b}) :: ${c}`, `((${a}) :: (${b})) :: ${c}`];
+  } else if (type===2) { // && vs ||
+    expr=`${a} || ${b} && ${c}`;
+    correct=`${a} || (${b} && ${c})`;
+    wrongs=[`(${a} || ${b}) && ${c}`, `(${a}) || (${b}) && (${c})`];
+  } else if (type===3) { // ** right assoc
+    expr=`${a} ** ${b} ** ${c}`;
+    correct=`${a} ** (${b} ** ${c})`;
+    wrongs=[`(${a} ** ${b}) ** ${c}`, `((${a}) ** ${b}) ** ${c}`];
+  } else if (type===4) { // comparison vs arith
+    const o=pick(cops), o2=pick(ops1);
+    expr=`${a} ${o2} ${b} ${o} ${c} ${o2} ${d}`;
+    correct=`(${a} ${o2} ${b}) ${o} (${c} ${o2} ${d})`;
+    wrongs=[`${a} ${o2} (${b} ${o} ${c}) ${o2} ${d}`, `${a} ${o2} ${b} ${o} ${c} ${o2} ${d}`];
+  } else { // |> left assoc
+    expr=`${a} |> ${b} |> ${c}`;
+    correct=`(${a} |> ${b}) |> ${c}`;
+    wrongs=[`${a} |> (${b} |> ${c})`, `(${a}) |> (${b}) |> (${c})`];
+  }
+
+  const options = shuffle([correct, ...wrongs]);
+  const area = document.getElementById('quizArea');
+  area.innerHTML = `
+    <div class="quiz-card">
+      <p>How does OCaml evaluate this expression?</p>
+      <div class="quiz-expr">${esc(expr)}</div>
+      <div class="quiz-options">${options.map((o,i) => `<div class="quiz-opt" data-i="${i}" data-correct="${o===correct}">${esc(o)}</div>`).join('')}</div>
+    </div>`;
+  area.querySelectorAll('.quiz-opt').forEach(el => {
+    el.addEventListener('click', function() {
+      if (this.classList.contains('correct')||this.classList.contains('wrong')) return;
+      quizTotal++;
+      if (this.dataset.correct==='true') { this.classList.add('correct'); quizCorrect++; }
+      else {
+        this.classList.add('wrong');
+        area.querySelector('[data-correct="true"]').classList.add('correct');
+      }
+      document.getElementById('quizScore').textContent = `Score: ${quizCorrect} / ${quizTotal}`;
+    });
+  });
+}
+
+function rv(){ const vs=['a','b','c','x','y','z','n','m']; return pick(vs); }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a; }
+
+document.getElementById('quizNew').addEventListener('click', genQuiz);
+genQuiz();
+</script>
+</body>
+</html>
