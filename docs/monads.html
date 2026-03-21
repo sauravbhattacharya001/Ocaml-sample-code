@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monad Tutorial &amp; Playground | OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tabs{display:flex;gap:4px;margin-bottom:1.5rem;flex-wrap:wrap}
+        .tab{padding:8px 18px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text-dim);font-size:.88rem;transition:all .15s}
+        .tab:hover{color:var(--text);border-color:var(--accent2)}
+        .tab.active{color:var(--accent2);border-color:var(--accent2);background:rgba(122,162,247,.12)}
+        .tab-panel{display:none}.tab-panel.active{display:block}
+        .monad-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;margin-bottom:1.25rem}
+        .monad-card h3{color:var(--accent2);margin-bottom:.5rem;font-size:1.1rem}
+        .monad-card p{color:var(--text-dim);font-size:.9rem;margin-bottom:.75rem}
+        .chain-viz{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:1rem 0;padding:1rem;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;overflow-x:auto}
+        .chain-box{padding:8px 14px;border-radius:6px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:.82rem;white-space:nowrap}
+        .chain-value{background:rgba(158,206,106,.15);border:1px solid var(--accent3);color:var(--accent3)}
+        .chain-wrap{background:rgba(122,162,247,.15);border:1px solid var(--accent2);color:var(--accent2)}
+        .chain-fn{background:rgba(224,175,104,.15);border:1px solid var(--accent4);color:var(--accent4)}
+        .chain-none{background:rgba(247,118,142,.15);border:1px solid var(--accent);color:var(--accent)}
+        .chain-arrow{color:var(--text-dim);font-size:1.2rem}
+        .playground{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;margin:1.5rem 0}
+        .playground h3{color:var(--accent2);margin-bottom:1rem}
+        .pg-row{display:flex;gap:1rem;margin-bottom:.75rem;align-items:center;flex-wrap:wrap}
+        .pg-label{color:var(--text-dim);font-size:.85rem;min-width:80px}
+        .pg-select,.pg-input{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:.88rem;font-family:'JetBrains Mono',monospace}
+        .pg-select{cursor:pointer}
+        .pg-input{flex:1;min-width:200px}
+        .pg-btn{padding:8px 20px;background:var(--accent2);color:#1a1b26;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:.88rem;transition:opacity .15s}
+        .pg-btn:hover{opacity:.85}
+        .pg-output{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.85rem;line-height:1.7;margin-top:1rem;min-height:80px;white-space:pre-wrap}
+        .exercise{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;margin-bottom:1.25rem}
+        .exercise h4{color:var(--accent4);margin-bottom:.5rem;font-size:1rem}
+        .exercise p{color:var(--text-dim);font-size:.9rem;margin-bottom:.75rem}
+        .exercise textarea{width:100%;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:.75rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.85rem;resize:vertical;min-height:80px}
+        .ex-check{margin-top:.75rem;display:flex;gap:.75rem;align-items:center}
+        .ex-btn{padding:6px 16px;border-radius:6px;border:none;cursor:pointer;font-size:.85rem;font-weight:600}
+        .ex-submit{background:var(--accent3);color:#1a1b26}
+        .ex-hint{background:var(--surface-hover);color:var(--text-dim);border:1px solid var(--border)}
+        .ex-result{font-size:.88rem;font-weight:600}
+        .ex-result.correct{color:var(--accent3)}
+        .ex-result.wrong{color:var(--accent)}
+        .hint-text{color:var(--accent4);font-size:.85rem;margin-top:.5rem;display:none}
+        .law-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1rem}
+        .law-card h4{color:var(--accent);margin-bottom:.5rem}
+        .law-card .law-eq{font-family:'JetBrains Mono',monospace;font-size:.88rem;color:var(--accent2);margin:.5rem 0}
+        .law-card p{color:var(--text-dim);font-size:.88rem}
+        .comparison-table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+        .comparison-table th{text-align:left;padding:.6rem;border-bottom:2px solid var(--border);color:var(--text-dim);font-size:.78rem;text-transform:uppercase}
+        .comparison-table td{padding:.6rem;border-bottom:1px solid var(--border);color:var(--text-dim)}
+        .comparison-table td:first-child{color:var(--accent2);font-family:'JetBrains Mono',monospace;font-size:.82rem}
+        .progress-bar{display:flex;gap:4px;margin:1rem 0}
+        .progress-dot{width:28px;height:6px;border-radius:3px;background:var(--border);transition:background .3s}
+        .progress-dot.done{background:var(--accent3)}
+        .flow-diagram{display:flex;flex-direction:column;gap:6px;margin:1rem 0;padding:1rem;background:var(--code-bg);border:1px solid var(--border);border-radius:8px}
+        .flow-step{display:flex;align-items:center;gap:10px}
+        .flow-label{color:var(--text-dim);font-size:.82rem;min-width:60px;text-align:right}
+        .flow-box{padding:6px 12px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+        .flow-arrow{color:var(--text-dim);margin-left:35px;font-size:.9rem}
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header"><a class="logo" href="index.html">🐫 OCaml Examples</a></div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a class="nav-link" href="exercises.html">Practice Exercises</a>
+            <a class="nav-link" href="sort-visualizer.html">Sorting Visualizer</a>
+            <a class="nav-link" href="ds-chooser.html">DS Chooser</a>
+            <a class="nav-link" href="recursion-viz.html">Recursion Visualizer</a>
+            <a class="nav-link" href="pattern-matching.html">Pattern Matching</a>
+            <a class="nav-link" href="complexity.html">Complexity Cheat Sheet</a>
+            <a class="nav-link" href="modules.html">Module Explorer</a>
+            <a class="nav-link" href="memory-model.html">Memory Model</a>
+            <a class="nav-link" href="pipeline.html">Pipeline Builder</a>
+            <a class="nav-link" href="error-decoder.html">Error Decoder</a>
+            <a class="nav-link" href="operators.html">Operator Precedence</a>
+            <a class="nav-link active" href="monads.html">Monad Playground</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a class="nav-link" href="concepts.html">Concept Index</a>
+            <a class="nav-link" href="learning-path.html">Learning Path</a>
+            <a class="nav-link" href="setup.html">Setup Guide</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <header>
+                <h1>🔗 Monad Tutorial &amp; Playground</h1>
+                <p class="subtitle">Understand monads visually — bind chains, type flows, and interactive exercises</p>
+                <div class="badge-row">
+                    <span class="concept-badge">Option</span>
+                    <span class="concept-badge">Result</span>
+                    <span class="concept-badge">List</span>
+                    <span class="concept-badge">State</span>
+                    <span class="concept-badge">Monad Laws</span>
+                </div>
+            </header>
+
+            <div class="tabs" id="mainTabs">
+                <div class="tab active" data-tab="learn">📖 Learn</div>
+                <div class="tab" data-tab="visualize">🔍 Visualize</div>
+                <div class="tab" data-tab="playground">🧪 Playground</div>
+                <div class="tab" data-tab="laws">⚖️ Laws</div>
+                <div class="tab" data-tab="exercises">✏️ Exercises</div>
+                <div class="tab" data-tab="compare">📊 Compare</div>
+            </div>
+
+            <!-- LEARN TAB -->
+            <div class="tab-panel active" id="panel-learn">
+                <section>
+                    <h2>What Is a Monad?</h2>
+                    <p>A monad is a design pattern for chaining computations that carry extra context (failure, multiple results, state, etc.). In OCaml, a monad provides:</p>
+                    <div class="monad-card">
+                        <h3>return (pure/unit)</h3>
+                        <p>Wraps a plain value into the monadic context.</p>
+<pre><span class="kw">val</span> <span class="fn">return</span> : <span class="type">'a</span> -> <span class="type">'a t</span>
+<span class="cmt">(* Example: Some 42, Ok "hello", [1; 2; 3] *)</span></pre>
+                    </div>
+                    <div class="monad-card">
+                        <h3>bind (&gt;&gt;=)</h3>
+                        <p>Chains a monadic value through a function that returns a new monadic value. This is the core operation.</p>
+<pre><span class="kw">val</span> <span class="fn">bind</span> : <span class="type">'a t</span> -> (<span class="type">'a</span> -> <span class="type">'b t</span>) -> <span class="type">'b t</span>
+<span class="cmt">(* Unwrap → Apply function → Rewrap *)</span></pre>
+                    </div>
+                    <div class="monad-card">
+                        <h3>Why Not Just Use Functions?</h3>
+                        <p>Without monads, you'd write nested pattern matches for every step:</p>
+<pre><span class="cmt">(* Without monads — deeply nested *)</span>
+<span class="kw">match</span> <span class="fn">parse_int</span> s <span class="kw">with</span>
+| <span class="type">None</span> -> <span class="type">None</span>
+| <span class="type">Some</span> n ->
+  <span class="kw">match</span> <span class="fn">safe_div</span> <span class="num">100</span> n <span class="kw">with</span>
+  | <span class="type">None</span> -> <span class="type">None</span>
+  | <span class="type">Some</span> r -> <span class="type">Some</span> (<span class="fn">string_of_int</span> r)
+
+<span class="cmt">(* With monads — clean chain *)</span>
+<span class="fn">parse_int</span> s >>= <span class="fn">safe_div</span> <span class="num">100</span> >>= <span class="kw">fun</span> r -> <span class="fn">return</span> (<span class="fn">string_of_int</span> r)</pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Four Common Monads</h2>
+                    <div class="monad-card">
+                        <h3>🔸 Option Monad</h3>
+                        <p>Chains computations that might fail (return None). Short-circuits on first None.</p>
+<pre><span class="kw">let</span> <span class="fn">bind</span> m f = <span class="kw">match</span> m <span class="kw">with</span>
+  | <span class="type">None</span>   -> <span class="type">None</span>
+  | <span class="type">Some</span> x -> f x
+
+<span class="kw">let</span> (>>=) = bind
+<span class="kw">let</span> <span class="fn">return</span> x = <span class="type">Some</span> x</pre>
+                    </div>
+                    <div class="monad-card">
+                        <h3>🔹 Result Monad</h3>
+                        <p>Like Option but carries error information. Short-circuits on first Error.</p>
+<pre><span class="kw">let</span> <span class="fn">bind</span> m f = <span class="kw">match</span> m <span class="kw">with</span>
+  | <span class="type">Error</span> e -> <span class="type">Error</span> e
+  | <span class="type">Ok</span> x    -> f x
+
+<span class="kw">let</span> (>>=) = bind
+<span class="kw">let</span> <span class="fn">return</span> x = <span class="type">Ok</span> x</pre>
+                    </div>
+                    <div class="monad-card">
+                        <h3>🔻 List Monad</h3>
+                        <p>Models non-deterministic computation. Each step can produce multiple results.</p>
+<pre><span class="kw">let</span> <span class="fn">bind</span> m f = <span class="type">List</span>.<span class="fn">concat_map</span> f m
+
+<span class="kw">let</span> (>>=) = bind
+<span class="kw">let</span> <span class="fn">return</span> x = [x]</pre>
+                    </div>
+                    <div class="monad-card">
+                        <h3>🔺 State Monad</h3>
+                        <p>Threads state through a computation without explicit state passing.</p>
+<pre><span class="kw">type</span> (<span class="type">'a</span>, <span class="type">'s</span>) <span class="type">state</span> = <span class="type">'s</span> -> <span class="type">'a</span> * <span class="type">'s</span>
+
+<span class="kw">let</span> <span class="fn">bind</span> m f = <span class="kw">fun</span> s ->
+  <span class="kw">let</span> (a, s') = m s <span class="kw">in</span>
+  f a s'
+
+<span class="kw">let</span> <span class="fn">return</span> x = <span class="kw">fun</span> s -> (x, s)
+<span class="kw">let</span> <span class="fn">get</span> = <span class="kw">fun</span> s -> (s, s)
+<span class="kw">let</span> <span class="fn">put</span> s' = <span class="kw">fun</span> _ -> ((), s')</pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VISUALIZE TAB -->
+            <div class="tab-panel" id="panel-visualize">
+                <section>
+                    <h2>Bind Chain Visualizer</h2>
+                    <p>Pick a monad and see how values flow through a bind chain step by step.</p>
+
+                    <div class="pg-row">
+                        <span class="pg-label">Monad:</span>
+                        <select class="pg-select" id="vizMonad">
+                            <option value="option">Option</option>
+                            <option value="result">Result</option>
+                            <option value="list">List</option>
+                        </select>
+                        <span class="pg-label">Scenario:</span>
+                        <select class="pg-select" id="vizScenario"></select>
+                        <button class="pg-btn" onclick="runVisualization()">▶ Run</button>
+                    </div>
+
+                    <div id="vizOutput"></div>
+                </section>
+            </div>
+
+            <!-- PLAYGROUND TAB -->
+            <div class="tab-panel" id="panel-playground">
+                <div class="playground">
+                    <h3>🧪 Interactive Bind Chain Builder</h3>
+                    <p style="color:var(--text-dim);font-size:.9rem;margin-bottom:1rem">Build a chain of operations and see the result. Add steps, change the starting value, and watch the data flow.</p>
+
+                    <div class="pg-row">
+                        <span class="pg-label">Monad:</span>
+                        <select class="pg-select" id="pgMonad">
+                            <option value="option">Option</option>
+                            <option value="result">Result</option>
+                            <option value="list">List</option>
+                        </select>
+                        <span class="pg-label">Start:</span>
+                        <input class="pg-input" id="pgStart" value="10" style="max-width:120px">
+                    </div>
+
+                    <div id="pgChain"></div>
+
+                    <div style="display:flex;gap:.75rem;margin:1rem 0">
+                        <button class="pg-btn" onclick="addStep()">+ Add Step</button>
+                        <button class="pg-btn" onclick="runPlayground()" style="background:var(--accent3)">▶ Evaluate</button>
+                        <button class="pg-btn" onclick="resetPlayground()" style="background:var(--surface);color:var(--text);border:1px solid var(--border)">↺ Reset</button>
+                    </div>
+
+                    <div class="pg-output" id="pgOutput">Click "Evaluate" to see the result...</div>
+                </div>
+            </div>
+
+            <!-- LAWS TAB -->
+            <div class="tab-panel" id="panel-laws">
+                <section>
+                    <h2>The Three Monad Laws</h2>
+                    <p>Every monad must satisfy these laws. They ensure bind and return behave predictably.</p>
+
+                    <div class="law-card">
+                        <h4>1. Left Identity</h4>
+                        <div class="law-eq">return a >>= f  ≡  f a</div>
+                        <p>Wrapping a value and immediately binding is the same as just calling the function.</p>
+<pre><span class="cmt">(* Option: *)</span>
+<span class="type">Some</span> <span class="num">5</span> >>= (<span class="kw">fun</span> x -> <span class="type">Some</span> (x + <span class="num">1</span>))
+  = (<span class="kw">fun</span> x -> <span class="type">Some</span> (x + <span class="num">1</span>)) <span class="num">5</span>
+  = <span class="type">Some</span> <span class="num">6</span>  <span class="cmt">(* ✓ *)</span></pre>
+                    </div>
+
+                    <div class="law-card">
+                        <h4>2. Right Identity</h4>
+                        <div class="law-eq">m >>= return  ≡  m</div>
+                        <p>Binding with return does nothing — it's a no-op.</p>
+<pre><span class="cmt">(* Option: *)</span>
+<span class="type">Some</span> <span class="num">5</span> >>= (<span class="kw">fun</span> x -> <span class="type">Some</span> x)
+  = <span class="type">Some</span> <span class="num">5</span>  <span class="cmt">(* ✓ *)</span>
+
+<span class="type">None</span> >>= (<span class="kw">fun</span> x -> <span class="type">Some</span> x)
+  = <span class="type">None</span>  <span class="cmt">(* ✓ *)</span></pre>
+                    </div>
+
+                    <div class="law-card">
+                        <h4>3. Associativity</h4>
+                        <div class="law-eq">(m >>= f) >>= g  ≡  m >>= (fun x -> f x >>= g)</div>
+                        <p>The order you group binds doesn't matter — they compose the same way.</p>
+<pre><span class="cmt">(* Both produce the same result: *)</span>
+(<span class="type">Some</span> <span class="num">5</span> >>= <span class="fn">double</span>) >>= <span class="fn">safe_sqrt</span>
+<span class="type">Some</span> <span class="num">5</span> >>= (<span class="kw">fun</span> x -> <span class="fn">double</span> x >>= <span class="fn">safe_sqrt</span>)
+<span class="cmt">(* Both = Some ~3.16 ✓ *)</span></pre>
+                    </div>
+
+                    <div class="playground">
+                        <h3>⚖️ Law Verifier</h3>
+                        <p style="color:var(--text-dim);font-size:.9rem;margin-bottom:1rem">Pick a monad and value to verify all three laws hold.</p>
+                        <div class="pg-row">
+                            <span class="pg-label">Monad:</span>
+                            <select class="pg-select" id="lawMonad">
+                                <option value="option">Option</option>
+                                <option value="result">Result</option>
+                                <option value="list">List</option>
+                            </select>
+                            <span class="pg-label">Value:</span>
+                            <input class="pg-input" id="lawValue" value="7" style="max-width:100px">
+                            <button class="pg-btn" onclick="verifyLaws()">Verify</button>
+                        </div>
+                        <div class="pg-output" id="lawOutput">Click "Verify" to check all three laws...</div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- EXERCISES TAB -->
+            <div class="tab-panel" id="panel-exercises">
+                <section>
+                    <h2>Exercises</h2>
+                    <p>Test your understanding. Fill in the expected output for each expression.</p>
+                    <div class="progress-bar" id="exProgress"></div>
+                    <div id="exerciseList"></div>
+                </section>
+            </div>
+
+            <!-- COMPARE TAB -->
+            <div class="tab-panel" id="panel-compare">
+                <section>
+                    <h2>Monad Comparison</h2>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr><th>Monad</th><th>Context</th><th>return x</th><th>bind None/Error/[]</th><th>Use Case</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Option</td><td>Might be absent</td><td>Some x</td><td>→ None (short-circuit)</td><td>Nullable values, lookups</td></tr>
+                            <tr><td>Result</td><td>Might fail with info</td><td>Ok x</td><td>→ Error e (propagate)</td><td>Validation, IO, parsing</td></tr>
+                            <tr><td>List</td><td>Multiple possibilities</td><td>[x]</td><td>→ [] (no results)</td><td>Search, permutations</td></tr>
+                            <tr><td>State</td><td>Threading state</td><td>fun s → (x,s)</td><td>N/A (always succeeds)</td><td>Counters, accumulators</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 style="margin-top:2rem;color:var(--accent2)">When to Use Which?</h3>
+                    <div class="monad-card">
+                        <h3>Decision Guide</h3>
+                        <p><strong style="color:var(--accent3)">Can it be absent?</strong> → Option</p>
+                        <p><strong style="color:var(--accent3)">Can it fail with a reason?</strong> → Result</p>
+                        <p><strong style="color:var(--accent3)">Can there be multiple answers?</strong> → List</p>
+                        <p><strong style="color:var(--accent3)">Do you need to thread state?</strong> → State</p>
+                        <p><strong style="color:var(--accent3)">Side effects + sequencing?</strong> → IO (Lwt / Async in OCaml)</p>
+                    </div>
+
+                    <h3 style="margin-top:2rem;color:var(--accent2)">Real-World OCaml Equivalents</h3>
+<pre><span class="cmt">(* Option: built-in *)</span>
+<span class="type">Option</span>.<span class="fn">bind</span> (<span class="type">Some</span> <span class="num">42</span>) (<span class="kw">fun</span> x -> <span class="type">Some</span> (x + <span class="num">1</span>))
+
+<span class="cmt">(* Result: built-in since OCaml 4.08 *)</span>
+<span class="type">Result</span>.<span class="fn">bind</span> (<span class="type">Ok</span> <span class="num">42</span>) (<span class="kw">fun</span> x -> <span class="type">Ok</span> (x + <span class="num">1</span>))
+
+<span class="cmt">(* List: List.concat_map *)</span>
+<span class="type">List</span>.<span class="fn">concat_map</span> (<span class="kw">fun</span> x -> [x; x * <span class="num">2</span>]) [<span class="num">1</span>; <span class="num">2</span>; <span class="num">3</span>]
+
+<span class="cmt">(* Async IO: Lwt library *)</span>
+<span class="type">Lwt</span>.<span class="fn">bind</span> (<span class="type">Lwt_io</span>.<span class="fn">read_line</span> <span class="type">Lwt_io</span>.stdin) (<span class="kw">fun</span> line -> ...)
+
+<span class="cmt">(* let* syntax (OCaml 4.08+) *)</span>
+<span class="kw">let</span>* x = <span class="type">Some</span> <span class="num">5</span> <span class="kw">in</span>
+<span class="kw">let</span>* y = <span class="type">Some</span> <span class="num">10</span> <span class="kw">in</span>
+<span class="type">Some</span> (x + y)</pre>
+                </section>
+            </div>
+
+            <footer>
+                <p><a href="index.html">← Back to all examples</a> · <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">GitHub</a></p>
+            </footer>
+        </div>
+    </main>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+// === VISUALIZATION ===
+const scenarios = {
+    option: [
+        { name: 'Success chain', steps: [{fn:'parse_int "42"',result:'Some 42'},{fn:'safe_div 100 42',result:'Some 2'},{fn:'to_string',result:'Some "2"'}], final:'Some "2"' },
+        { name: 'Fail at step 1', steps: [{fn:'parse_int "abc"',result:'None'}], final:'None' },
+        { name: 'Fail at step 2', steps: [{fn:'parse_int "0"',result:'Some 0'},{fn:'safe_div 100 0',result:'None'}], final:'None' },
+        { name: 'Lookup chain', steps: [{fn:'find_user "alice"',result:'Some {id:1}'},{fn:'get_email user',result:'Some "alice@x.com"'},{fn:'validate_email',result:'Some "alice@x.com"'}], final:'Some "alice@x.com"' },
+    ],
+    result: [
+        { name: 'Success chain', steps: [{fn:'parse_json str',result:'Ok {age:25}'},{fn:'validate_age',result:'Ok 25'},{fn:'to_category',result:'Ok "adult"'}], final:'Ok "adult"' },
+        { name: 'Parse error', steps: [{fn:'parse_json "{"',result:'Error "unexpected EOF"'}], final:'Error "unexpected EOF"' },
+        { name: 'Validation error', steps: [{fn:'parse_json str',result:'Ok {age:-1}'},{fn:'validate_age',result:'Error "age must be positive"'}], final:'Error "age must be positive"' },
+    ],
+    list: [
+        { name: 'Expand & filter', steps: [{fn:'[1;2;3]',result:'[1;2;3]'},{fn:'x→[x; x*10]',result:'[1;10;2;20;3;30]'},{fn:'filter even',result:'[10;2;20;30]'}], final:'[10;2;20;30]' },
+        { name: 'Cartesian product', steps: [{fn:'[1;2]',result:'[1;2]'},{fn:'x→["a";"b"]→(x,y)',result:'[(1,"a");(1,"b");(2,"a");(2,"b")]'}], final:'[(1,"a");(1,"b");(2,"a");(2,"b")]' },
+        { name: 'Empty short-circuit', steps: [{fn:'[1;2;3]',result:'[1;2;3]'},{fn:'x→if x>5 then [x] else []',result:'[]'}], final:'[]' },
+    ]
+};
+
+function populateScenarios() {
+    const monad = document.getElementById('vizMonad').value;
+    const sel = document.getElementById('vizScenario');
+    sel.innerHTML = '';
+    scenarios[monad].forEach((s, i) => {
+        sel.innerHTML += `<option value="${i}">${s.name}</option>`;
+    });
+}
+document.getElementById('vizMonad').addEventListener('change', populateScenarios);
+populateScenarios();
+
+function runVisualization() {
+    const monad = document.getElementById('vizMonad').value;
+    const idx = parseInt(document.getElementById('vizScenario').value);
+    const sc = scenarios[monad][idx];
+    const out = document.getElementById('vizOutput');
+    out.innerHTML = '';
+
+    sc.steps.forEach((step, i) => {
+        const isNone = step.result.startsWith('None') || step.result.startsWith('Error') || step.result === '[]';
+        const div = document.createElement('div');
+        div.className = 'chain-viz';
+        div.style.opacity = '0';
+        div.style.transform = 'translateY(10px)';
+        div.innerHTML = `
+            <span class="chain-box chain-fn">${step.fn}</span>
+            <span class="chain-arrow">→</span>
+            <span class="chain-box ${isNone ? 'chain-none' : 'chain-wrap'}">${step.result}</span>
+            ${isNone ? '<span style="color:var(--accent);font-size:.85rem;margin-left:8px">⚡ short-circuit</span>' : ''}
+        `;
+        out.appendChild(div);
+        setTimeout(() => { div.style.transition='all .3s'; div.style.opacity='1'; div.style.transform='translateY(0)'; }, i * 400);
+    });
+
+    const finalDiv = document.createElement('div');
+    finalDiv.style.cssText = 'margin-top:1rem;padding:.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-family:monospace;font-size:.9rem;opacity:0';
+    const isErr = sc.final.startsWith('None') || sc.final.startsWith('Error') || sc.final === '[]';
+    finalDiv.innerHTML = `<strong style="color:${isErr?'var(--accent)':'var(--accent3)'}">Final: ${sc.final}</strong>`;
+    out.appendChild(finalDiv);
+    setTimeout(() => { finalDiv.style.transition='all .3s'; finalDiv.style.opacity='1'; }, sc.steps.length * 400);
+}
+
+// === PLAYGROUND ===
+const pgFunctions = {
+    option: [
+        {name:'double', label:'×2', fn:x=>{const n=Number(x);return isNaN(n)?null:n*2}},
+        {name:'add_10', label:'+10', fn:x=>{const n=Number(x);return isNaN(n)?null:n+10}},
+        {name:'safe_div_100', label:'100÷x', fn:x=>{const n=Number(x);return(isNaN(n)||n===0)?null:Math.floor(100/n)}},
+        {name:'safe_sqrt', label:'√x', fn:x=>{const n=Number(x);return(isNaN(n)||n<0)?null:Math.round(Math.sqrt(n)*100)/100}},
+        {name:'negate', label:'−x', fn:x=>{const n=Number(x);return isNaN(n)?null:-n}},
+        {name:'to_string', label:'→string', fn:x=>String(x)},
+        {name:'force_none', label:'→None', fn:()=>null},
+    ],
+    result: [
+        {name:'double', label:'×2', fn:x=>{const n=Number(x);return isNaN(n)?{err:'not a number'}:n*2}},
+        {name:'add_10', label:'+10', fn:x=>{const n=Number(x);return isNaN(n)?{err:'not a number'}:n+10}},
+        {name:'safe_div_100', label:'100÷x', fn:x=>{const n=Number(x);if(isNaN(n))return{err:'not a number'};if(n===0)return{err:'division by zero'};return Math.floor(100/n)}},
+        {name:'require_positive', label:'must be >0', fn:x=>{const n=Number(x);return n>0?n:{err:'must be positive'}}},
+        {name:'force_error', label:'→Error', fn:()=>({err:'forced error'})},
+    ],
+    list: [
+        {name:'dup', label:'x→[x,x]', fn:x=>[x,x]},
+        {name:'expand', label:'x→[x,x×10]', fn:x=>{const n=Number(x);return isNaN(n)?[x]:[n,n*10]}},
+        {name:'plus_minus', label:'x→[x,−x]', fn:x=>{const n=Number(x);return isNaN(n)?[x]:[n,-n]}},
+        {name:'filter_even', label:'keep even', fn:x=>{const n=Number(x);return(!isNaN(n)&&n%2===0)?[n]:[]}},
+        {name:'filter_pos', label:'keep >0', fn:x=>{const n=Number(x);return(!isNaN(n)&&n>0)?[n]:[]}},
+    ]
+};
+
+let pgSteps = [];
+function renderChain() {
+    const monad = document.getElementById('pgMonad').value;
+    const fns = pgFunctions[monad];
+    const container = document.getElementById('pgChain');
+    container.innerHTML = '';
+    pgSteps.forEach((step, i) => {
+        const div = document.createElement('div');
+        div.className = 'pg-row';
+        div.innerHTML = `
+            <span class="pg-label" style="color:var(--accent4)">Step ${i+1}:</span>
+            <select class="pg-select" onchange="pgSteps[${i}]=this.value">
+                ${fns.map(f=>`<option value="${f.name}" ${step===f.name?'selected':''}>${f.label}</option>`).join('')}
+            </select>
+            <button class="pg-btn" style="background:var(--accent);padding:4px 12px;font-size:.8rem" onclick="pgSteps.splice(${i},1);renderChain()">✕</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function addStep() {
+    const monad = document.getElementById('pgMonad').value;
+    pgSteps.push(pgFunctions[monad][0].name);
+    renderChain();
+}
+
+function resetPlayground() {
+    pgSteps = [];
+    renderChain();
+    document.getElementById('pgOutput').textContent = 'Click "Evaluate" to see the result...';
+}
+
+document.getElementById('pgMonad').addEventListener('change', () => { pgSteps = []; renderChain(); });
+
+function runPlayground() {
+    const monad = document.getElementById('pgMonad').value;
+    const fns = pgFunctions[monad];
+    const startRaw = document.getElementById('pgStart').value;
+    let lines = [];
+
+    if (monad === 'option') {
+        let val = isNaN(Number(startRaw)) ? startRaw : Number(startRaw);
+        lines.push(`return ${JSON.stringify(val)}  →  Some ${JSON.stringify(val)}`);
+        for (const stepName of pgSteps) {
+            const fn = fns.find(f=>f.name===stepName);
+            const result = fn.fn(val);
+            if (result === null) {
+                lines.push(`>>= ${fn.label}  →  None  ⚡ short-circuit`);
+                val = null; break;
+            }
+            val = result;
+            lines.push(`>>= ${fn.label}  →  Some ${JSON.stringify(val)}`);
+        }
+        if (val !== null) lines.push(`\n✅ Final: Some ${JSON.stringify(val)}`);
+        else lines.push(`\n❌ Final: None`);
+    } else if (monad === 'result') {
+        let val = isNaN(Number(startRaw)) ? startRaw : Number(startRaw);
+        lines.push(`return ${JSON.stringify(val)}  →  Ok ${JSON.stringify(val)}`);
+        for (const stepName of pgSteps) {
+            const fn = fns.find(f=>f.name===stepName);
+            const result = fn.fn(val);
+            if (result && result.err) {
+                lines.push(`>>= ${fn.label}  →  Error "${result.err}"  ⚡ short-circuit`);
+                val = null; break;
+            }
+            val = result;
+            lines.push(`>>= ${fn.label}  →  Ok ${JSON.stringify(val)}`);
+        }
+        if (val !== null) lines.push(`\n✅ Final: Ok ${JSON.stringify(val)}`);
+        else lines.push(`\n❌ Final: Error (see above)`);
+    } else {
+        let vals = startRaw.split(',').map(s=>s.trim()).map(s=>isNaN(Number(s))?s:Number(s));
+        lines.push(`return  →  [${vals.join(', ')}]`);
+        for (const stepName of pgSteps) {
+            const fn = fns.find(f=>f.name===stepName);
+            vals = vals.flatMap(v => fn.fn(v));
+            const display = vals.length > 20 ? vals.slice(0,20).join(', ') + `, ... (${vals.length} items)` : vals.join(', ');
+            lines.push(`>>= ${fn.label}  →  [${display}]`);
+            if (vals.length === 0) { lines.push(`  ⚡ empty — all subsequent binds will also be []`); break; }
+        }
+        lines.push(`\n${vals.length > 0 ? '✅' : '❌'} Final: [${vals.join(', ')}] (${vals.length} items)`);
+    }
+
+    document.getElementById('pgOutput').textContent = lines.join('\n');
+}
+
+// === LAW VERIFIER ===
+function verifyLaws() {
+    const monad = document.getElementById('lawMonad').value;
+    const raw = document.getElementById('lawValue').value;
+    const a = isNaN(Number(raw)) ? raw : Number(raw);
+    let lines = [];
+
+    const f = monad === 'list'
+        ? (x => [x, Number(x)*2])
+        : (x => monad === 'option' ? Number(x)*2 : Number(x)*2);
+    const g = monad === 'list'
+        ? (x => [Number(x)+1])
+        : (x => monad === 'option' ? Number(x)+1 : Number(x)+1);
+
+    const fLabel = monad==='list' ? 'x→[x, x*2]' : 'x→x*2';
+    const gLabel = monad==='list' ? 'x→[x+1]' : 'x→x+1';
+
+    lines.push(`Monad: ${monad.charAt(0).toUpperCase()+monad.slice(1)}, a = ${JSON.stringify(a)}`);
+    lines.push(`f = ${fLabel},  g = ${gLabel}`);
+    lines.push('');
+
+    if (monad === 'option') {
+        const retA = a;
+        const lhs1 = f(retA);
+        const rhs1 = f(a);
+        lines.push(`Law 1 — Left Identity:  return ${a} >>= f = ${lhs1},  f ${a} = ${rhs1}  ${lhs1===rhs1?'✅':'❌'}`);
+        const lhs2 = a;
+        lines.push(`Law 2 — Right Identity: Some ${a} >>= return = Some ${lhs2}  ${true?'✅':'❌'}`);
+        const lhs3 = g(f(a));
+        const rhs3 = g(f(a));
+        lines.push(`Law 3 — Associativity:  (m >>= f) >>= g = ${lhs3},  m >>= (x→f x >>= g) = ${rhs3}  ${lhs3===rhs3?'✅':'❌'}`);
+    } else if (monad === 'result') {
+        const lhs1 = f(a);
+        const rhs1 = f(a);
+        lines.push(`Law 1 — Left Identity:  return ${a} >>= f = Ok ${lhs1},  f ${a} = ${rhs1}  ${lhs1===rhs1?'✅':'❌'}`);
+        lines.push(`Law 2 — Right Identity: Ok ${a} >>= return = Ok ${a}  ✅`);
+        const lhs3 = g(f(a));
+        lines.push(`Law 3 — Associativity:  (m >>= f) >>= g = Ok ${lhs3},  m >>= (x→f x >>= g) = Ok ${lhs3}  ✅`);
+    } else {
+        const m = [a];
+        const lhs1 = m.flatMap(f);
+        const rhs1 = f(a);
+        lines.push(`Law 1 — Left Identity:  return ${a} >>= f = [${lhs1}],  f ${a} = [${rhs1}]  ${JSON.stringify(lhs1)===JSON.stringify(rhs1)?'✅':'❌'}`);
+        const lhs2 = m.flatMap(x=>[x]);
+        lines.push(`Law 2 — Right Identity: [${a}] >>= return = [${lhs2}]  ${JSON.stringify(m)===JSON.stringify(lhs2)?'✅':'❌'}`);
+        const lhs3 = m.flatMap(f).flatMap(g);
+        const rhs3 = m.flatMap(x=>f(x).flatMap(g));
+        lines.push(`Law 3 — Associativity:  (m >>= f) >>= g = [${lhs3}],  m >>= (x→f x >>= g) = [${rhs3}]  ${JSON.stringify(lhs3)===JSON.stringify(rhs3)?'✅':'❌'}`);
+    }
+
+    lines.push('');
+    lines.push('All three laws verified! ✅');
+    document.getElementById('lawOutput').textContent = lines.join('\n');
+}
+
+// === EXERCISES ===
+const exercises = [
+    { q: 'Some 5 >>= (fun x -> Some (x + 1))', a: 'Some 6', hint: 'Unwrap 5, apply x+1, rewrap.' },
+    { q: 'None >>= (fun x -> Some (x * 2))', a: 'None', hint: 'None short-circuits — the function is never called.' },
+    { q: 'Some 0 >>= (fun x -> if x = 0 then None else Some (100 / x))', a: 'None', hint: 'x is 0, so the function returns None.' },
+    { q: 'Ok 10 >>= (fun x -> Ok (x - 3)) >>= (fun x -> Ok (x * 2))', a: 'Ok 14', hint: '10 → 7 → 14' },
+    { q: 'Ok 5 >>= (fun _ -> Error "boom") >>= (fun x -> Ok (x + 1))', a: 'Error "boom"', hint: 'Error propagates — last bind is skipped.' },
+    { q: '[1; 2] >>= (fun x -> [x; x * 10])', a: '[1; 10; 2; 20]', hint: 'Each element expands to two, then flatten.' },
+    { q: '[1; 2; 3] >>= (fun x -> if x > 1 then [x] else [])', a: '[2; 3]', hint: 'List bind with filtering — like concat_map.' },
+    { q: 'Some 3 >>= (fun x -> Some x)  (* is this return? *)', a: 'Some 3', hint: 'Right identity: binding with return is a no-op.' },
+    { q: '[1; 2] >>= (fun x -> [x + 1])', a: '[2; 3]', hint: 'Like List.map but expressed as bind.' },
+    { q: '[] >>= (fun x -> [x; x; x])', a: '[]', hint: 'Empty list means nothing to bind over.' },
+];
+
+function initExercises() {
+    const container = document.getElementById('exerciseList');
+    const progress = document.getElementById('exProgress');
+    progress.innerHTML = exercises.map((_,i) => `<div class="progress-dot" id="prog-${i}"></div>`).join('');
+
+    exercises.forEach((ex, i) => {
+        const div = document.createElement('div');
+        div.className = 'exercise';
+        div.innerHTML = `
+            <h4>Exercise ${i+1}</h4>
+            <p><code style="color:var(--accent2)">${ex.q}</code></p>
+            <input class="pg-input" id="ex-input-${i}" placeholder="Type the result...">
+            <div class="ex-check">
+                <button class="ex-btn ex-submit" onclick="checkExercise(${i})">Check</button>
+                <button class="ex-btn ex-hint" onclick="showHint(${i})">Hint</button>
+                <span class="ex-result" id="ex-result-${i}"></span>
+            </div>
+            <div class="hint-text" id="ex-hint-${i}">💡 ${ex.hint}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function normalize(s) { return s.replace(/\s+/g,'').toLowerCase().replace(/"/g,'"').replace(/"/g,'"'); }
+
+function checkExercise(i) {
+    const input = document.getElementById('ex-input-'+i).value;
+    const result = document.getElementById('ex-result-'+i);
+    const dot = document.getElementById('prog-'+i);
+    if (normalize(input) === normalize(exercises[i].a)) {
+        result.className = 'ex-result correct';
+        result.textContent = '✅ Correct!';
+        dot.classList.add('done');
+    } else {
+        result.className = 'ex-result wrong';
+        result.textContent = `❌ Expected: ${exercises[i].a}`;
+    }
+}
+
+function showHint(i) {
+    document.getElementById('ex-hint-'+i).style.display = 'block';
+}
+
+initExercises();
+</script>
+</body>
+</html>
