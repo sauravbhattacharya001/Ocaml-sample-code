@@ -61,6 +61,24 @@ jobs:
           path: _coverage/
           retention-days: 30
 
+      - name: Generate Cobertura report for Codecov
+        run: |
+          eval $(opam env)
+          # Generate cobertura XML for Codecov integration
+          bisect-ppx-report cobertura --output coverage.xml || true
+          # Fallback: generate lcov if cobertura not supported
+          if [ ! -f coverage.xml ]; then
+            bisect-ppx-report lcov --output coverage.lcov || true
+          fi
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml,coverage.lcov
+          flags: ocaml-tests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Generate coverage badge
         run: |
           # Extract total coverage percentage

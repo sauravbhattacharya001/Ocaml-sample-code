@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/github/license/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=7aa2f7)](LICENSE)
 [![GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-222?style=flat-square&logo=github)](https://sauravbhattacharya001.github.io/Ocaml-sample-code/)
 [![GitHub stars](https://img.shields.io/github/stars/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=e0af68)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/stargazers)
-[![Coverage](https://img.shields.io/badge/coverage-bisect__ppx-brightgreen?style=flat-square&logo=ocaml)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/coverage.yml)
+[![Coverage](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code/graph/badge.svg)](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code)
 
 [**Browse Examples**](#programs) · [**Documentation Site**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/) · [**Concept Map**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/concept-map.html) · [**Complexity Cheat Sheet**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/complexity.html) · [**Getting Started**](#getting-started)
 
