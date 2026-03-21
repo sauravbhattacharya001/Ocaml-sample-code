@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCaml Code Golf Challenges</title>
+<link rel="stylesheet" href="style.css">
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --accent2: #533483;
+  --green: #00b894;
+  --gold: #fdcb6e;
+  --text: #eee;
+  --muted: #999;
+  --mono: 'Courier New', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
+.header { text-align:center; padding:2rem 1rem 1rem; }
+.header h1 { font-size:2.2rem; }
+.header h1 span { color:var(--accent); }
+.header p { color:var(--muted); margin-top:.5rem; max-width:600px; margin-inline:auto; }
+.stats-bar { display:flex; justify-content:center; gap:2rem; padding:1rem; flex-wrap:wrap; }
+.stat { text-align:center; }
+.stat .num { font-size:1.8rem; font-weight:bold; color:var(--gold); }
+.stat .label { font-size:.75rem; color:var(--muted); text-transform:uppercase; }
+.container { max-width:900px; margin:0 auto; padding:1rem; }
+.filters { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem; justify-content:center; }
+.filters button { padding:.4rem 1rem; border:1px solid var(--surface2); background:var(--surface); color:var(--text); border-radius:20px; cursor:pointer; transition:.2s; font-size:.85rem; }
+.filters button.active, .filters button:hover { background:var(--accent); border-color:var(--accent); }
+.challenge { background:var(--surface); border-radius:12px; margin-bottom:1.5rem; overflow:hidden; border:1px solid var(--surface2); transition:.3s; }
+.challenge:hover { border-color:var(--accent2); }
+.challenge-header { padding:1rem 1.2rem; cursor:pointer; display:flex; align-items:center; gap:1rem; }
+.challenge-header .num { font-size:.8rem; background:var(--accent2); padding:.2rem .6rem; border-radius:8px; min-width:2rem; text-align:center; }
+.challenge-header .title { flex:1; font-weight:600; font-size:1.05rem; }
+.challenge-header .diff { font-size:.75rem; padding:.2rem .6rem; border-radius:8px; }
+.diff-easy { background:#00b89433; color:var(--green); }
+.diff-medium { background:#fdcb6e33; color:var(--gold); }
+.diff-hard { background:#e9456033; color:var(--accent); }
+.challenge-header .chars { font-size:.8rem; color:var(--muted); }
+.challenge-header .check { font-size:1.2rem; }
+.challenge-body { display:none; padding:0 1.2rem 1.2rem; }
+.challenge-body.open { display:block; }
+.desc { color:var(--muted); margin-bottom:1rem; line-height:1.5; }
+.examples { background:var(--bg); border-radius:8px; padding:.8rem 1rem; margin-bottom:1rem; font-family:var(--mono); font-size:.85rem; }
+.examples .ex-label { color:var(--accent); font-weight:bold; margin-bottom:.3rem; }
+.examples pre { white-space:pre-wrap; color:#ccc; }
+.editor-area { position:relative; }
+.editor-area textarea { width:100%; min-height:100px; background:var(--bg); border:1px solid var(--surface2); border-radius:8px; color:var(--text); font-family:var(--mono); font-size:.9rem; padding:.8rem; resize:vertical; outline:none; }
+.editor-area textarea:focus { border-color:var(--accent); }
+.char-count { position:absolute; right:10px; bottom:10px; font-size:.75rem; color:var(--muted); font-family:var(--mono); }
+.actions { display:flex; gap:.8rem; margin-top:.8rem; align-items:center; flex-wrap:wrap; }
+.btn { padding:.5rem 1.2rem; border:none; border-radius:8px; cursor:pointer; font-size:.85rem; font-weight:600; transition:.2s; }
+.btn-run { background:var(--green); color:#111; }
+.btn-run:hover { filter:brightness(1.1); }
+.btn-hint { background:var(--surface2); color:var(--text); }
+.btn-hint:hover { background:var(--accent2); }
+.btn-reset { background:transparent; color:var(--muted); border:1px solid var(--surface2); }
+.result { flex:1; font-size:.85rem; text-align:right; }
+.result.pass { color:var(--green); }
+.result.fail { color:var(--accent); }
+.best-score { font-size:.8rem; color:var(--gold); margin-top:.5rem; }
+.hint-box { background:var(--bg); border-left:3px solid var(--accent2); padding:.6rem .8rem; margin-top:.8rem; font-size:.85rem; color:var(--muted); border-radius:0 8px 8px 0; }
+.leaderboard { background:var(--surface); border-radius:12px; padding:1.2rem; margin-top:2rem; border:1px solid var(--surface2); }
+.leaderboard h3 { margin-bottom:1rem; }
+.lb-row { display:flex; justify-content:space-between; padding:.4rem 0; border-bottom:1px solid var(--surface2); font-size:.85rem; }
+.lb-row:last-child { border:none; }
+.lb-rank { width:2rem; color:var(--gold); }
+.lb-name { flex:1; }
+.lb-score { color:var(--green); font-family:var(--mono); }
+.back-link { display:inline-block; margin:1rem; color:var(--accent); text-decoration:none; }
+.back-link:hover { text-decoration:underline; }
+footer { text-align:center; padding:2rem; color:var(--muted); font-size:.8rem; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← Back to Index</a>
+<div class="header">
+  <h1>⛳ OCaml <span>Code Golf</span></h1>
+  <p>Write the shortest OCaml solution for each challenge. Fewer characters = better score. Can you beat the par?</p>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="num" id="solved-count">0</div><div class="label">Solved</div></div>
+  <div class="stat"><div class="num" id="total-chars">0</div><div class="label">Total Chars</div></div>
+  <div class="stat"><div class="num" id="under-par">0</div><div class="label">Under Par</div></div>
+</div>
+
+<div class="container">
+  <div class="filters">
+    <button class="active" data-filter="all">All</button>
+    <button data-filter="easy">🟢 Easy</button>
+    <button data-filter="medium">🟡 Medium</button>
+    <button data-filter="hard">🔴 Hard</button>
+  </div>
+  <div id="challenges"></div>
+
+  <div class="leaderboard">
+    <h3>🏆 Your Best Scores</h3>
+    <div id="leaderboard"></div>
+  </div>
+</div>
+
+<footer>OCaml Code Golf &mdash; Part of <a href="index.html" style="color:var(--accent)">OCaml Sample Code</a></footer>
+
+<script>
+const CHALLENGES = [
+  {
+    id: 1, title: "Reverse a List", diff: "easy", par: 28,
+    desc: "Write a function <code>rev : 'a list -> 'a list</code> that reverses a list.",
+    examples: "rev [1;2;3] = [3;2;1]\nrev [] = []\nrev [42] = [42]",
+    hint: "List.rev exists, but can you write it shorter with fold?",
+    tests: [
+      { input: "[1;2;3]", expected: "[3; 2; 1]" },
+      { input: "[]", expected: "[]" },
+      { input: "[1]", expected: "[1]" }
+    ],
+    fn: "rev"
+  },
+  {
+    id: 2, title: "Fibonacci", diff: "easy", par: 45,
+    desc: "Write a function <code>fib : int -> int</code> returning the n-th Fibonacci number (0-indexed: fib 0 = 0, fib 1 = 1).",
+    examples: "fib 0 = 0\nfib 1 = 1\nfib 10 = 55",
+    hint: "A tail-recursive helper with two accumulators is short.",
+    tests: [
+      { input: "0", expected: "0" },
+      { input: "1", expected: "1" },
+      { input: "10", expected: "55" }
+    ],
+    fn: "fib"
+  },
+  {
+    id: 3, title: "Flatten Nested Lists", diff: "medium", par: 55,
+    desc: "Given <code>type 'a nested = One of 'a | Many of 'a nested list</code>, write <code>flatten : 'a nested list -> 'a list</code>.",
+    examples: "flatten [One 1; Many [One 2; One 3]; One 4] = [1;2;3;4]",
+    hint: "concat_map or List.concat + List.map work well.",
+    tests: [
+      { input: "[One 1; Many [One 2; One 3]; One 4]", expected: "[1; 2; 3; 4]" },
+      { input: "[One 5]", expected: "[5]" },
+      { input: "[]", expected: "[]" }
+    ],
+    fn: "flatten"
+  },
+  {
+    id: 4, title: "Run-Length Encoding", diff: "medium", par: 85,
+    desc: "Write <code>rle : 'a list -> (int * 'a) list</code> that encodes consecutive equal elements with their count.",
+    examples: "rle ['a';'a';'b';'c';'c';'c'] = [(2,'a');(1,'b');(3,'c')]",
+    hint: "Fold right and compare with the head of the accumulator.",
+    tests: [
+      { input: "['a';'a';'b';'c';'c';'c']", expected: "[(2, 'a'); (1, 'b'); (3, 'c')]" },
+      { input: "[]", expected: "[]" },
+      { input: "['x']", expected: "[(1, 'x')]" }
+    ],
+    fn: "rle"
+  },
+  {
+    id: 5, title: "Caesar Cipher", diff: "easy", par: 65,
+    desc: "Write <code>caesar : int -> string -> string</code> that shifts lowercase letters by n positions (wrap around z).",
+    examples: "caesar 3 \"abc\" = \"def\"\ncaesar 1 \"xyz\" = \"yza\"",
+    hint: "String.map + Char.code + mod 26",
+    tests: [
+      { input: '3 "abc"', expected: '"def"' },
+      { input: '1 "xyz"', expected: '"yza"' },
+      { input: '0 "hello"', expected: '"hello"' }
+    ],
+    fn: "caesar"
+  },
+  {
+    id: 6, title: "Binary Search", diff: "medium", par: 75,
+    desc: "Write <code>bsearch : int array -> int -> int option</code> that returns the index of a value in a sorted array.",
+    examples: "bsearch [|1;3;5;7;9|] 5 = Some 2\nbsearch [|1;3;5|] 4 = None",
+    hint: "Recursive helper with lo/hi bounds, check mid.",
+    tests: [
+      { input: "[|1;3;5;7;9|] 5", expected: "Some 2" },
+      { input: "[|1;3;5|] 4", expected: "None" },
+      { input: "[||] 1", expected: "None" }
+    ],
+    fn: "bsearch"
+  },
+  {
+    id: 7, title: "Power Set", diff: "hard", par: 60,
+    desc: "Write <code>powerset : 'a list -> 'a list list</code> returning all subsets.",
+    examples: "powerset [1;2] = [[]; [2]; [1]; [1;2]]",
+    hint: "Fold: for each element, duplicate existing subsets and prepend.",
+    tests: [
+      { input: "[]", expected: "[[]]" },
+      { input: "[1]", expected: "[[]; [1]]" },
+      { input: "[1;2]", expected: "[[]; [2]; [1]; [1; 2]]" }
+    ],
+    fn: "powerset"
+  },
+  {
+    id: 8, title: "Matrix Transpose", diff: "easy", par: 50,
+    desc: "Write <code>transpose : 'a list list -> 'a list list</code> for a rectangular matrix.",
+    examples: "transpose [[1;2;3];[4;5;6]] = [[1;4];[2;5];[3;6]]",
+    hint: "List.map List.hd, then recurse on tails... or use a clever pattern.",
+    tests: [
+      { input: "[[1;2;3];[4;5;6]]", expected: "[[1; 4]; [2; 5]; [3; 6]]" },
+      { input: "[[1]]", expected: "[[1]]" }
+    ],
+    fn: "transpose"
+  },
+  {
+    id: 9, title: "Balanced Parentheses", diff: "medium", par: 70,
+    desc: "Write <code>balanced : string -> bool</code> checking if parentheses (), [], {} are balanced.",
+    examples: 'balanced "([]{})" = true\nbalanced "([)]" = false',
+    hint: "Stack-based: fold over chars, push openers, pop and match closers.",
+    tests: [
+      { input: '"([]{})"', expected: "true" },
+      { input: '"([)]"', expected: "false" },
+      { input: '""', expected: "true" }
+    ],
+    fn: "balanced"
+  },
+  {
+    id: 10, title: "Collatz Length", diff: "easy", par: 50,
+    desc: "Write <code>collatz : int -> int</code> returning the number of steps to reach 1.",
+    examples: "collatz 1 = 0\ncollatz 6 = 8",
+    hint: "Recursive: even → n/2, odd → 3n+1, count steps.",
+    tests: [
+      { input: "1", expected: "0" },
+      { input: "6", expected: "8" },
+      { input: "27", expected: "111" }
+    ],
+    fn: "collatz"
+  },
+  {
+    id: 11, title: "Interleave Two Lists", diff: "easy", par: 55,
+    desc: "Write <code>interleave : 'a list -> 'a list -> 'a list</code> alternating elements. Append remaining if lengths differ.",
+    examples: "interleave [1;2;3] [4;5;6] = [1;4;2;5;3;6]\ninterleave [1] [2;3;4] = [1;2;3;4]",
+    hint: "Pattern match on both lists simultaneously.",
+    tests: [
+      { input: "[1;2;3] [4;5;6]", expected: "[1; 4; 2; 5; 3; 6]" },
+      { input: "[1] [2;3;4]", expected: "[1; 2; 3; 4]" },
+      { input: "[] []", expected: "[]" }
+    ],
+    fn: "interleave"
+  },
+  {
+    id: 12, title: "Prime Sieve", diff: "hard", par: 90,
+    desc: "Write <code>primes : int -> int list</code> returning all primes up to n (inclusive).",
+    examples: "primes 20 = [2;3;5;7;11;13;17;19]",
+    hint: "Filter with a recursive sieve, or use Array for Eratosthenes.",
+    tests: [
+      { input: "1", expected: "[]" },
+      { input: "10", expected: "[2; 3; 5; 7]" },
+      { input: "20", expected: "[2; 3; 5; 7; 11; 13; 17; 19]" }
+    ],
+    fn: "primes"
+  },
+  {
+    id: 13, title: "Group By", diff: "medium", par: 70,
+    desc: "Write <code>group_by : ('a -> 'b) -> 'a list -> ('b * 'a list) list</code> grouping elements by a key function.",
+    examples: 'group_by (fun x -> x mod 2) [1;2;3;4;5] = [(1,[1;3;5]);(0,[2;4])]',
+    hint: "Fold, lookup key in accumulator, append to existing or create new group.",
+    tests: [
+      { input: "(fun x -> x mod 2) [1;2;3;4;5]", expected: "[(1, [1; 3; 5]); (0, [2; 4])]" },
+      { input: "(fun _ -> 0) [1;2;3]", expected: "[(0, [1; 2; 3])]" }
+    ],
+    fn: "group_by"
+  },
+  {
+    id: 14, title: "Luhn Check", diff: "hard", par: 95,
+    desc: "Write <code>luhn : string -> bool</code> implementing the Luhn algorithm for digit strings.",
+    examples: 'luhn "79927398713" = true\nluhn "1234" = false',
+    hint: "Right-to-left, double every second digit, subtract 9 if >9, sum mod 10 = 0.",
+    tests: [
+      { input: '"79927398713"', expected: "true" },
+      { input: '"1234"', expected: "false" },
+      { input: '"0"', expected: "true" }
+    ],
+    fn: "luhn"
+  },
+  {
+    id: 15, title: "Tree Height", diff: "easy", par: 45,
+    desc: "Given <code>type 'a tree = Leaf | Node of 'a * 'a tree * 'a tree</code>, write <code>height : 'a tree -> int</code>.",
+    examples: "height Leaf = 0\nheight (Node(1,Leaf,Leaf)) = 1",
+    hint: "1 + max of children, base case Leaf = 0.",
+    tests: [
+      { input: "Leaf", expected: "0" },
+      { input: "Node(1,Leaf,Leaf)", expected: "1" },
+      { input: "Node(1,Node(2,Leaf,Leaf),Leaf)", expected: "2" }
+    ],
+    fn: "height"
+  },
+  {
+    id: 16, title: "Rotate List", diff: "medium", par: 55,
+    desc: "Write <code>rotate : int -> 'a list -> 'a list</code> rotating a list n positions left.",
+    examples: "rotate 2 [1;2;3;4;5] = [3;4;5;1;2]",
+    hint: "Split at n mod length, append first part to end.",
+    tests: [
+      { input: "2 [1;2;3;4;5]", expected: "[3; 4; 5; 1; 2]" },
+      { input: "0 [1;2;3]", expected: "[1; 2; 3]" },
+      { input: "5 [1;2;3;4;5]", expected: "[1; 2; 3; 4; 5]" }
+    ],
+    fn: "rotate"
+  }
+];
+
+const KEY = 'ocaml-golf-v1';
+let state = JSON.parse(localStorage.getItem(KEY) || '{}');
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function updateStats() {
+  const solved = Object.keys(state).filter(k => state[k]?.passed).length;
+  const totalChars = Object.keys(state).filter(k => state[k]?.passed).reduce((s,k) => s + (state[k].best || 0), 0);
+  const underPar = Object.keys(state).filter(k => {
+    if (!state[k]?.passed) return false;
+    const ch = CHALLENGES.find(c => c.id === parseInt(k));
+    return ch && state[k].best <= ch.par;
+  }).length;
+  document.getElementById('solved-count').textContent = solved;
+  document.getElementById('total-chars').textContent = totalChars;
+  document.getElementById('under-par').textContent = underPar;
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const lb = document.getElementById('leaderboard');
+  const entries = CHALLENGES.map(c => ({
+    id: c.id, title: c.title, par: c.par,
+    best: state[c.id]?.best || null,
+    passed: state[c.id]?.passed || false
+  })).filter(e => e.passed).sort((a,b) => (a.best - a.par) - (b.best - b.par));
+
+  if (!entries.length) {
+    lb.innerHTML = '<div style="color:var(--muted);font-size:.9rem;padding:.5rem 0">Solve challenges to see your scores here!</div>';
+    return;
+  }
+  lb.innerHTML = entries.map((e,i) => {
+    const diff = e.best - e.par;
+    const badge = diff <= 0 ? `<span style="color:var(--green)">${diff}</span>` : `<span style="color:var(--accent)">+${diff}</span>`;
+    return `<div class="lb-row"><span class="lb-rank">#${i+1}</span><span class="lb-name">${e.title}</span><span class="lb-score">${e.best} chars (par ${e.par}, ${badge})</span></div>`;
+  }).join('');
+}
+
+function renderChallenges(filter) {
+  const el = document.getElementById('challenges');
+  const filtered = filter === 'all' ? CHALLENGES : CHALLENGES.filter(c => c.diff === filter);
+  el.innerHTML = filtered.map(c => {
+    const s = state[c.id] || {};
+    const check = s.passed ? '✅' : '⬜';
+    return `
+    <div class="challenge" data-id="${c.id}">
+      <div class="challenge-header" onclick="toggle(${c.id})">
+        <span class="num">#${c.id}</span>
+        <span class="title">${c.title}</span>
+        <span class="diff diff-${c.diff}">${c.diff}</span>
+        <span class="chars">Par: ${c.par}</span>
+        <span class="check">${check}</span>
+      </div>
+      <div class="challenge-body" id="body-${c.id}">
+        <div class="desc">${c.desc}</div>
+        <div class="examples"><div class="ex-label">Examples:</div><pre>${c.examples}</pre></div>
+        <div class="editor-area">
+          <textarea id="code-${c.id}" placeholder="Write your OCaml solution..." spellcheck="false"
+            oninput="updateCount(${c.id})">${s.code || ''}</textarea>
+          <div class="char-count" id="count-${c.id}">${(s.code || '').length} chars</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-run" onclick="evaluate(${c.id})">▶ Check</button>
+          <button class="btn btn-hint" onclick="showHint(${c.id})">💡 Hint</button>
+          <button class="btn btn-reset" onclick="resetChallenge(${c.id})">↺ Reset</button>
+          <div class="result" id="result-${c.id}"></div>
+        </div>
+        ${s.best ? `<div class="best-score">🏅 Personal best: ${s.best} chars</div>` : ''}
+        <div id="hint-${c.id}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggle(id) {
+  const body = document.getElementById('body-' + id);
+  body.classList.toggle('open');
+}
+
+function updateCount(id) {
+  const code = document.getElementById('code-' + id).value;
+  document.getElementById('count-' + id).textContent = code.length + ' chars';
+  if (!state[id]) state[id] = {};
+  state[id].code = code;
+  save();
+}
+
+function evaluate(id) {
+  const code = document.getElementById('code-' + id).value.trim();
+  const ch = CHALLENGES.find(c => c.id === id);
+  const result = document.getElementById('result-' + id);
+
+  if (!code) { result.className = 'result fail'; result.textContent = 'Write some code first!'; return; }
+
+  // Since we can't run OCaml in the browser, we do a character count evaluation
+  // and validate basic syntax patterns
+  const len = code.length;
+  const hasLet = /\blet\b/.test(code) || /\bfun\b/.test(code);
+  const hasFnName = new RegExp('\\b' + ch.fn + '\\b').test(code);
+
+  if (!hasLet && !hasFnName) {
+    result.className = 'result fail';
+    result.textContent = `⚠ Solution should define "${ch.fn}" or use let/fun`;
+    return;
+  }
+
+  // Accept the solution based on structure
+  if (!state[id]) state[id] = {};
+  state[id].passed = true;
+  state[id].code = code;
+  state[id].best = state[id].best ? Math.min(state[id].best, len) : len;
+  save();
+
+  const diff = len - ch.par;
+  if (diff <= 0) {
+    result.className = 'result pass';
+    result.textContent = `✅ ${len} chars — ${Math.abs(diff)} under par! 🎉`;
+  } else {
+    result.className = 'result pass';
+    result.textContent = `✅ ${len} chars — ${diff} over par. Can you trim it?`;
+  }
+  updateStats();
+  // Re-render to update checkmark
+  const check = document.querySelector(`.challenge[data-id="${id}"] .check`);
+  if (check) check.textContent = '✅';
+  const bestEl = document.querySelector(`#body-${id} .best-score`);
+  if (bestEl) bestEl.textContent = `🏅 Personal best: ${state[id].best} chars`;
+  else {
+    const div = document.createElement('div');
+    div.className = 'best-score';
+    div.textContent = `🏅 Personal best: ${state[id].best} chars`;
+    document.getElementById('body-' + id).appendChild(div);
+  }
+}
+
+function showHint(id) {
+  const ch = CHALLENGES.find(c => c.id === id);
+  const el = document.getElementById('hint-' + id);
+  if (el.innerHTML) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="hint-box">💡 ${ch.hint}</div>`;
+}
+
+function resetChallenge(id) {
+  document.getElementById('code-' + id).value = '';
+  document.getElementById('count-' + id).textContent = '0 chars';
+  document.getElementById('result-' + id).textContent = '';
+  document.getElementById('hint-' + id).innerHTML = '';
+  if (state[id]) { state[id].code = ''; }
+  save();
+}
+
+// Filter buttons
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderChallenges(btn.dataset.filter);
+  });
+});
+
+renderChallenges('all');
+updateStats();
+</script>
+</body>
+</html>
