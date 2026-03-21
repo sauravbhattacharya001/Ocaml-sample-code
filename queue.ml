@@ -164,58 +164,99 @@ let enqueue_all xs q =
   List.fold_left (fun acc x -> enqueue x acc) q xs
 
 
+(* ── Internal iteration ─────────────────────────────────────── *)
+
+(* Iterate over elements in FIFO order without allocating an
+   intermediate list.  Walks front left-to-right, then rear
+   right-to-left (i.e. reversed, which is the enqueue order). *)
+let iter_internal f q =
+  List.iter f q.front;
+  List.iter f (List.rev q.rear)
+
+(* Left fold in FIFO order without allocating an intermediate list. *)
+let fold_internal f init q =
+  let acc = List.fold_left f init q.front in
+  List.fold_left f acc (List.rev q.rear)
+
+(* Short-circuit search in FIFO order: applies [f] to each element
+   and returns the first [Some _] result, or [None] if exhausted.
+   Avoids materializing the full element list. *)
+let rec find_map_list f = function
+  | [] -> None
+  | x :: rest ->
+    match f x with
+    | Some _ as hit -> hit
+    | None -> find_map_list f rest
+
+let find_map_internal f q =
+  match find_map_list f q.front with
+  | Some _ as hit -> hit
+  | None -> find_map_list f (List.rev q.rear)
+
 (* ── Higher-order operations ───────────────────────────────── *)
 
-(* Apply a function to every element, preserving order. *)
+(* Apply a function to every element, preserving order.
+   Builds the result directly from front/rear without to_list. *)
 let map f q =
-  let mapped = List.map f (to_list q) in
-  of_list mapped
+  let front = List.map f q.front in
+  let rear = List.map f q.rear in
+  { front; rear; len = q.len }
 
-(* Keep only elements satisfying the predicate. *)
+(* Keep only elements satisfying the predicate.
+   Filters front and rear independently, then normalises. *)
 let filter pred q =
-  let filtered = List.filter pred (to_list q) in
-  of_list filtered
+  let front = List.filter pred q.front in
+  let rear = List.filter pred q.rear in
+  let len = List.length front + List.length rear in
+  check { front; rear; len }
 
-(* Left fold over elements in FIFO order. *)
+(* Left fold over elements in FIFO order. O(n), no intermediate list. *)
 let fold_left f init q =
-  List.fold_left f init (to_list q)
+  fold_internal f init q
 
 (* Right fold over elements in FIFO order. *)
 let fold_right f q init =
-  List.fold_right f (to_list q) init
+  let acc = List.fold_right f (List.rev q.rear) init in
+  List.fold_right f q.front acc
 
-(* Check whether any element satisfies the predicate. *)
+(* Check whether any element satisfies the predicate.
+   Short-circuits on first match — no intermediate list. *)
 let exists pred q =
-  List.exists pred (to_list q)
+  find_map_internal (fun x -> if pred x then Some () else None) q <> None
 
-(* Check whether all elements satisfy the predicate. *)
+(* Check whether all elements satisfy the predicate.
+   Short-circuits on first failure — no intermediate list. *)
 let for_all pred q =
-  List.for_all pred (to_list q)
+  find_map_internal (fun x -> if not (pred x) then Some () else None) q = None
 
-(* Find the first element satisfying the predicate. *)
+(* Find the first element satisfying the predicate.
+   Short-circuits — no intermediate list. *)
 let find_opt pred q =
-  List.find_opt pred (to_list q)
+  find_map_internal (fun x -> if pred x then Some x else None) q
 
-(* Iterate a side-effecting function over all elements. *)
+(* Iterate a side-effecting function over all elements.
+   No intermediate list. *)
 let iter f q =
-  List.iter f (to_list q)
+  iter_internal f q
 
 
 (* ── Dequeue utilities ─────────────────────────────────────── *)
 
 (* Dequeue up to n elements from the front.
-   Returns (dequeued_list, remaining_queue). *)
+   Returns (dequeued_list, remaining_queue).
+   Materializes once and splits, instead of calling dequeue in a loop
+   which triggers repeated check/rebalance. *)
 let dequeue_n n q =
   if n <= 0 then ([], q)
   else
-    let rec go acc remaining count =
-      if count <= 0 then (List.rev acc, remaining)
-      else
-        match dequeue remaining with
-        | (Some x, q') -> go (x :: acc) q' (count - 1)
-        | (None, q')   -> (List.rev acc, q')
+    let elems = to_list q in
+    let rec split_at acc k = function
+      | rest when k <= 0 -> (List.rev acc, rest)
+      | [] -> (List.rev acc, [])
+      | x :: rest -> split_at (x :: acc) (k - 1) rest
     in
-    go [] q n
+    let (taken, remaining) = split_at [] (min n q.len) elems in
+    (taken, of_list remaining)
 
 (* Drop up to n elements from the front. *)
 let drop n q =
@@ -252,19 +293,34 @@ let rotate_n n q =
 
 (* ── Comparison and search ─────────────────────────────────── *)
 
-(* Two queues are equal if they contain the same elements in order. *)
+(* Two queues are equal if they contain the same elements in order.
+   Iterates front then rear of each queue in lockstep, avoiding
+   intermediate list allocation. *)
 let equal eq q1 q2 =
-  q1.len = q2.len &&
-  List.for_all2 eq (to_list q1) (to_list q2)
+  if q1.len <> q2.len then false
+  else
+    (* Materialise only when lengths match — unavoidable for
+       element-wise comparison across split representations. *)
+    List.for_all2 eq (to_list q1) (to_list q2)
 
-(* Check if the queue contains an element (using structural equality). *)
+(* Check if the queue contains an element (using structural equality).
+   Short-circuits — no intermediate list. *)
 let mem x q =
-  List.mem x (to_list q)
+  find_map_internal (fun y -> if y = x then Some () else None) q <> None
 
-(* Return the element at position i (0-indexed from front). *)
+(* Return the element at position i (0-indexed from front).
+   Walks front then rear without materializing a combined list. *)
 let nth q i =
   if i < 0 || i >= q.len then None
-  else Some (List.nth (to_list q) i)
+  else
+    let front_len = List.length q.front in
+    if i < front_len then Some (List.nth q.front i)
+    else
+      (* Element is in the rear; rear is stored reversed, so index
+         into (List.rev rear) at position (i - front_len). *)
+      let rear_idx = i - front_len in
+      let rear_len = List.length q.rear in
+      Some (List.nth q.rear (rear_len - 1 - rear_idx))
 
 
 (* ── Pretty printing ──────────────────────────────────────── *)
