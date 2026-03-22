@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Benchmark Framework — OCaml Sample Code</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.bench-demo { background: #1a1a2e; border-radius: 8px; padding: 20px; margin: 20px 0; font-family: 'Fira Code', monospace; font-size: 14px; }
+.bench-demo pre { color: #e0e0e0; margin: 0; white-space: pre-wrap; }
+.bar-container { display: flex; align-items: center; margin: 4px 0; }
+.bar-label { width: 160px; color: #ccc; font-size: 13px; }
+.bar { height: 22px; background: linear-gradient(90deg, #6c5ce7, #a29bfe); border-radius: 3px; transition: width 0.5s ease; min-width: 4px; }
+.bar-value { margin-left: 8px; color: #aaa; font-size: 12px; }
+.bar.winner { background: linear-gradient(90deg, #00b894, #55efc4); }
+.controls { margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.controls button { background: #6c5ce7; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.controls button:hover { background: #a29bfe; }
+.controls button.active { background: #00b894; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+.stat-card { background: #16213e; padding: 10px; border-radius: 6px; text-align: center; }
+.stat-card .value { font-size: 18px; font-weight: bold; color: #a29bfe; }
+.stat-card .label { font-size: 11px; color: #888; margin-top: 4px; }
+.section { margin: 30px 0; }
+.section h3 { color: #6c5ce7; border-bottom: 1px solid #333; padding-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏎️ Microbenchmark Framework</h1>
+<p>A lightweight OCaml benchmarking framework with automatic calibration, statistical analysis, and comparison charts.</p>
+
+<div class="section">
+<h3>Features</h3>
+<ul>
+<li><strong>Auto-calibration</strong> — determines iteration count for reliable measurements</li>
+<li><strong>Warmup runs</strong> — stabilizes CPU caches before measuring</li>
+<li><strong>Full statistics</strong> — mean, median, std deviation, percentiles, min/max</li>
+<li><strong>Group comparisons</strong> — race multiple implementations head-to-head</li>
+<li><strong>Parametric benchmarks</strong> — measure scaling behavior across input sizes</li>
+<li><strong>ASCII visualization</strong> — bar charts right in the terminal</li>
+</ul>
+</div>
+
+<div class="section">
+<h3>Interactive Demo</h3>
+<p>Simulated benchmark results (the real framework runs natively in OCaml):</p>
+
+<div class="controls">
+<button class="active" onclick="showGroup('sorting')">Sorting</button>
+<button onclick="showGroup('string')">String Concat</button>
+<button onclick="showGroup('fib')">Fibonacci</button>
+<button onclick="showGroup('ds')">Map vs Hashtbl</button>
+<button onclick="showGroup('scaling')">Scaling</button>
+</div>
+
+<div id="bench-results"></div>
+</div>
+
+<div class="section">
+<h3>API Usage</h3>
+<div class="bench-demo"><pre><code>(* Simple benchmark *)
+let result = Bench.run "My Function" (fun () -> my_function input)
+
+(* Compare implementations *)
+Bench.group "Sorting" [
+  ("Insertion Sort", fun () -> insertion_sort data);
+  ("Merge Sort",     fun () -> merge_sort data);
+  ("Array.sort",     fun () -> Array.sort compare (Array.copy data));
+]
+
+(* Parametric — measure scaling *)
+Bench.parametric "Array.sort Scaling"
+  [100; 500; 1000; 5000; 10000]
+  (fun n ->
+    let data = Array.init n (fun _ -> Random.int 100000) in
+    fun () -> Array.sort compare (Array.copy data))
+
+(* Custom config *)
+let cfg = { Bench.default_config with
+  warmup_iters = 10;
+  min_samples = 50;
+  min_time = 3.0;
+} in
+Bench.run ~config:cfg "Precise" my_fn</code></pre></div>
+</div>
+
+<div class="section">
+<h3>Statistics Explained</h3>
+<div class="stat-grid">
+<div class="stat-card"><div class="value">x̄</div><div class="label">Mean — average time</div></div>
+<div class="stat-card"><div class="value">x̃</div><div class="label">Median — middle value</div></div>
+<div class="stat-card"><div class="value">σ</div><div class="label">Std Dev — spread</div></div>
+<div class="stat-card"><div class="value">P5</div><div class="label">5th percentile</div></div>
+<div class="stat-card"><div class="value">P95</div><div class="label">95th percentile</div></div>
+<div class="stat-card"><div class="value">n</div><div class="label">Sample count</div></div>
+</div>
+</div>
+
+<p><a href="index.html">← Back to Index</a></p>
+</div>
+
+<script>
+const benchData = {
+  sorting: {
+    title: "Sorting (n=1000)",
+    results: [
+      { name: "Insertion Sort", mean: 1.42, unit: "ms" },
+      { name: "Merge Sort", mean: 0.18, unit: "ms" },
+      { name: "Array.sort", mean: 0.09, unit: "ms" },
+    ]
+  },
+  string: {
+    title: "String Concat (n=500)",
+    results: [
+      { name: "Naive (^)", mean: 0.31, unit: "ms" },
+      { name: "Buffer", mean: 0.002, unit: "ms" },
+    ]
+  },
+  fib: {
+    title: "Fibonacci(25)",
+    results: [
+      { name: "Naive recursive", mean: 1.87, unit: "ms" },
+      { name: "Tail recursive", mean: 0.012, unit: "μs" },
+    ]
+  },
+  ds: {
+    title: "Map vs Hashtbl Insert (n=1000)",
+    results: [
+      { name: "Hashtbl", mean: 0.05, unit: "ms" },
+      { name: "IntMap", mean: 0.21, unit: "ms" },
+    ]
+  },
+  scaling: {
+    title: "Array.sort Scaling",
+    results: [
+      { name: "n=100", mean: 0.007, unit: "ms" },
+      { name: "n=500", mean: 0.042, unit: "ms" },
+      { name: "n=1000", mean: 0.09, unit: "ms" },
+      { name: "n=5000", mean: 0.55, unit: "ms" },
+      { name: "n=10000", mean: 1.2, unit: "ms" },
+    ]
+  }
+};
+
+function showGroup(key) {
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  const g = benchData[key];
+  const maxVal = Math.max(...g.results.map(r => r.mean));
+  const minVal = Math.min(...g.results.map(r => r.mean));
+  let html = `<h4 style="color:#ccc;margin:12px 0 8px">${g.title}</h4>`;
+  g.results.forEach(r => {
+    const pct = (r.mean / maxVal) * 100;
+    const isWinner = r.mean === minVal;
+    html += `<div class="bar-container">
+      <div class="bar-label">${r.name}</div>
+      <div class="bar ${isWinner ? 'winner' : ''}" style="width:${Math.max(pct, 2)}%"></div>
+      <div class="bar-value">${r.mean} ${r.unit}${isWinner && g.results.length > 1 ? ' ⚡' : ''}</div>
+    </div>`;
+  });
+  document.getElementById('bench-results').innerHTML = html;
+}
+showGroup('sorting');
+</script>
+</body>
+</html>
