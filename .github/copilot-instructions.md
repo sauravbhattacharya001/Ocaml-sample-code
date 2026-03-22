@@ -92,6 +92,29 @@ make coverage
 - **Modules:** `Map.Make`, `Set.Make`, `Queue`
 - **Hash tables:** `Hashtbl.create`, `Hashtbl.find`, `Hashtbl.replace`
 
+## Files Requiring External Packages
+
+Some files need `ocamlfind` with specific packages. The Makefile handles this automatically, but if compiling manually:
+
+| File | Package | Command |
+|------|---------|---------|
+| `csv.ml` | `str` | `ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv` |
+| `free_monad.ml` | `str` | `ocamlfind ocamlopt -package str -linkpkg free_monad.ml -o free_monad` |
+| `actor.ml` | `unix` | `ocamlfind ocamlopt -package unix -linkpkg actor.ml -o actor` |
+| `kd_tree.ml` | `alcotest` | `ocamlfind ocamlopt -package alcotest -linkpkg kd_tree.ml -o kd_tree` |
+| `tensor.ml` | `alcotest` | `ocamlfind ocamlopt -package alcotest -linkpkg tensor.ml -o tensor` |
+
+All other `.ml` files compile with plain `ocamlopt -o name name.ml`.
+
+## Individual Test Suites
+
+Beyond `test_all.ml`, there are focused test files (`test_btree.ml`, `test_geometry.ml`, etc.) that test specific modules. Some require their source file to be compiled together:
+
+```bash
+# Example: test skip_list specifically
+make test_skip_list && ./test_skip_list
+```
+
 ## CI/CD
 
 - **Coverage workflow** (`.github/workflows/coverage.yml`): Builds with bisect_ppx instrumentation, runs tests, generates coverage reports.

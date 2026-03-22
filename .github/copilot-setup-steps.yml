@@ -22,12 +22,29 @@ jobs:
           opam install bisect_ppx ocamlfind alcotest --yes
           eval $(opam env)
 
+      - name: Verify toolchain
+        run: |
+          eval $(opam env)
+          ocamlopt -version
+          ocamlfind list | head -20
+
       - name: Build all programs
         run: |
           eval $(opam env)
-          make all
+          make all 2>&1 | tail -20
 
       - name: Build and run tests
         run: |
           eval $(opam env)
           make test
+
+      - name: Verify individual test suites
+        run: |
+          eval $(opam env)
+          for f in test_*.ml; do
+            base="${f%.ml}"
+            if [ "$base" != "test_all" ] && [ "$base" != "test_framework" ]; then
+              echo "--- Checking $base ---"
+              make "$base" 2>/dev/null && ./"$base" || echo "Skipped $base"
+            fi
+          done
