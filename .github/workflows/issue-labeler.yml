@@ -36,7 +36,24 @@ jobs:
               { keywords: ['test', 'testing', 'unit test', 'coverage', 'assertion'], label: 'tests' },
               { keywords: ['bug', 'error', 'crash', 'fix', 'broken', 'segfault', 'exception'], label: 'bug' },
               { keywords: ['feature', 'enhancement', 'add', 'implement', 'support'], label: 'enhancement' },
+              { keywords: ['performance', 'slow', 'optimize', 'memory leak', 'profiling', 'benchmark'], label: 'performance' },
+              { keywords: ['refactor', 'cleanup', 'technical debt', 'simplify', 'restructure'], label: 'refactor' },
             ];
+
+            // Priority detection
+            const priorityRules = [
+              { keywords: ['critical', 'urgent', 'crash', 'segfault', 'data loss', 'security vulnerability', 'production'], label: 'priority/critical' },
+              { keywords: ['important', 'high priority', 'blocker', 'regression', 'broken'], label: 'priority/high' },
+              { keywords: ['nice to have', 'low priority', 'minor', 'cosmetic', 'trivial', 'nit'], label: 'priority/low' },
+            ];
+
+            for (const rule of priorityRules) {
+              if (existingLabels.includes(rule.label)) continue;
+              if (rule.keywords.some(kw => text.includes(kw))) {
+                labelsToAdd.push(rule.label);
+                break; // Only one priority label
+              }
+            }
 
             const existingLabels = issue.labels.map(l => l.name);
 

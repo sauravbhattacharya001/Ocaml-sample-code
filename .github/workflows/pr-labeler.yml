@@ -1,0 +1,97 @@
+name: PR Size Labels
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR by size
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            const changes = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+
+            const sizeLabels = {
+              'size/XS': [0, 10],
+              'size/S': [11, 50],
+              'size/M': [51, 200],
+              'size/L': [201, 500],
+              'size/XL': [501, Infinity],
+            };
+
+            // Remove existing size labels
+            const existing = context.payload.pull_request.labels
+              .filter(l => l.name.startsWith('size/'))
+              .map(l => l.name);
+            for (const label of existing) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: label,
+              }).catch(() => {});
+            }
+
+            // Add correct size label
+            for (const [label, [min, max]] of Object.entries(sizeLabels)) {
+              if (changes >= min && changes <= max) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  labels: [label],
+                });
+                console.log(`Added ${label} (${changes} lines changed)`);
+                break;
+              }
+            }
+
+      - name: Label PR by file type
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            const labelsToAdd = new Set();
+            const existing = new Set(
+              context.payload.pull_request.labels.map(l => l.name)
+            );
+
+            for (const file of files) {
+              const name = file.filename;
+              if (name.endsWith('.ml')) labelsToAdd.add('ocaml');
+              if (name.startsWith('.github/workflows/')) labelsToAdd.add('ci');
+              if (name.includes('Dockerfile') || name === '.dockerignore') labelsToAdd.add('docker');
+              if (name.endsWith('.md')) labelsToAdd.add('documentation');
+              if (name.startsWith('test_') || name.includes('__tests__')) labelsToAdd.add('tests');
+            }
+
+            // Only add labels not already present
+            const newLabels = [...labelsToAdd].filter(l => !existing.has(l));
+            if (newLabels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: newLabels,
+              });
+              console.log(`Added labels: ${newLabels.join(', ')}`);
+            }
