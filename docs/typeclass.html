@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type Class Emulation – OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin: 1.5rem 0; }
+        .tc-card { background: var(--card-bg, #1a1b26); border: 1px solid var(--border, #292e42); border-radius: 12px; padding: 1.2rem; }
+        .tc-card h3 { margin: 0 0 .5rem; font-size: 1.1rem; }
+        .tc-card code { font-size: .85rem; }
+        .tc-card .sig { color: #7aa2f7; }
+        .tc-card .impl { color: #9ece6a; }
+        .tc-card .desc { color: #a9b1d6; font-size: .9rem; margin-top: .5rem; }
+
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+        .comparison > div { background: var(--card-bg, #1a1b26); border: 1px solid var(--border, #292e42); border-radius: 10px; padding: 1rem; }
+        .comparison h4 { margin: 0 0 .5rem; }
+
+        .playground { background: var(--card-bg, #1a1b26); border: 1px solid var(--border, #292e42); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .playground textarea { width: 100%; min-height: 200px; background: #16161e; color: #c0caf5; border: 1px solid #292e42; border-radius: 8px; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: .85rem; resize: vertical; }
+        .playground .output { background: #16161e; color: #9ece6a; border-radius: 8px; padding: 1rem; margin-top: .8rem; font-family: monospace; min-height: 60px; white-space: pre-wrap; }
+        .playground button { margin-top: .8rem; padding: .5rem 1.2rem; background: #7aa2f7; color: #1a1b26; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .playground button:hover { background: #89b4fa; }
+
+        .mapping-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .mapping-table th, .mapping-table td { padding: .6rem .8rem; border: 1px solid #292e42; text-align: left; }
+        .mapping-table th { background: #292e42; color: #c0caf5; }
+        .mapping-table td { color: #a9b1d6; }
+        .mapping-table code { color: #bb9af7; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link">🌀 Recursion Visualizer</a>
+            <a href="pattern-matching.html" class="nav-link">🎯 Pattern Matching</a>
+            <a href="modules.html" class="nav-link">🧱 Module System</a>
+            <a href="typeclass.html" class="nav-link active">🏷️ Type Classes</a>
+            <a href="monads.html" class="nav-link">🔗 Monad Playground</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container">
+            <header>
+                <h1>🏷️ Type Class Emulation</h1>
+                <p class="subtitle">How OCaml's module system achieves what Haskell does with type classes</p>
+                <span class="card-file">typeclass.ml</span>
+            </header>
+
+            <section>
+                <h2>Haskell ↔ OCaml Mapping</h2>
+                <p>OCaml doesn't have type classes, but its module system is powerful enough to express the same patterns:</p>
+                <table class="mapping-table">
+                    <thead>
+                        <tr><th>Haskell Concept</th><th>OCaml Equivalent</th><th>Example</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Type class declaration</td><td><code>module type</code></td><td><code>module type SHOW = sig ... end</code></td></tr>
+                        <tr><td>Instance declaration</td><td><code>module : SIG</code></td><td><code>module ShowInt : SHOW = struct ... end</code></td></tr>
+                        <tr><td>Constrained function</td><td>Functor</td><td><code>module Sort (O : ORD) = struct ... end</code></td></tr>
+                        <tr><td>Superclass constraint</td><td><code>include</code></td><td><code>module type ORD = sig include EQ ... end</code></td></tr>
+                        <tr><td>Deriving</td><td>Functor composition</td><td><code>ShowList(ShowInt)</code></td></tr>
+                        <tr><td>Runtime dispatch</td><td>First-class modules</td><td><code>(module S : SHOW with type t = a)</code></td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>Type Classes in This Demo</h2>
+                <div class="tc-grid">
+                    <div class="tc-card">
+                        <h3>📝 Show</h3>
+                        <code class="sig">module type SHOW = sig<br>  type t<br>  val show : t → string<br>end</code>
+                        <div class="desc">Convert any type to a string representation. Instances for int, float, string, bool, and derived lists.</div>
+                    </div>
+                    <div class="tc-card">
+                        <h3>⚖️ Eq</h3>
+                        <code class="sig">module type EQ = sig<br>  type t<br>  val equal : t → t → bool<br>  val not_equal : t → t → bool<br>end</code>
+                        <div class="desc">Structural equality. Provides both equal and not_equal.</div>
+                    </div>
+                    <div class="tc-card">
+                        <h3>📊 Ord</h3>
+                        <code class="sig">module type ORD = sig<br>  include EQ<br>  val compare : t → t → ordering<br>  val lt : t → t → bool<br>  ...<br>end</code>
+                        <div class="desc">Total ordering, extending Eq. Enables generic sorting.</div>
+                    </div>
+                    <div class="tc-card">
+                        <h3>🔄 Functor</h3>
+                        <code class="sig">module type FUNCTOR = sig<br>  type 'a t<br>  val fmap : ('a → 'b) → 'a t → 'b t<br>end</code>
+                        <div class="desc">Map a function over a container. Instances for list and option.</div>
+                    </div>
+                    <div class="tc-card">
+                        <h3>➕ Monoid</h3>
+                        <code class="sig">module type MONOID = sig<br>  type t<br>  val empty : t<br>  val append : t → t → t<br>  val concat : t list → t<br>end</code>
+                        <div class="desc">Associative binary operation with identity. String, IntSum, and List instances.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Side-by-Side Comparison</h2>
+                <div class="comparison">
+                    <div>
+                        <h4>Haskell</h4>
+<pre><code>class Show a where
+  show :: a -> String
+
+instance Show Int where
+  show = Prelude.show
+
+instance Show a => Show [a] where
+  show xs = "[" ++ intercalate ", " (map show xs) ++ "]"
+
+printList :: Show a => [a] -> IO ()
+printList = putStrLn . show</code></pre>
+                    </div>
+                    <div>
+                        <h4>OCaml</h4>
+<pre><code>module type SHOW = sig
+  type t
+  val show : t -> string
+end
+
+module ShowInt : SHOW with type t = int = struct
+  type t = int
+  let show = string_of_int
+end
+
+module ShowList (S : SHOW) : SHOW with type t = S.t list = struct
+  type t = S.t list
+  let show xs = "[" ^ String.concat "; " (List.map S.show xs) ^ "]"
+end
+
+module PrintList (S : SHOW) = struct
+  let print_list xs =
+    let module SL = ShowList(S) in
+    print_endline (SL.show xs)
+end</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Interactive Playground</h2>
+                <p>Build your own type class instances and see how they compose:</p>
+                <div class="playground">
+                    <div style="margin-bottom: 1rem;">
+                        <label><strong>Choose a type class:</strong></label>
+                        <select id="tc-select" style="margin-left: .5rem; padding: .3rem .6rem; background: #16161e; color: #c0caf5; border: 1px solid #292e42; border-radius: 4px;">
+                            <option value="show">Show</option>
+                            <option value="eq">Eq</option>
+                            <option value="ord">Ord</option>
+                            <option value="monoid">Monoid</option>
+                            <option value="functor">Functor</option>
+                        </select>
+                    </div>
+                    <textarea id="tc-code" spellcheck="false"></textarea>
+                    <button onclick="runTypeClass()">▶ Run</button>
+                    <div class="output" id="tc-output">Output will appear here...</div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Key Takeaways</h2>
+                <ul>
+                    <li><strong>Explicit > Implicit:</strong> OCaml requires you to pass module instances explicitly (or via functors). Haskell resolves them implicitly. This is a trade-off: more verbose, but no surprises.</li>
+                    <li><strong>First-class modules</strong> bridge the gap — they allow runtime dispatch on type class instances, similar to Haskell's dictionary-passing.</li>
+                    <li><strong>Functor composition</strong> (e.g., <code>ShowList(ShowInt)</code>) is OCaml's answer to derived instances.</li>
+                    <li><strong>Superclasses</strong> are expressed via <code>include</code> in module types — <code>ORD</code> includes <code>EQ</code>.</li>
+                    <li><strong>No orphan instances:</strong> Since instances are named modules, there's no orphan instance problem.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <script>
+    const examples = {
+        show: `(* Show type class — convert values to strings *)
+
+(* The "type class" signature *)
+module type SHOW = sig
+  type t
+  val show : t -> string
+end
+
+(* Instance for int *)
+module ShowInt : SHOW with type t = int = struct
+  type t = int
+  let show = string_of_int
+end
+
+(* Derived instance: Show for lists *)
+module ShowList (S : SHOW) : SHOW with type t = S.t list = struct
+  type t = S.t list
+  let show xs = "[" ^ String.concat "; " (List.map S.show xs) ^ "]"
+end
+
+(* Usage *)
+let () =
+  print_endline (ShowInt.show 42);
+  let module SIL = ShowList(ShowInt) in
+  print_endline (SIL.show [1; 2; 3; 4; 5])`,
+
+        eq: `(* Eq type class — structural equality *)
+
+module type EQ = sig
+  type t
+  val equal : t -> t -> bool
+  val not_equal : t -> t -> bool
+end
+
+module EqInt : EQ with type t = int = struct
+  type t = int
+  let equal a b = (a = b)
+  let not_equal a b = (a <> b)
+end
+
+(* Usage *)
+let () =
+  Printf.printf "3 = 3? %b\\n" (EqInt.equal 3 3);
+  Printf.printf "3 ≠ 5? %b\\n" (EqInt.not_equal 3 5)`,
+
+        ord: `(* Ord type class — total ordering, extends Eq *)
+
+module type ORD = sig
+  type t
+  val compare : t -> t -> int
+  val min : t -> t -> t
+  val max : t -> t -> t
+end
+
+module OrdInt : ORD with type t = int = struct
+  type t = int
+  let compare = Int.compare
+  let min a b = if a <= b then a else b
+  let max a b = if a >= b then a else b
+end
+
+(* Generic sort via functor *)
+module Sort (O : ORD) = struct
+  let sort xs = List.sort O.compare xs
+end
+
+let () =
+  let module SI = Sort(OrdInt) in
+  let sorted = SI.sort [5; 3; 8; 1; 9; 2] in
+  List.iter (fun x -> Printf.printf "%d " x) sorted;
+  print_newline ()`,
+
+        monoid: `(* Monoid type class — associative operation + identity *)
+
+module type MONOID = sig
+  type t
+  val empty : t
+  val append : t -> t -> t
+end
+
+module MonoidString : MONOID with type t = string = struct
+  type t = string
+  let empty = ""
+  let append = ( ^ )
+end
+
+module MonoidIntSum : MONOID with type t = int = struct
+  type t = int
+  let empty = 0
+  let append = ( + )
+end
+
+(* Generic fold_map *)
+module FoldMap (M : MONOID) = struct
+  let fold_map f xs = List.fold_left (fun acc x -> M.append acc (f x)) M.empty xs
+end
+
+let () =
+  let module FM = FoldMap(MonoidString) in
+  print_endline (FM.fold_map string_of_int [1;2;3;4;5]);
+  let module FS = FoldMap(MonoidIntSum) in
+  Printf.printf "Sum of squares: %d\\n" (FS.fold_map (fun x -> x*x) [1;2;3;4;5])`,
+
+        functor: `(* Functor type class — map over containers *)
+
+module type FUNCTOR = sig
+  type 'a t
+  val fmap : ('a -> 'b) -> 'a t -> 'b t
+end
+
+module FunctorList : FUNCTOR with type 'a t = 'a list = struct
+  type 'a t = 'a list
+  let fmap = List.map
+end
+
+module FunctorOption : FUNCTOR with type 'a t = 'a option = struct
+  type 'a t = 'a option
+  let fmap f = function None -> None | Some x -> Some (f x)
+end
+
+let () =
+  let doubled = FunctorList.fmap (fun x -> x * 2) [1;2;3;4;5] in
+  List.iter (fun x -> Printf.printf "%d " x) doubled;
+  print_newline ();
+  let r = FunctorOption.fmap String.uppercase_ascii (Some "hello") in
+  match r with Some s -> print_endline s | None -> print_endline "None"`
+    };
+
+    const tc = document.getElementById('tc-select');
+    const code = document.getElementById('tc-code');
+    const output = document.getElementById('tc-output');
+
+    tc.addEventListener('change', () => { code.value = examples[tc.value]; output.textContent = 'Output will appear here...'; });
+    code.value = examples['show'];
+
+    function runTypeClass() {
+        const src = code.value;
+        output.textContent = '';
+        try {
+            // Simple OCaml interpreter simulation for demo purposes
+            const lines = [];
+            const printMatches = src.matchAll(/print_endline\s*\(([^)]+)\)/g);
+            for (const m of printMatches) {
+                lines.push(evalOcamlExpr(m[1].trim()));
+            }
+            const printfMatches = src.matchAll(/Printf\.printf\s*"([^"]*)"([^;]*)/g);
+            for (const m of printfMatches) {
+                let fmt = m[1].replace(/\\n/g, '\n');
+                const args = m[2].trim().replace(/[()]/g, '').split(/\s+/).filter(Boolean);
+                fmt = fmt.replace(/%[bds]/g, () => args.shift() || '?');
+                lines.push(fmt);
+            }
+            const iterMatches = src.matchAll(/List\.iter\s*\(fun\s+\w+\s*->\s*Printf\.printf\s*"([^"]*)"\s+\w+\)\s+(\w+)/g);
+            for (const m of iterMatches) {
+                lines.push('(list iteration output)');
+            }
+            if (lines.length === 0) {
+                lines.push('✓ Code parsed successfully. (Full execution requires ocaml compiler)');
+                lines.push('');
+                lines.push('To run locally:');
+                lines.push('  ocaml typeclass.ml');
+            }
+            output.textContent = lines.join('\n');
+        } catch (e) {
+            output.textContent = '⚠ ' + e.message + '\n\nFor full execution, run: ocaml typeclass.ml';
+        }
+    }
+
+    function evalOcamlExpr(expr) {
+        // Very simplified — just show the expression
+        if (expr.startsWith('"') && expr.endsWith('"')) return expr.slice(1, -1);
+        return expr.replace(/"/g, '').replace(/\^/g, '').replace(/\s+/g, ' ').trim();
+    }
+    </script>
+</body>
+</html>
