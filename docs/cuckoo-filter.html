@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuckoo Filter — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🐦 Cuckoo Filter</h1>
+    <p class="subtitle">Probabilistic membership with deletion support</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>Cuckoo Filter</strong> is a space-efficient probabilistic data structure
+      for approximate set membership testing — like a Bloom filter, but with a killer feature:
+      <strong>it supports deletion</strong>. Based on cuckoo hashing, it stores compact
+      fingerprints in a bucket array and uses the "kick-and-relocate" strategy when buckets
+      are full.</p>
+      <p>Reference: <em>"Cuckoo Filter: Practically Better Than Bloom"</em> — Fan, Andersen,
+      Kaminsky, Mitzenmacher (CoNEXT 2014).</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Cuckoo hashing</strong> — two candidate buckets per item, eviction chains</li>
+        <li><strong>Fingerprints</strong> — compact hash summaries for space efficiency</li>
+        <li><strong>Deletion in probabilistic structures</strong> — the key advantage over Bloom filters</li>
+        <li><strong>False positive analysis</strong> — configurable via fingerprint size</li>
+        <li><strong>Imperative OCaml</strong> — mutable arrays, refs, while loops</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Cuckoo Filter vs Bloom Filter</h2>
+      <table>
+        <tr><th>Feature</th><th>Bloom Filter</th><th>Cuckoo Filter</th></tr>
+        <tr><td>Membership test</td><td>✅</td><td>✅</td></tr>
+        <tr><td>Deletion</td><td>❌</td><td>✅</td></tr>
+        <tr><td>Space efficiency</td><td>Good</td><td>Better (for FPR &lt; 3%)</td></tr>
+        <tr><td>Lookup speed</td><td>k hash lookups</td><td>2 bucket lookups</td></tr>
+        <tr><td>Insert worst case</td><td>O(k)</td><td>O(max_kicks)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>API</h2>
+      <pre><code>val create    : int -> t          (* create filter with capacity *)
+val insert    : t -> string -> bool (* insert item, returns success *)
+val lookup    : t -> string -> bool (* check membership *)
+val delete    : t -> string -> bool (* remove item, returns success *)
+val size      : t -> int           (* current item count *)
+val load_factor : t -> float       (* utilization ratio *)
+val stats     : t -> string        (* formatted statistics *)</code></pre>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <ol>
+        <li>Compute the item's <strong>fingerprint</strong> (compact hash)</li>
+        <li>Compute two candidate bucket indices: <code>i1 = hash(item)</code>, <code>i2 = i1 ⊕ hash(fingerprint)</code></li>
+        <li>If either bucket has space, store the fingerprint there</li>
+        <li>If both are full, evict a random entry and relocate it to its alternate bucket</li>
+        <li>Repeat relocation up to <code>max_kicks</code> times</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Run It</h2>
+      <pre><code>ocamlfind ocamlopt -package str -linkpkg cuckoo_filter.ml -o cuckoo_filter
+./cuckoo_filter</code></pre>
+      <p>Or simply: <code>ocamlfind ocamlopt cuckoo_filter.ml -o cuckoo_filter && ./cuckoo_filter</code></p>
+    </section>
+
+    <section>
+      <h2>Source</h2>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/main/cuckoo_filter.ml">cuckoo_filter.ml</a></p>
+    </section>
+  </main>
+</body>
+</html>
