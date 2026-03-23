@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ring Buffer — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔄 Ring Buffer (Circular Buffer)</h1>
+    <p class="subtitle">Fixed-capacity, mutable circular buffer with O(1) push/pop from both ends</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>Implements a <strong>ring buffer</strong> (circular buffer) — a fixed-size data structure
+      that wraps around when full, overwriting the oldest elements. Ideal for streaming data,
+      bounded queues, and sliding window algorithms.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Mutable state</strong> — uses OCaml's mutable record fields and arrays</li>
+        <li><strong>Modular arithmetic</strong> — index wrapping via <code>mod</code></li>
+        <li><strong>Module system</strong> — encapsulated API via <code>module RingBuffer</code></li>
+        <li><strong>Higher-order functions</strong> — iter, fold, map, exists, for_all</li>
+        <li><strong>Polymorphic containers</strong> — generic <code>'a t</code> type</li>
+        <li><strong>Overflow semantics</strong> — oldest elements silently replaced when full</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>API Reference</h2>
+      <table>
+        <tr><th>Function</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>create</code></td><td><code>int → 'a → 'a t</code></td><td>Create buffer with capacity and default value</td></tr>
+        <tr><td><code>push_back</code></td><td><code>'a t → 'a → unit</code></td><td>Add to back (overwrites oldest if full)</td></tr>
+        <tr><td><code>push_front</code></td><td><code>'a t → 'a → unit</code></td><td>Add to front (drops tail if full)</td></tr>
+        <tr><td><code>pop_front</code></td><td><code>'a t → 'a</code></td><td>Remove and return front element</td></tr>
+        <tr><td><code>pop_back</code></td><td><code>'a t → 'a</code></td><td>Remove and return back element</td></tr>
+        <tr><td><code>peek_front/back</code></td><td><code>'a t → 'a</code></td><td>View without removing</td></tr>
+        <tr><td><code>get/set</code></td><td><code>'a t → int → ...</code></td><td>Random access by index</td></tr>
+        <tr><td><code>iter</code></td><td><code>('a → unit) → 'a t → unit</code></td><td>Iterate front to back</td></tr>
+        <tr><td><code>fold_left</code></td><td><code>('b → 'a → 'b) → 'b → 'a t → 'b</code></td><td>Left fold over elements</td></tr>
+        <tr><td><code>to_list/to_array</code></td><td><code>'a t → ...</code></td><td>Convert to list or array</td></tr>
+        <tr><td><code>of_list</code></td><td><code>int → 'a → 'a list → 'a t</code></td><td>Create from list (overflows if longer than cap)</td></tr>
+        <tr><td><code>map</code></td><td><code>('a → 'b) → 'a t → 'b t</code></td><td>Map a function over all elements</td></tr>
+        <tr><td><code>exists/for_all</code></td><td><code>('a → bool) → 'a t → bool</code></td><td>Search predicates</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Try It</h2>
+      <pre><code>(* Create a buffer of capacity 5 *)
+let rb = RingBuffer.create 5 0
+
+(* Fill it up *)
+let () = List.iter (RingBuffer.push_back rb) [10; 20; 30; 40; 50]
+(* rb = [|10; 20; 30; 40; 50|] *)
+
+(* Push more — oldest elements are overwritten *)
+let () = RingBuffer.push_back rb 60
+(* rb = [|20; 30; 40; 50; 60|]  — 10 was dropped *)
+
+(* Pop from front *)
+let v = RingBuffer.pop_front rb  (* v = 20 *)
+
+(* Fold to sum *)
+let sum = RingBuffer.fold_left ( + ) 0 rb  (* 30+40+50+60 = 180 *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Use Cases</h2>
+      <ul>
+        <li><strong>Log buffers</strong> — keep last N log entries in memory</li>
+        <li><strong>Audio/video streaming</strong> — bounded producer-consumer buffer</li>
+        <li><strong>Sliding window algorithms</strong> — moving average, rate limiting</li>
+        <li><strong>Undo history</strong> — fixed-depth undo with automatic oldest-discard</li>
+        <li><strong>Network I/O</strong> — packet buffering with bounded memory</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Complexity</h2>
+      <table>
+        <tr><th>Operation</th><th>Time</th><th>Space</th></tr>
+        <tr><td>push_back / push_front</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>pop_front / pop_back</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>get / set</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>iter / fold / map</td><td>O(n)</td><td>O(1) / O(n)</td></tr>
+        <tr><td>to_list / to_array</td><td>O(n)</td><td>O(n)</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
