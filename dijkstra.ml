@@ -1,23 +1,40 @@
-(* Weighted Graph with Dijkstra's Shortest Path Algorithm *)
-(* Demonstrates: weighted adjacency lists, binary min-heap priority queue,
-   Dijkstra's algorithm, shortest path reconstruction, weighted MST (Prim's) *)
+(** Weighted Graph with Dijkstra's Shortest Path Algorithm.
+
+    A complete graph library supporting:
+    - Weighted adjacency-list representation (directed and undirected)
+    - Dijkstra's single-source shortest paths with O((V+E) log V) complexity
+    - Shortest-path reconstruction
+    - Floyd-Warshall all-pairs shortest paths with negative-cycle detection
+    - Prim's minimum spanning tree
+    - Array-backed binary min-heap priority queue
+
+    Usage:
+    {[
+      ocaml dijkstra.ml
+    ]}
+*)
 
 module IntMap = Map.Make(Int)
 
+(** A weighted graph stored as an adjacency list.
+    Each vertex maps to a list of [(neighbor, weight)] pairs. *)
 type weighted_graph = {
-  adj: (int * float) list IntMap.t;  (* vertex -> list of (neighbor, weight) *)
+  adj: (int * float) list IntMap.t;
   directed: bool;
 }
 
-(* Create an empty weighted graph *)
+(** Create an empty weighted graph.
+    @param directed when [true] edges are one-directional *)
 let empty_graph ~directed = { adj = IntMap.empty; directed }
 
-(* Add a vertex *)
+(** Add an isolated vertex. Returns the graph unchanged if the vertex exists. *)
 let add_vertex g v =
   if IntMap.mem v g.adj then g
   else { g with adj = IntMap.add v [] g.adj }
 
-(* Add a weighted edge *)
+(** Add a weighted edge from [u] to [v] with weight [w].
+    For undirected graphs the reverse edge is added automatically.
+    Replaces any existing edge between the same pair. *)
 let add_edge g u v w =
   let add_neighbor src dst weight adj =
     let ns = try IntMap.find src adj with Not_found -> [] in
@@ -31,18 +48,20 @@ let add_edge g u v w =
   let adj = if not (IntMap.mem u adj) then IntMap.add u [] adj else adj in
   { g with adj }
 
-(* Get all vertices *)
+(** Return all vertices in sorted order. *)
 let vertices g =
   IntMap.fold (fun k _ acc -> k :: acc) g.adj []
   |> List.sort compare
 
-(* Get weighted neighbors *)
+(** Return the weighted neighbors of vertex [v]. *)
 let neighbors g v =
   try IntMap.find v g.adj
   with Not_found -> []
 
+(** Number of vertices in the graph. *)
 let num_vertices g = IntMap.cardinal g.adj
 
+(** Number of edges. For undirected graphs each edge is counted once. *)
 let num_edges g =
   let total = IntMap.fold (fun _ ns acc -> acc + List.length ns) g.adj 0 in
   if g.directed then total else total / 2
@@ -137,10 +156,14 @@ let pq_empty = MinHeap.empty
 let pq_insert pq (priority, value) = MinHeap.insert pq (priority, value)
 let pq_pop pq = MinHeap.pop pq
 
-(* --- Dijkstra's Algorithm --- *)
-(* Returns a map from each reachable vertex to (distance, predecessor option) *)
-(* Uses a recursive loop instead of a mutable while-flag — idiomatic OCaml. *)
+(** Dijkstra's single-source shortest path algorithm.
 
+    Computes shortest distances from [source] to all reachable vertices
+    using a binary min-heap priority queue.  Runs in O((V+E) log V) time.
+
+    @return [(dist, prev)] where [dist] maps vertices to their shortest
+    distance and [prev] maps each vertex to its predecessor on the
+    shortest path. *)
 let dijkstra g source =
   let dist = Hashtbl.create (num_vertices g) in
   let prev = Hashtbl.create (num_vertices g) in
@@ -172,13 +195,15 @@ let dijkstra g source =
   loop (pq_insert pq_empty (0.0, source));
   (dist, prev)
 
-(* Get shortest distance from source to target *)
+(** Shortest distance from [source] to [target], or [None] if unreachable. *)
 let shortest_distance g source target =
   let (dist, _) = dijkstra g source in
   try Some (Hashtbl.find dist target)
   with Not_found -> None
 
-(* Get shortest path from source to target *)
+(** Shortest path from [source] to [target].
+    @return [Some (path, cost)] where [path] is the list of vertices,
+    or [None] if [target] is unreachable. *)
 let shortest_path g source target =
   let (dist, prev) = dijkstra g source in
   if not (Hashtbl.mem dist target) then None
@@ -192,12 +217,13 @@ let shortest_path g source target =
     Some (build target [], Hashtbl.find dist target)
   end
 
-(* --- All-Pairs Shortest Paths (Floyd-Warshall) --- *)
-(* Returns [Some (verts, dist, idx)] on success, or [None] if the graph
-   contains a negative weight cycle (detected by a negative diagonal entry
-   after relaxation).  Note: Dijkstra's algorithm assumes non-negative edge
-   weights and will produce incorrect results if negative edges are present. *)
+(** Floyd-Warshall all-pairs shortest paths.
 
+    Runs in O(V³) time and O(V²) space.
+
+    @return [Some (verts, dist_matrix, idx)] on success, where [idx]
+    maps vertex ids to matrix indices.  Returns [None] if the graph
+    contains a negative-weight cycle. *)
 exception Negative_cycle
 
 let floyd_warshall g =
@@ -238,12 +264,13 @@ let floyd_warshall g =
   if !has_neg_cycle then None
   else Some (verts, dist, idx)
 
-(* --- Prim's Minimum Spanning Tree (undirected only) --- *)
-(* Returns list of (u, v, weight) edges in the MST.
-   Uses proper (from, to) edge tuples in the priority queue instead
-   of the previous int-encoding hack (u * 10000 + v) which silently
-   produced wrong results for vertex IDs >= 10000. *)
+(** Prim's minimum spanning tree for undirected graphs.
 
+    Greedily grows an MST from an arbitrary start vertex using a
+    min-heap keyed by edge weight.  Runs in O(E log V).
+
+    @return list of [(u, v, weight)] edges in the MST.
+    @raise Failure if the graph is directed. *)
 let prim_mst g =
   if g.directed then failwith "MST requires undirected graph";
   match vertices g with
