@@ -89,6 +89,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`queue.ml`](queue.ml) | Purely functional queue (Okasaki's Banker's Queue) | Amortised O(1) enqueue/dequeue, two-list technique, persistence |
 | [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
 | [`random_access_list.ml`](random_access_list.ml) | Random Access List — Okasaki's skew-binary random access list | O(1) cons/head/tail, O(log n) lookup/update, complete binary trees, skew-binary numbers, persistent data structures |
+| [`radix_tree.ml`](radix_tree.ml) | Radix Tree (Patricia Trie) — compressed prefix tree for efficient string storage | Edge compression, prefix search, insert/remove/member, all_words enumeration, space-efficient string sets |
 | [`raft.ml`](raft.ml) | Raft consensus algorithm — distributed consensus simulation | Leader election, log replication, commitment quorum, network partitioning, AppendEntries/RequestVote RPCs |
 | [`raytracer.ml`](raytracer.ml) | Raytracer — functional ray tracing engine with Phong shading | Vec3/Ray/Camera, sphere & plane intersection, Blinn-Phong lighting, shadows, reflections, anti-aliasing, PPM output |
 | [`rbtree.ml`](rbtree.ml) | Red-Black tree — Okasaki-style self-balancing BST | Persistent data structures, balance invariants, set operations, higher-order functions |
@@ -522,6 +523,7 @@ Ocaml-sample-code/
 ├── optics.ml             # Optics (lenses, prisms, traversals)
 ├── peg.ml                # PEG parser (packrat memoization)
 ├── queue.ml              # Purely functional queue
+├── radix_tree.ml         # Radix Tree (Patricia Trie) — compressed prefix tree
 ├── raft.ml               # Raft consensus algorithm (Banker's Queue)
 ├── raytracer.ml          # Ray tracing engine (functional)
 ├── relational.ml         # Relational algebra engine
