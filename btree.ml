@@ -36,35 +36,46 @@ let rec search key node =
   else if node.leaf then false
   else search key (List.nth node.children i)
 
+(* Helper: split a list into (first n elements, rest) in a single pass.
+   More efficient than List.filteri for splitting at a known index. *)
+let split_at n lst =
+  let rec go acc n = function
+    | rest when n <= 0 -> (List.rev acc, rest)
+    | [] -> (List.rev acc, [])
+    | x :: rest -> go (x :: acc) (n - 1) rest
+  in
+  go [] n lst
+
+(* Helper: insert element x at position i in a list *)
+let list_insert_at i x lst =
+  let (before, after) = split_at i lst in
+  before @ [x] @ after
+
+(* Helper: replace element at position i with replacements *)
+let list_replace_at i replacements lst =
+  let (before, rest) = split_at i lst in
+  let after = match rest with _ :: tl -> tl | [] -> [] in
+  before @ replacements @ after
+
 (* Helper: split the i-th child of a node (child is full) *)
 let split_child node i t =
   let child = List.nth node.children i in
   let mid = t - 1 in
-  let median = List.nth child.keys mid in
-  (* Left child gets keys[0..mid-1], right gets keys[mid+1..] *)
-  let left_keys = List.filteri (fun j _ -> j < mid) child.keys in
-  let right_keys = List.filteri (fun j _ -> j > mid) child.keys in
+  (* Split keys: [0..mid-1] | median | [mid+1..] *)
+  let (left_keys, rest) = split_at mid child.keys in
+  let median = List.hd rest in
+  let right_keys = List.tl rest in
+  (* Split children around the midpoint *)
   let left_children, right_children =
     if child.leaf then ([], [])
-    else
-      let lc = List.filteri (fun j _ -> j <= mid) child.children in
-      let rc = List.filteri (fun j _ -> j > mid) child.children in
-      (lc, rc)
+    else split_at (mid + 1) child.children
   in
   let left_node = { keys = left_keys; children = left_children; leaf = child.leaf } in
   let right_node = { keys = right_keys; children = right_children; leaf = child.leaf } in
   (* Insert median into parent's keys at position i *)
-  let new_keys =
-    let before = List.filteri (fun j _ -> j < i) node.keys in
-    let after = List.filteri (fun j _ -> j >= i) node.keys in
-    before @ [median] @ after
-  in
-  (* Replace child at i with left_node, insert right_node at i+1 *)
-  let new_children =
-    let before = List.filteri (fun j _ -> j < i) node.children in
-    let after = List.filteri (fun j _ -> j > i) node.children in
-    before @ [left_node; right_node] @ after
-  in
+  let new_keys = list_insert_at i median node.keys in
+  (* Replace child at i with [left_node; right_node] *)
+  let new_children = list_replace_at i [left_node; right_node] node.children in
   { keys = new_keys; children = new_children; leaf = node.leaf }
 
 (* Insert a key into a non-full node *)
@@ -115,18 +126,26 @@ let insert key btree =
     { btree with root = insert_nonfull key btree.root btree.t }
 
 (* In-order traversal — returns sorted list of all keys *)
+(* Uses an accumulator to avoid O(n²) list concatenation *)
 let to_sorted_list btree =
-  let rec traverse node =
-    if node.leaf then node.keys
+  let rec traverse acc node =
+    if node.leaf then List.rev_append node.keys acc
     else
-      let pairs = List.combine node.children node.keys in
-      let prefix =
-        List.concat_map (fun (child, key) -> traverse child @ [key]) pairs
-      in
+      (* Process children and keys right-to-left, building result in reverse *)
       let last_child = List.nth node.children (List.length node.children - 1) in
-      prefix @ traverse last_child
+      let acc = traverse acc last_child in
+      let rec interleave acc keys children =
+        match keys, children with
+        | [], _ -> acc
+        | k :: ks, c :: cs ->
+          let acc = k :: acc in
+          let acc = traverse acc c in
+          interleave acc ks cs
+        | _ :: _, [] -> acc  (* shouldn't happen in valid B-tree *)
+      in
+      interleave acc (List.rev node.keys) (List.rev (List.tl (List.rev node.children)))
   in
-  traverse btree.root
+  List.rev (traverse [] btree.root)
 
 (* Count all keys in the tree *)
 let size btree =
