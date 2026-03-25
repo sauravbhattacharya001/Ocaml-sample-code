@@ -1,0 +1,31 @@
+codecov:
+  require_ci_to_pass: false
+
+coverage:
+  precision: 2
+  round: down
+  range: "40...90"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+    patch:
+      default:
+        target: 50%
+
+parsers:
+  cobertura:
+    partials_as_hits: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+
+flags:
+  ocaml-tests:
+    paths:
+      - "*.ml"
+    carryforward: true
