@@ -69,6 +69,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`huffman.ml`](huffman.ml) | Huffman coding — lossless data compression | Priority queues, recursive tree traversal, frequency analysis, variable-length prefix codes |
 | [`integration.ml`](integration.ml) | Symbolic integration engine — antiderivatives, definite integrals, numerical methods | Pattern-based rules, linearity, u-substitution, integration by parts (LIATE), Simpson's rule, verification via differentiation |
 | [`interval_tree.ml`](interval_tree.ml) | Interval tree — augmented AVL for efficient overlap queries | AVL balancing, subtree augmentation, O(log n) overlap/stabbing queries |
+| [`order_statistics_tree.ml`](order_statistics_tree.ml) | Order Statistics Tree — augmented weight-balanced BST | O(log n) rank, select, count_range, range_query, median, percentile, auto-rebalancing |
 | [`json.ml`](json.ml) | JSON parser — complete RFC 8259 parser with queries and transforms | Recursive descent, mutual recursion, Unicode escapes, pretty printing, dot-notation queries |
 | [`lambda.ml`](lambda.ml) | Untyped lambda calculus interpreter | Alpha-equivalence, capture-avoiding substitution, De Bruijn indices, beta reduction strategies |
 | [`list_last_elem.ml`](list_last_elem.ml) | Find the last element of a list safely | Option types, pattern matching |
@@ -519,6 +520,7 @@ Ocaml-sample-code/
 ├── lsystem.ml            # L-Systems (Lindenmayer systems, turtle graphics)
 ├── model_checker.ml      # CTL model checker
 ├── monad_transformers.ml # Monad transformers (composable stacks)
+├── order_statistics_tree.ml # Order Statistics Tree (rank, select, range)
 ├── optics.ml             # Optics (lenses, prisms, traversals)
 ├── peg.ml                # PEG parser (packrat memoization)
 ├── queue.ml              # Purely functional queue
