@@ -78,6 +78,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`lsystem.ml`](lsystem.ml) | L-Systems — Lindenmayer systems and turtle graphics | D0L/stochastic/parametric L-systems, turtle interpretation, SVG output, Koch snowflake, Sierpinski triangle, dragon curve, Hilbert curve, plant/fern, Penrose tiling |
 | [`matrix.ml`](matrix.ml) | Matrix — linear algebra with functors and modules | Functors, module signatures, Gaussian elimination, determinant, inverse, matrix power, norms |
 | [`mergesort.ml`](mergesort.ml) | Merge sort with custom comparators | Higher-order functions, tail recursion, tuple destructuring |
+| [`merkle_tree.ml`](merkle_tree.ml) | Merkle Tree — cryptographic hash trees for data integrity | Binary hash trees, inclusion proofs, O(log n) verification, tamper detection, tree diff |
 | [`minikanren.ml`](minikanren.ml) | miniKanren logic programming engine | Unification, substitution, logic variables, streams, relational programming, Peano arithmetic, constraint solving |
 | [`monad_transformers.ml`](monad_transformers.ml) | Monad Transformers — composable monad stacks | OptionT, ExceptT, ReaderT, WriterT, StateT, ContT, ListT, RWST, lift, transformer stacking, monad laws, callcc |
 | [`model_checker.ml`](model_checker.ml) | CTL model checker for finite-state transition systems | Temporal logic (CTL), labeling algorithm, fixpoint computation, state exploration |
@@ -454,6 +455,7 @@ Ocaml-sample-code/
 ├── factor.ml             # Prime factorization
 ├── list_last_elem.ml     # Last element of a list
 ├── mergesort.ml          # Merge sort
+├── merkle_tree.ml        # Merkle tree (cryptographic hash trees)
 ├── graph.ml              # Graph algorithms (BFS, DFS, topological sort)
 ├── dijkstra.ml           # Weighted graphs (Dijkstra, Floyd-Warshall, Prim)
 ├── heap.ml               # Priority queue (leftist min-heap)
