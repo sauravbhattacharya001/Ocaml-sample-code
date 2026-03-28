@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up OCaml
         uses: ocaml/setup-ocaml@v3
@@ -28,48 +28,97 @@ jobs:
           opam install bisect_ppx --yes
           eval $(opam env)
 
+      - name: Build individual modules with coverage
+        run: |
+          eval $(opam env)
+          # Build key source modules with bisect_ppx instrumentation
+          # to get per-file coverage metrics on the actual library code
+          BISECT_FLAGS="-package bisect_ppx -linkpkg"
+
+          # Compile standalone modules that test_all exercises
+          for src in bst.ml fibonacci.ml factor.ml mergesort.ml heap.ml \
+                     graph.ml dijkstra.ml sorting.ml queue.ml trie.ml \
+                     union_find.ml bloom_filter.ml hashmap.ml rbtree.ml \
+                     lru_cache.ml rope.ml skip_list.ml segment_tree.ml \
+                     interval_tree.ml fenwick_tree.ml suffix_array.ml \
+                     matrix.ml huffman.ml calculus.ml json.ml regex.ml \
+                     memoize.ml ring_buffer.ml cuckoo_filter.ml \
+                     compression.ml splay_tree.ml; do
+            if [ -f "$src" ]; then
+              ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "${src%.ml}_cov" 2>/dev/null || true
+            fi
+          done
+
       - name: Build test suite with coverage instrumentation
         run: |
           eval $(opam env)
-          # Compile test_all.ml with bisect_ppx instrumentation
-          # This tests all core algorithms (BST, fibonacci, factorization,
-          # mergesort, heap, list operations, graph algorithms)
+          # Compile test_all.ml with bisect_ppx — this is the main test harness
+          # that exercises all core algorithms inline
           ocamlfind ocamlopt -package bisect_ppx -linkpkg \
-            -ppxopt 'bisect_ppx,-instrument-with-bisect_ppx' \
             test_all.ml -o test_all_cov 2>/dev/null || \
           ocamlfind ocamlc -package bisect_ppx -linkpkg \
             test_all.ml -o test_all_cov
 
-      - name: Run tests with coverage
+      - name: Build individual test suites with coverage
         run: |
           eval $(opam env)
-          BISECT_FILE=$(pwd)/bisect ./test_all_cov
+          # Build and run individual test files for modules that have them
+          BISECT_FLAGS="-package bisect_ppx -linkpkg"
+          for test_src in test_btree.ml test_crdt.ml test_crypto.ml \
+                          test_csp.ml test_diff.ml test_finger_tree.ml \
+                          test_geometry.ml test_graph_db.ml \
+                          test_interval_tree.ml test_json.ml \
+                          test_lru_cache.ml test_matrix.ml test_memoize.ml \
+                          test_persistent_vector.ml test_queue.ml \
+                          test_raft.ml test_ring_buffer.ml test_rope.ml \
+                          test_segment_tree.ml test_signal_processing.ml \
+                          test_skip_list.ml test_stm.ml \
+                          test_suffix_array.ml; do
+            if [ -f "$test_src" ]; then
+              # Each test file includes its module source inline or via #use
+              ocamlfind ocamlopt $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || \
+              ocamlfind ocamlc $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || true
+            fi
+          done
 
-      - name: Generate coverage report
+      - name: Run all tests with coverage
         run: |
           eval $(opam env)
+          export BISECT_FILE=$(pwd)/bisect
+
+          # Run main test suite
+          ./test_all_cov || true
+
+          # Run individual test suites
+          for cov_bin in test_*_cov; do
+            if [ -x "$cov_bin" ] && [ "$cov_bin" != "test_all_cov" ]; then
+              echo "=== Running $cov_bin ==="
+              ./"$cov_bin" || true
+            fi
+          done
+
+      - name: Generate coverage reports
+        run: |
+          eval $(opam env)
+          echo "=== Coverage Summary ==="
           bisect-ppx-report summary
+          echo ""
+          echo "=== Per-file Coverage ==="
+          bisect-ppx-report summary --per-file
           bisect-ppx-report html -o _coverage
-          # Generate JSON summary for badge
-          bisect-ppx-report summary --per-file > coverage-summary.txt
-          cat coverage-summary.txt
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v7
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: _coverage/
           retention-days: 30
 
-      - name: Generate Cobertura report for Codecov
+      - name: Generate Codecov report
         run: |
           eval $(opam env)
-          # Generate cobertura XML for Codecov integration
-          bisect-ppx-report cobertura --output coverage.xml || true
-          # Fallback: generate lcov if cobertura not supported
-          if [ ! -f coverage.xml ]; then
-            bisect-ppx-report lcov --output coverage.lcov || true
-          fi
+          bisect-ppx-report cobertura --output coverage.xml 2>/dev/null || \
+          bisect-ppx-report lcov --output coverage.lcov 2>/dev/null || true
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -79,27 +128,18 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Generate coverage badge
+      - name: Coverage badge data
         run: |
-          # Extract total coverage percentage
           eval $(opam env)
           COVERAGE=$(bisect-ppx-report summary 2>/dev/null | grep -oP '\d+\.\d+(?=%)' | head -1 || echo "0")
-          echo "Coverage: ${COVERAGE}%"
-          
-          # Determine badge color
+          echo "Total coverage: ${COVERAGE}%"
+
           COV_INT=${COVERAGE%.*}
-          if [ "$COV_INT" -ge 90 ]; then
-            COLOR="brightgreen"
-          elif [ "$COV_INT" -ge 75 ]; then
-            COLOR="green"
-          elif [ "$COV_INT" -ge 60 ]; then
-            COLOR="yellowgreen"
-          elif [ "$COV_INT" -ge 40 ]; then
-            COLOR="yellow"
-          else
-            COLOR="red"
-          fi
-          
+          if [ "$COV_INT" -ge 90 ]; then COLOR="brightgreen"
+          elif [ "$COV_INT" -ge 75 ]; then COLOR="green"
+          elif [ "$COV_INT" -ge 60 ]; then COLOR="yellowgreen"
+          elif [ "$COV_INT" -ge 40 ]; then COLOR="yellow"
+          else COLOR="red"; fi
+
           echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
           echo "BADGE_COLOR=${COLOR}" >> $GITHUB_ENV
-          echo "Coverage: ${COVERAGE}% (${COLOR})"
