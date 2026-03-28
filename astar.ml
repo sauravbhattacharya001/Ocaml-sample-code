@@ -186,6 +186,7 @@ let astar ~neighbors ~heuristic ~start ~goal =
   let open_set = PQ.create () in
   let came_from = Hashtbl.create 64 in
   let g_score = Hashtbl.create 64 in
+  let closed = Hashtbl.create 64 in
   let explored = ref 0 in
   Hashtbl.replace g_score (coord_key start) 0.0;
   PQ.push open_set (h start goal) start;
@@ -194,25 +195,32 @@ let astar ~neighbors ~heuristic ~start ~goal =
     match PQ.pop open_set with
     | None -> ()
     | Some (_f, current) ->
-      if coord_equal current goal then
+      let key = coord_key current in
+      if Hashtbl.mem closed key then
+        ()  (* skip already-settled nodes *)
+      else if coord_equal current goal then
         found := true
       else begin
+        Hashtbl.replace closed key true;
         incr explored;
         let g_current =
-          try Hashtbl.find g_score (coord_key current)
+          try Hashtbl.find g_score key
           with Not_found -> infinity
         in
         List.iter (fun neighbor ->
-          let tentative_g = g_current +. move_cost current neighbor in
-          let prev_g =
-            try Hashtbl.find g_score (coord_key neighbor)
-            with Not_found -> infinity
-          in
-          if tentative_g < prev_g then begin
-            Hashtbl.replace came_from (coord_key neighbor) current;
-            Hashtbl.replace g_score (coord_key neighbor) tentative_g;
-            let f = tentative_g +. h neighbor goal in
-            PQ.push open_set f neighbor
+          let nkey = coord_key neighbor in
+          if not (Hashtbl.mem closed nkey) then begin
+            let tentative_g = g_current +. move_cost current neighbor in
+            let prev_g =
+              try Hashtbl.find g_score nkey
+              with Not_found -> infinity
+            in
+            if tentative_g < prev_g then begin
+              Hashtbl.replace came_from nkey current;
+              Hashtbl.replace g_score nkey tentative_g;
+              let f = tentative_g +. h neighbor goal in
+              PQ.push open_set f neighbor
+            end
           end
         ) (neighbors current)
       end
