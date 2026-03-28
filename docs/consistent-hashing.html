@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consistent Hashing — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔄 Consistent Hashing</h1>
+    <p class="subtitle">Distributed key assignment with minimal remapping</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Consistent hashing</strong> maps keys to nodes on a virtual ring so that
+      adding or removing a node only remaps ~K/N keys (K = total keys, N = nodes), unlike
+      modular hashing which remaps almost everything. This makes it essential for distributed
+      caches (Memcached), load balancers, and distributed databases (DynamoDB, Cassandra).</p>
+    </section>
+
+    <section>
+      <h2>Key Concepts</h2>
+      <ul>
+        <li><strong>Hash Ring:</strong> Nodes and keys are hashed onto a circular space [0, MAX_INT). A key is assigned to the first node found clockwise from its position.</li>
+        <li><strong>Virtual Nodes (vnodes):</strong> Each physical node gets multiple positions on the ring for better load balance. 150 vnodes/node gives ~5% std deviation.</li>
+        <li><strong>Minimal Disruption:</strong> Adding a node remaps only ~1/N of keys. Removing a node remaps only the keys it owned.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>API</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>create ~vnodes:150 ()</code></td><td>Empty ring with given vnode count</td></tr>
+        <tr><td><code>add_node t "server-A"</code></td><td>Add a physical node</td></tr>
+        <tr><td><code>remove_node t "server-A"</code></td><td>Remove a node</td></tr>
+        <tr><td><code>lookup t "my-key"</code></td><td>Find owning node for a key</td></tr>
+        <tr><td><code>distribution t keys</code></td><td>Key count per node</td></tr>
+        <tr><td><code>balance_score t keys</code></td><td>Std deviation of distribution</td></tr>
+        <tr><td><code>remapping_impact t keys node</code></td><td>Simulate adding a node</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Example Output</h2>
+      <pre>
+Consistent Hash Ring: 3 nodes, 150 vnodes/node, 450 ring points
+Nodes: server-A, server-B, server-C
+
+Key assignments:
+  user:1001            -> server-B
+  session:abc          -> server-A
+  cache:homepage       -> server-C
+
+Distribution of 10,000 keys across 3 nodes:
+  server-A  : 3412 keys (34.1%)
+  server-B  : 3287 keys (32.9%)
+  server-C  : 3301 keys (33.0%)
+  Std deviation: 53.3
+
+Adding node 'server-D': 2489/10000 keys remapped (24.9%)
+      </pre>
+    </section>
+
+    <section>
+      <h2>Complexity</h2>
+      <table>
+        <tr><th>Operation</th><th>Time</th></tr>
+        <tr><td>lookup</td><td>O(V·N) where V=vnodes, N=nodes</td></tr>
+        <tr><td>add_node</td><td>O(V·N) — insert V points into sorted list</td></tr>
+        <tr><td>remove_node</td><td>O(V·N) — filter ring</td></tr>
+      </table>
+      <p>For production use, replace the sorted list with a balanced BST for O(log(V·N)) lookup.</p>
+    </section>
+
+    <section>
+      <h2>Real-World Uses</h2>
+      <ul>
+        <li><strong>Amazon DynamoDB</strong> — partition key routing</li>
+        <li><strong>Apache Cassandra</strong> — token ring partitioning</li>
+        <li><strong>Memcached</strong> — client-side consistent hashing</li>
+        <li><strong>Akamai CDN</strong> — originally invented for this (Karger et al., 1997)</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
