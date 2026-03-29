@@ -93,15 +93,16 @@ end = struct
     a.(j) <- tmp
 
   let sift_up a idx =
-    let i = ref idx in
-    while !i > 0 do
-      let parent = (!i - 1) / 2 in
-      if fst a.(!i) < fst a.(parent) then begin
-        swap a !i parent;
-        i := parent
-      end else
-        i := 0  (* break *)
-    done
+    let rec go i =
+      if i <= 0 then ()
+      else
+        let parent = (i - 1) / 2 in
+        if fst a.(i) < fst a.(parent) then begin
+          swap a i parent;
+          go parent
+        end
+    in
+    go idx
 
   let sift_down a len idx =
     let i = ref idx in
