@@ -109,6 +109,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`stm.ml`](stm.ml) | Software Transactional Memory — composable concurrent state management | TVars, optimistic concurrency, conflict detection, retry/orElse, monadic composition, bounded channels, atomic transfers |
 | [`string_match.ml`](string_match.ml) | String matching algorithms — KMP, Boyer-Moore, Rabin-Karp, Aho-Corasick, Z-algorithm | Failure functions, rolling hash, multi-pattern matching, O(n+m) matching |
 | [`suffix_array.ml`](suffix_array.ml) | Suffix array with LCP array — full-text search and substring queries | Suffix sorting, Kasai's LCP, O(m log n) search, longest repeated substrings |
+| [`suffix_automaton.ml`](suffix_automaton.ml) | Suffix Automaton (SAM) — minimal DFA recognizing all suffixes of a string | O(n) construction, substring check, distinct substring count, longest common substring, occurrence counting, shortest absent string |
 | [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
 | [`theorem_prover.ml`](theorem_prover.ml) | Propositional theorem prover via natural deduction | Sequent-style proof search, backtracking, inference rules, immutable contexts |
 | [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
@@ -536,6 +537,7 @@ Ocaml-sample-code/
 ├── sat_solver.ml         # SAT solver (DPLL algorithm)
 ├── string_match.ml       # String matching (KMP, Boyer-Moore, etc.)
 ├── suffix_array.ml       # Suffix array with LCP
+├── suffix_automaton.ml   # Suffix Automaton (SAM)
 ├── theorem_prover.ml     # Propositional theorem prover
 ├── type_infer.ml         # Hindley-Milner type inference
 ├── incremental.ml        # Incremental computation (self-adjusting)
