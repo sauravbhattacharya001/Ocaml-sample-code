@@ -121,7 +121,7 @@ jobs:
           bisect-ppx-report lcov --output coverage.lcov 2>/dev/null || true
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml,coverage.lcov
           flags: ocaml-tests
