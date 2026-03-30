@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRDTs — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔄 Conflict-free Replicated Data Types (CRDTs)</h1>
+    <p class="subtitle">Distributed data structures with guaranteed convergence</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>CRDTs</strong> are data structures designed for distributed systems where
+      replicas update independently without coordination. They guarantee
+      <strong>Strong Eventual Consistency (SEC)</strong>: any two replicas that have
+      received the same set of updates will be in the same state, regardless of
+      message ordering, duplication, or delays.</p>
+      <p>This is achieved through merge operations satisfying three algebraic
+      properties: commutativity, associativity, and idempotency — forming a
+      <em>join-semilattice</em>.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Distributed systems</strong> — replicas, eventual consistency, partition tolerance</li>
+        <li><strong>Lattice theory</strong> — join-semilattices, monotonic growth</li>
+        <li><strong>State-based replication</strong> — full state exchange with deterministic merge</li>
+        <li><strong>Algebraic data types</strong> — modular CRDT building blocks</li>
+        <li><strong>Higher-order functions</strong> — composable merge operations</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Implemented CRDTs</h2>
+      <table>
+        <tr><th>Type</th><th>Description</th><th>Use Case</th></tr>
+        <tr><td><code>GCounter</code></td><td>Grow-only counter</td><td>Page views, likes</td></tr>
+        <tr><td><code>PNCounter</code></td><td>Increment/decrement counter</td><td>Stock levels, votes</td></tr>
+        <tr><td><code>GSet</code></td><td>Grow-only set</td><td>Tag collections, seen-message IDs</td></tr>
+        <tr><td><code>TwoPhaseSet</code></td><td>Add-once, remove-once set</td><td>User ban lists</td></tr>
+        <tr><td><code>LWWRegister</code></td><td>Last-writer-wins register</td><td>User profile fields</td></tr>
+        <tr><td><code>ORSet</code></td><td>Observed-remove set</td><td>Shopping carts, collaborative editing</td></tr>
+        <tr><td><code>MVRegister</code></td><td>Multi-value register</td><td>Conflict-preserving fields</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Each replica maintains local state *)
+(* Updates are applied locally — always succeed *)
+(* Replicas periodically exchange state and merge *)
+
+(* G-Counter example: *)
+let c = GCounter.create ()
+  |> GCounter.increment "nodeA" 3
+  |> GCounter.increment "nodeB" 5
+(* GCounter.value c = 8 *)
+
+(* Merge two diverged replicas: *)
+let merged = GCounter.merge replica1 replica2
+(* Takes pointwise maximum → convergence guaranteed *)
+
+(* Key insight: merge is commutative, associative, idempotent *)
+(* merge(A,B) = merge(B,A)                    — order doesn't matter *)
+(* merge(merge(A,B),C) = merge(A,merge(B,C))  — grouping doesn't matter *)
+(* merge(A,A) = A                              — duplicates are harmless *)</code></pre>
+    </section>
+
+    <section>
+      <h2>CRDTs vs STM</h2>
+      <p>Compare with <a href="stm.html">Software Transactional Memory</a>:</p>
+      <ul>
+        <li><strong>CRDTs:</strong> Eventual consistency, no aborts, every operation succeeds locally</li>
+        <li><strong>STM:</strong> Strong consistency via optimistic transactions that abort on conflict</li>
+      </ul>
+      <p>CRDTs trade consistency strength for availability (AP in CAP theorem).
+      STM trades availability for consistency (CP).</p>
+    </section>
+
+    <section>
+      <h2>Key Takeaways</h2>
+      <ul>
+        <li>Algebraic properties (commutativity, associativity, idempotency) can replace coordination</li>
+        <li>State-based CRDTs are simpler but transfer more data than operation-based</li>
+        <li>OCaml's module system maps cleanly to CRDT type hierarchies</li>
+        <li>Immutable data + pure merge functions = easy reasoning about correctness</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
