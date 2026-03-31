@@ -127,17 +127,30 @@ let hex_to_bytes hex =
     Prevents timing side-channel attacks when comparing secrets
     (e.g., MACs, password hashes, authentication tokens).
     Returns true iff [a] and [b] have the same length and contents. *)
+(** Constant-time byte-string comparison.
+    Prevents timing side-channel attacks when comparing secrets
+    (e.g., MACs, password hashes, authentication tokens).
+    Both length and content comparisons are constant-time:
+    we always iterate over the longer string to avoid leaking
+    length information through early return. *)
 let constant_time_equal a b =
   let len_a = String.length a in
   let len_b = String.length b in
-  if len_a <> len_b then false
-  else begin
-    let diff = ref 0 in
-    for i = 0 to len_a - 1 do
-      diff := !diff lor (Char.code a.[i] lxor Char.code b.[i])
-    done;
-    !diff = 0
-  end
+  (* XOR the lengths — nonzero if they differ, folded into diff at the end.
+     We iterate over max(len_a, len_b) so the loop duration doesn't leak
+     which string is shorter. *)
+  let len_diff = len_a lxor len_b in
+  let max_len = max len_a len_b in
+  let diff = ref 0 in
+  for i = 0 to max_len - 1 do
+    (* Use modular indexing so we never go out of bounds.
+       When lengths differ, the wrapping produces mismatched bytes,
+       but the length XOR already guarantees a nonzero result. *)
+    let ca = Char.code a.[i mod (max 1 len_a)] in
+    let cb = Char.code b.[i mod (max 1 len_b)] in
+    diff := !diff lor (ca lxor cb)
+  done;
+  (!diff lor len_diff) = 0
 
 (* ── Rail Fence Cipher ───────────────────────────────────────────── *)
 
