@@ -423,6 +423,23 @@ let () =
     (match ev2 with Some (k, _) -> k | None -> "none");
   assert_true ~msg:"multi-evict: third is None" (ev3 = None)
 
+(* Functional invariant: old versions are independent (issue #78) *)
+let () =
+  let c1 = create 10 in
+  let c2 = put "a" 1 c1 in
+  (* c1 should NOT see "a" *)
+  assert_true ~msg:"functional: c1 unchanged after put" (not (mem "a" c1));
+  assert_true ~msg:"functional: c2 has a" (mem "a" c2);
+  (* get should also preserve independence *)
+  let c3 = put "b" 2 c2 in
+  let (_, c4) = get "a" c3 in
+  let c5 = put "c" 3 c3 in
+  (* c3 should not be affected by operations on c4 or c5 *)
+  assert_true ~msg:"functional: c3 no c" (not (mem "c" c3));
+  assert_equal ~msg:"functional: c3 size" "2" (string_of_int (size c3));
+  assert_true ~msg:"functional: c4 has a" (mem "a" c4);
+  assert_true ~msg:"functional: c5 has c" (mem "c" c5)
+
 (* Integer keys *)
 let () =
   let c = create 3 in

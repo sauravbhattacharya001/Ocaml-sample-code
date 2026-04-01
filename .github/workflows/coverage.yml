@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up OCaml
         uses: ocaml/setup-ocaml@v3
@@ -108,7 +108,7 @@ jobs:
           bisect-ppx-report html -o _coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: _coverage/
@@ -121,7 +121,7 @@ jobs:
           bisect-ppx-report lcov --output coverage.lcov 2>/dev/null || true
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml,coverage.lcov
           flags: ocaml-tests

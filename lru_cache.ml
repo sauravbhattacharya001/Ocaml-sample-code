@@ -109,8 +109,9 @@ module LRUCache = struct
     | Some v ->
       let cleaned = remove_from_list k cache.entries in
       let entries = (k, v) :: cleaned in
+      let index = Hashtbl.copy cache.index in
       (Some v,
-       { cache with entries;
+       { cache with entries; index;
          hits = cache.hits + 1 })
 
   (** Look up a key without promoting it (no reorder, no stats). *)

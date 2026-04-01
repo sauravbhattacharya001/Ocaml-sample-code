@@ -1,45 +1,56 @@
-(* Huffman Coding — Lossless Data Compression *)
-(* Demonstrates: algebraic data types, priority queues, recursive tree traversal,
-   character frequency analysis, variable-length prefix codes, encoding/decoding.
+(** Huffman Coding — Lossless Data Compression.
 
-   Huffman coding assigns shorter bit-strings to more frequent characters and
-   longer ones to rarer characters, producing an optimal prefix-free code for
-   a given character frequency distribution.
+    Huffman coding assigns shorter bit-strings to more frequent characters
+    and longer ones to rarer characters, producing an optimal prefix-free
+    code for a given character frequency distribution.
 
-   This implementation uses a simple sorted-list priority queue for clarity.
-   For production use, replace with a binary heap (see heap.ml).
+    Features:
+    - Character frequency analysis
+    - Tree construction via greedy merging
+    - Variable-length prefix-code generation
+    - Encoding and decoding with round-trip verification
+    - Tree serialization / deserialization
+    - Compression statistics
+
+    Usage:
+    {[
+      ocaml huffman.ml
+    ]}
 *)
 
-(* --- Huffman tree --- *)
+(** {1 Huffman Tree} *)
 
-(* A Huffman tree is either a Leaf carrying a character and its frequency,
-   or a Node combining two subtrees with their combined frequency. *)
+(** A Huffman tree node.
+    - [Leaf (c, freq)] — a character with its frequency
+    - [Node (left, right, freq)] — an internal node combining two subtrees *)
 type tree =
   | Leaf of char * int
   | Node of tree * tree * int
 
-(* Extract the frequency (weight) of a tree node *)
+(** Extract the frequency (weight) stored at the root of a tree node. *)
 let freq = function
   | Leaf (_, f) -> f
   | Node (_, _, f) -> f
 
-(* --- Priority queue (sorted list) --- *)
-(* Insert a tree into a list sorted by ascending frequency.
-   Ties are broken by insertion order (stable). *)
+(** {1 Priority Queue (sorted list)} *)
+
+(** Insert a tree into a frequency-sorted list. Ties are broken by
+    insertion order (stable sort). *)
 let rec pq_insert t = function
   | [] -> [t]
   | h :: rest as lst ->
     if freq t <= freq h then t :: lst
     else h :: pq_insert t rest
 
-(* Build the initial priority queue from a list of trees *)
+(** Build a priority queue from a list of trees. *)
 let pq_of_list trees =
   List.fold_left (fun pq t -> pq_insert t pq) [] trees
 
-(* --- Frequency analysis --- *)
+(** {1 Frequency Analysis} *)
 
-(* Count character frequencies in a string. Returns an association list
-   sorted by (frequency ascending, char ascending) for deterministic output. *)
+(** Count character frequencies in a string.
+    @return an association list sorted by [(frequency, char)] for
+    deterministic output. *)
 let char_frequencies s =
   let tbl = Hashtbl.create 128 in
   String.iter (fun c ->
@@ -52,15 +63,16 @@ let char_frequencies s =
     if cmp <> 0 then cmp else compare c1 c2
   ) pairs
 
-(* --- Build Huffman tree --- *)
+(** {1 Tree Construction} *)
 
-(* Build a Huffman tree from character frequencies.
-   Algorithm:
-   1. Create a leaf for each character
-   2. Repeatedly merge the two lowest-frequency nodes
-   3. Stop when one node remains — that's the root
+(** Build a Huffman tree from character frequencies.
 
-   Returns None for empty input. *)
+    Algorithm:
+    + Create a leaf for each character.
+    + Repeatedly merge the two lowest-frequency nodes.
+    + Stop when one node remains — that is the root.
+
+    @return [None] for empty input. *)
 let build_tree freqs =
   match freqs with
   | [] -> None
@@ -79,15 +91,15 @@ let build_tree freqs =
     in
     merge pq
 
-(* Build a tree directly from a string *)
+(** Convenience wrapper: build a tree directly from a string. *)
 let build_tree_from_string s =
   build_tree (char_frequencies s)
 
-(* --- Code table: char -> bit string --- *)
+(** {1 Code Table} *)
 
-(* Traverse the tree to produce a mapping from characters to their
-   Huffman codes (strings of '0' and '1').
-   Left child = '0', right child = '1'. *)
+(** Traverse the Huffman tree to build a mapping from characters to their
+    binary codes (strings of ['0'] and ['1']).
+    Left child = ['0'], right child = ['1']. *)
 let build_code_table tree =
   let tbl = Hashtbl.create 64 in
   let rec walk prefix = function
@@ -100,21 +112,22 @@ let build_code_table tree =
   walk "" tree;
   tbl
 
-(* Get the code for a character, raising Not_found if absent *)
+(** Look up the Huffman code for character [c].
+    @raise Failure if [c] is not in the table. *)
 let lookup_code tbl c =
   try Hashtbl.find tbl c
   with Not_found ->
     failwith (Printf.sprintf "Huffman: character '%c' not in code table" c)
 
-(* Return the code table as a sorted association list *)
+(** Return the code table as a sorted [(char, code)] association list. *)
 let code_table_to_list tbl =
   let pairs = Hashtbl.fold (fun c code acc -> (c, code) :: acc) tbl [] in
   List.sort (fun (c1, _) (c2, _) -> compare c1 c2) pairs
 
-(* --- Encoding --- *)
+(** {1 Encoding} *)
 
-(* Encode a string into a bit-string using the given code table.
-   Returns a string of '0' and '1' characters. *)
+(** Encode a string into a bit-string using the given code table.
+    @return a string of ['0'] and ['1'] characters. *)
 let encode tbl s =
   let buf = Buffer.create (String.length s * 4) in
   String.iter (fun c ->
@@ -122,7 +135,8 @@ let encode tbl s =
   ) s;
   Buffer.contents buf
 
-(* Encode directly from a string (builds tree + table internally) *)
+(** Encode a string end-to-end: builds tree and table, then encodes.
+    @return [(bits, tree_option)] *)
 let encode_string s =
   match build_tree_from_string s with
   | None -> ("", None)
@@ -131,11 +145,11 @@ let encode_string s =
     let bits = encode tbl s in
     (bits, Some tree)
 
-(* --- Decoding --- *)
+(** {1 Decoding} *)
 
-(* Decode a bit-string back to characters using the Huffman tree.
-   Walks the tree from root: '0' goes left, '1' goes right.
-   When a leaf is reached, emit the character and restart from root. *)
+(** Decode a bit-string back to the original text using the Huffman tree.
+    Walks the tree from root: ['0'] goes left, ['1'] goes right.
+    When a leaf is reached the character is emitted and traversal restarts. *)
 let decode tree bits =
   let buf = Buffer.create (String.length bits / 4) in
   let len = String.length bits in
@@ -157,8 +171,9 @@ let decode tree bits =
   walk tree 0;
   Buffer.contents buf
 
-(* --- Compression statistics --- *)
+(** {1 Compression Statistics} *)
 
+(** Compression statistics for an encoded message. *)
 type stats = {
   original_bits: int;    (* 8 bits per character *)
   encoded_bits: int;     (* length of the bit-string *)
@@ -168,6 +183,7 @@ type stats = {
   avg_code_length: float;(* weighted average code length *)
 }
 
+(** Compute compression statistics for an encoded message. *)
 let compression_stats s encoded_bits code_table =
   let original_bits = String.length s * 8 in
   let ratio = if original_bits > 0
@@ -195,13 +211,11 @@ let compression_stats s encoded_bits code_table =
     avg_code_length = avg_code_len;
   }
 
-(* --- Serialization: tree to/from string --- *)
-(* A simple serialization for the Huffman tree so it can be transmitted
-   alongside the encoded data. Format:
-   'L' <char-byte>  for a Leaf
-   'N'              for a Node (left and right follow recursively)
-*)
+(** {1 Tree Serialization} *)
 
+(** Serialize a Huffman tree to a compact binary string.
+    Format: ['L'] followed by the character byte for leaves,
+    ['N'] for internal nodes (children follow recursively). *)
 let serialize_tree tree =
   let buf = Buffer.create 256 in
   let rec ser = function
@@ -216,6 +230,8 @@ let serialize_tree tree =
   ser tree;
   Buffer.contents buf
 
+(** Deserialize a tree from the format produced by {!serialize_tree}.
+    @raise Failure on malformed input. *)
 let deserialize_tree s =
   let len = String.length s in
   let rec deser i =
@@ -272,8 +288,9 @@ let print_stats stats =
   Printf.printf "  Unique:     %d characters\n" stats.unique_chars;
   Printf.printf "  Avg code:   %.2f bits/char\n" stats.avg_code_length
 
-(* --- Verify round-trip --- *)
+(** {1 Verification} *)
 
+(** Verify that encoding then decoding [s] produces the original string. *)
 let verify_roundtrip s =
   match build_tree_from_string s with
   | None -> true  (* empty string trivially round-trips *)

@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**87 programs** covering: recursion, pattern matching, algebraic data types, GADTs, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives, symbolic integration, u-substitution, numerical methods, probability monads, Monte Carlo simulation, Bayesian inference, logic programming, unification, algebraic effects, free monads, automatic differentiation, backpropagation, functional reactive programming, network flow algorithms, bytecode virtual machines, term rewriting systems, zippers, property-based testing, finger trees, persistent vectors, abstract interpretation, finite automata, constraint satisfaction, Datalog engines, double-ended queues, diff algorithms, Earley parsing, GADTs, game AI, garbage collection simulation, computational geometry, property graph databases, Huffman coding, interval trees, lambda calculus, model checking, optics (lenses/prisms), PEG parsers, relational algebra, SAT solvers, string matching, suffix arrays, theorem proving, type inference, comonads, random access lists, hash array mapped tries, monad transformers, ray tracing, delimited continuations, Lindenmayer systems, turtle graphics, neural networks, signal processing (FFT, convolution, spectral analysis).
+**89 programs** covering: recursion, pattern matching, algebraic data types, GADTs, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives, symbolic integration, u-substitution, numerical methods, probability monads, Monte Carlo simulation, Bayesian inference, logic programming, unification, algebraic effects, free monads, automatic differentiation, backpropagation, functional reactive programming, network flow algorithms, bytecode virtual machines, term rewriting systems, zippers, property-based testing, finger trees, persistent vectors, abstract interpretation, finite automata, constraint satisfaction, Datalog engines, double-ended queues, diff algorithms, Earley parsing, GADTs, game AI, garbage collection simulation, computational geometry, property graph databases, Huffman coding, HyperLogLog cardinality estimation, interval trees, lambda calculus, model checking, optics (lenses/prisms), PEG parsers, relational algebra, SAT solvers, string matching, suffix arrays, theorem proving, type inference, comonads, random access lists, hash array mapped tries, monad transformers, ray tracing, delimited continuations, Lindenmayer systems, turtle graphics, neural networks, signal processing (FFT, convolution, spectral analysis).
 
 ## Programs
 
@@ -48,6 +48,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`diff.ml`](diff.ml) | Myers diff algorithm — the same algorithm used by git diff | Edit graph, shortest edit script, LCS extraction, unified diff formatting |
 | [`dijkstra.ml`](dijkstra.ml) | Weighted graphs — Dijkstra's, Floyd-Warshall, Prim's MST | Weighted adjacency lists, priority queues, shortest paths, minimum spanning trees |
 | [`earley.ml`](earley.ml) | Earley parser for context-free grammars | Earley items, predict/scan/complete operations, parse forests, ambiguity handling |
+| [`euler_tour_tree.ml`](euler_tour_tree.ml) | Euler Tour Tree — dynamic forest connectivity via Euler tour sequences | Treap-backed implicit sequences, link/cut, connectivity queries, subtree aggregates, rerooting |
 | [`effects.ml`](effects.ml) | Algebraic effects and handlers | Free monads, delimited continuations, CPS transforms, effect composition via coproducts, State/Exception/Nondeterminism/Writer/Reader/Coroutine effects, N-Queens |
 | [`factor.ml`](factor.ml) | Prime factorization via optimized trial division | Recursion, mutual recursion, input validation |
 | [`fenwick_tree.ml`](fenwick_tree.ml) | Fenwick Tree (Binary Indexed Tree) — prefix sums and point updates | Imperative arrays, bit manipulation, functors, O(log n) queries, order statistics |
@@ -68,6 +69,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`heap.ml`](heap.ml) | Priority queue — leftist min-heap (insert, merge, sort, top-k) | Persistent data structures, rank annotations, custom comparators |
 | [`hello.ml`](hello.ml) | Variables, types, pipes, and pattern matching | Let bindings, type inference, `Printf`, pipe operator |
 | [`huffman.ml`](huffman.ml) | Huffman coding — lossless data compression | Priority queues, recursive tree traversal, frequency analysis, variable-length prefix codes |
+| [`hyperloglog.ml`](hyperloglog.ml) | HyperLogLog — probabilistic cardinality estimator | Register-based sketching, harmonic mean estimation, bias correction, merge/union, intersection via inclusion-exclusion, Jaccard similarity, serialization |
 | [`integration.ml`](integration.ml) | Symbolic integration engine — antiderivatives, definite integrals, numerical methods | Pattern-based rules, linearity, u-substitution, integration by parts (LIATE), Simpson's rule, verification via differentiation |
 | [`interval_tree.ml`](interval_tree.ml) | Interval tree — augmented AVL for efficient overlap queries | AVL balancing, subtree augmentation, O(log n) overlap/stabbing queries |
 | [`order_statistics_tree.ml`](order_statistics_tree.ml) | Order Statistics Tree — augmented weight-balanced BST | O(log n) rank, select, count_range, range_query, median, percentile, auto-rebalancing |
@@ -109,13 +111,16 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`stm.ml`](stm.ml) | Software Transactional Memory — composable concurrent state management | TVars, optimistic concurrency, conflict detection, retry/orElse, monadic composition, bounded channels, atomic transfers |
 | [`string_match.ml`](string_match.ml) | String matching algorithms — KMP, Boyer-Moore, Rabin-Karp, Aho-Corasick, Z-algorithm | Failure functions, rolling hash, multi-pattern matching, O(n+m) matching |
 | [`suffix_array.ml`](suffix_array.ml) | Suffix array with LCP array — full-text search and substring queries | Suffix sorting, Kasai's LCP, O(m log n) search, longest repeated substrings |
+| [`suffix_automaton.ml`](suffix_automaton.ml) | Suffix Automaton (SAM) — minimal DFA recognizing all suffixes of a string | O(n) construction, substring check, distinct substring count, longest common substring, occurrence counting, shortest absent string |
 | [`term_rewriting.ml`](term_rewriting.ml) | Term Rewriting Systems — unification, pattern matching, reduction strategies, Knuth-Bendix completion | First-order terms, Robinson's unification, LPO ordering, critical pairs, confluence checking, Peano/Boolean/Group TRSs |
 | [`theorem_prover.ml`](theorem_prover.ml) | Propositional theorem prover via natural deduction | Sequent-style proof search, backtracking, inference rules, immutable contexts |
 | [`trie.ml`](trie.ml) | Trie (prefix tree) — string storage, prefix search, auto-complete | Map module functor, recursive records, persistence, string manipulation |
 | [`type_infer.ml`](type_infer.ml) | Hindley-Milner type inference engine (Algorithm W) | Unification, type variables, let-polymorphism, constraint generation, substitution |
 | [`union_find.ml`](union_find.ml) | Union-Find (disjoint sets) — persistent functional implementation | Union-by-rank, path compression, Kruskal's MST, component analysis |
 | [`zipper.ml`](zipper.ml) | Zipper — functional cursor for navigating and editing immutable structures | One-hole contexts, list/tree/filesystem zippers, Huet's zipper, rose trees, purely functional editing |
+| [`euler_tour_tree.ml`](euler_tour_tree.ml) | Euler Tour Tree — dynamic forest connectivity via Euler tour sequences | Treap-backed implicit sequences, link/cut operations, connectivity queries, subtree aggregates, rerooting |
 | [`incremental.ml`](incremental.ml) | Incremental Computation — self-adjusting computation framework | Dependency graph, change propagation, Var/map/map2/bind/array_fold, observers, cutoff functions, freeze, spreadsheet example |
+| [`hyperloglog.ml`](hyperloglog.ml) | HyperLogLog — probabilistic cardinality estimator | Register-based sketching, harmonic mean estimation, bias correction, merge/union, intersection via inclusion-exclusion, Jaccard similarity, serialization |
 
 ## Getting Started
 
@@ -520,6 +525,7 @@ Ocaml-sample-code/
 ├── graph_db.ml           # Property graph query engine
 ├── hamt.ml               # Hash Array Mapped Trie (persistent hash map)
 ├── huffman.ml            # Huffman coding (lossless compression)
+├── hyperloglog.ml        # HyperLogLog (probabilistic cardinality estimation)
 ├── interval_tree.ml      # Interval tree (augmented AVL)
 ├── lambda.ml             # Untyped lambda calculus interpreter
 ├── lsystem.ml            # L-Systems (Lindenmayer systems, turtle graphics)
@@ -536,6 +542,7 @@ Ocaml-sample-code/
 ├── sat_solver.ml         # SAT solver (DPLL algorithm)
 ├── string_match.ml       # String matching (KMP, Boyer-Moore, etc.)
 ├── suffix_array.ml       # Suffix array with LCP
+├── suffix_automaton.ml   # Suffix Automaton (SAM)
 ├── theorem_prover.ml     # Propositional theorem prover
 ├── type_infer.ml         # Hindley-Milner type inference
 ├── incremental.ml        # Incremental computation (self-adjusting)

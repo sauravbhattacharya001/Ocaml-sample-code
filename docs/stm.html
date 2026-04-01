@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Transactional Memory — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔒 Software Transactional Memory (STM)</h1>
+    <p class="subtitle">Composable concurrency without locks</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Software Transactional Memory</strong> replaces locks with
+      <em>transactions</em>. Each transaction reads a consistent snapshot of shared
+      state. At commit time, the runtime validates that no read variables were
+      modified by other transactions. On conflict, it rolls back and retries
+      automatically.</p>
+      <p>This is a faithful single-threaded simulation that models STM semantics
+      (snapshots, validation, retry, orElse) without requiring threads — focusing
+      on the <em>algorithm</em>, not OS plumbing.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Optimistic concurrency control</strong> — reads are cheap, conflicts detected at commit</li>
+        <li><strong>Transaction isolation</strong> — each transaction sees a consistent snapshot</li>
+        <li><strong>Composability</strong> — two STM actions combine into one atomic block (unlike locks)</li>
+        <li><strong>Retry &amp; orElse</strong> — blocking and choice combinators for conditional synchronization</li>
+        <li><strong>Monadic composition</strong> — STM actions form a monad for sequencing effects</li>
+        <li><strong>Mutable state management</strong> — controlled mutation via transactional variables</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Core Abstractions</h2>
+      <pre><code>(* TVar: a versioned mutable cell *)
+type 'a tvar = {
+  mutable value   : 'a;
+  mutable version : int;   (* bumped on every write *)
+  id              : int;
+}
+
+(* STM monad: sequence reads/writes in a transaction *)
+(* read_tvar  — record read + version in transaction log *)
+(* write_tvar — buffer write locally until commit *)
+
+(* atomically: run transaction, validate reads, commit or retry *)
+(* retry: block until a read variable changes *)
+(* orElse: try first action; if it retries, try the alternative *)</code></pre>
+    </section>
+
+    <section>
+      <h2>How Commit Works</h2>
+      <ol>
+        <li>Transaction executes against a <strong>snapshot</strong> (reads logged with versions)</li>
+        <li>At commit: validate every read — has the TVar's version changed?</li>
+        <li>If all reads still valid → apply buffered writes atomically</li>
+        <li>If any read is stale → <strong>roll back and retry</strong> the entire transaction</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>STM vs Locks vs CRDTs</h2>
+      <table>
+        <tr><th>Approach</th><th>Consistency</th><th>Composable</th><th>Deadlock-free</th></tr>
+        <tr><td>Locks</td><td>Strong</td><td>❌ No</td><td>❌ No</td></tr>
+        <tr><td>STM</td><td>Strong</td><td>✅ Yes</td><td>✅ Yes</td></tr>
+        <tr><td><a href="crdt.html">CRDTs</a></td><td>Eventual</td><td>✅ Yes</td><td>✅ Yes</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Key Takeaways</h2>
+      <ul>
+        <li>STM eliminates deadlocks by removing lock ordering requirements</li>
+        <li>Composability is the killer feature — combine any two STM actions into one atomic block</li>
+        <li>Optimistic approach means high throughput under low contention</li>
+        <li>OCaml's type system makes the transaction boundary explicit and safe</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

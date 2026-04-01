@@ -23,9 +23,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	genetic.ml monad_transformers.ml persistent_vector.ml \
 	random_access_list.ml raytracer.ml stm.ml delimited_cont.ml \
 	neural_network.ml lsystem.ml cellular_automata.ml memoize.ml \
-	signal_processing.ml spreadsheet.ml astar.ml benchmark.ml \
-	compression.ml cuckoo_filter.ml dining_philosophers.ml polynomial.ml \
-	ring_buffer.ml splay_tree.ml typeclass.ml
+	signal_processing.ml spreadsheet.ml pairing_heap.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml
@@ -78,6 +76,9 @@ test_skip_list: skip_list.ml test_skip_list.ml
 test_graph_db: graph_db.ml test_graph_db.ml
 	$(OCAML) -o test_graph_db graph_db.ml test_graph_db.ml
 
+test_sat_solver: test_sat_solver.ml
+	$(OCAML) -o test_sat_solver test_sat_solver.ml
+
 run: all
 	@for prog in $(TARGETS_PLAIN); do \
 		echo "=== $$prog ===" ; \
@@ -104,5 +105,5 @@ coverage-html: coverage
 	@echo "Coverage report: _coverage/index.html"
 
 clean:
-	rm -f $(TARGETS) test_all test_all_cov test_skip_list test_graph_db *.cmi *.cmx *.cmo *.o bisect*.coverage
+	rm -f $(TARGETS) test_all test_all_cov test_skip_list test_graph_db test_sat_solver *.cmi *.cmx *.cmo *.o bisect*.coverage
 	rm -rf _coverage

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Network — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🧠 Neural Network</h1>
+    <p class="subtitle">Feedforward multilayer perceptron with backpropagation — from scratch</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A complete implementation of a <strong>multilayer perceptron (MLP)</strong> using
+      only OCaml's standard library. No frameworks, no dependencies — just
+      matrix math and calculus implemented by hand. Demonstrates how neural
+      networks learn through gradient descent and backpropagation.</p>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <ul>
+        <li><strong>Configurable architecture</strong> — arbitrary depth and layer sizes</li>
+        <li><strong>Activation functions</strong> — Sigmoid, Tanh, ReLU, Leaky ReLU, Softmax, Linear</li>
+        <li><strong>Weight initialization</strong> — Xavier and He schemes for stable training</li>
+        <li><strong>Training modes</strong> — batch and stochastic gradient descent</li>
+        <li><strong>Loss functions</strong> — Mean Squared Error, Cross-entropy</li>
+        <li><strong>Learning rate scheduling</strong> — constant, decay, step</li>
+        <li><strong>Momentum &amp; gradient clipping</strong> — stabilize training</li>
+        <li><strong>Model serialization</strong> — save/load trained weights</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Backpropagation</strong> — chain rule applied layer-by-layer to compute gradients</li>
+        <li><strong>Numerical computing in OCaml</strong> — matrix operations without NumPy</li>
+        <li><strong>Functional design</strong> — pure functions for forward pass, imperative updates for weights</li>
+        <li><strong>Box-Muller transform</strong> — generating normally distributed random numbers</li>
+        <li><strong>Type-safe ML</strong> — OCaml's type system catches dimension mismatches at compile time</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* 1. Initialize network with random weights *)
+(*    Xavier: scale = sqrt(2 / (fan_in + fan_out)) *)
+(*    He:     scale = sqrt(2 / fan_in)             *)
+
+(* 2. Forward pass: propagate input through layers *)
+(*    output_i = activate(W_i · input_i + bias_i)  *)
+
+(* 3. Compute loss (MSE or cross-entropy) *)
+
+(* 4. Backward pass: compute gradients via chain rule *)
+(*    δ_output = (predicted - target) * activate'   *)
+(*    δ_hidden = (W_next^T · δ_next) * activate'    *)
+
+(* 5. Update weights: W -= learning_rate * δ · input^T *)
+
+(* 6. Repeat until convergence *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Demo Problems</h2>
+      <ul>
+        <li><strong>XOR</strong> — classic non-linearly-separable problem proving hidden layers work</li>
+        <li><strong>AND / OR</strong> — linearly separable baselines</li>
+        <li><strong>Circle classification</strong> — 2D points inside/outside a circle</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Takeaways</h2>
+      <ul>
+        <li>Neural networks are fundamentally function approximators composed of matrix multiplications and non-linearities</li>
+        <li>Backpropagation is just the chain rule applied systematically</li>
+        <li>Weight initialization matters enormously — poor init leads to vanishing/exploding gradients</li>
+        <li>OCaml's strict evaluation and explicit mutation make the dataflow crystal clear compared to framework magic</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
