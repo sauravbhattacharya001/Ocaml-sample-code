@@ -86,48 +86,37 @@ module MakeAI (G : GAME) = struct
       | [] -> { score = G.evaluate state; best_move = None; nodes_searched = 1; depth_reached = 0 }
       | _ ->
         let is_max = G.current_player state = G.Maximizer in
-        if is_max then
-          alphabeta_max state moves depth alpha beta
-            { score = neg_infinity; best_move = None; nodes_searched = 0; depth_reached = 0 }
-        else
-          alphabeta_min state moves depth alpha beta
-            { score = infinity; best_move = None; nodes_searched = 0; depth_reached = 0 }
+        let init_score = if is_max then neg_infinity else infinity in
+        alphabeta_branch is_max state moves depth alpha beta
+          { score = init_score; best_move = None; nodes_searched = 0; depth_reached = 0 }
 
-  and alphabeta_max state moves depth alpha beta acc =
+  (** Unified alpha-beta branch: handles both maximizing and minimizing
+      players by parameterizing the comparison and bound updates.
+      Eliminates the previous alphabeta_max/alphabeta_min duplication. *)
+  and alphabeta_branch is_max state moves depth alpha beta acc =
     match moves with
     | [] -> acc
     | m :: rest ->
       let child = G.apply_move state m in
       let result = alphabeta child (depth - 1) alpha beta in
       let total_nodes = acc.nodes_searched + result.nodes_searched in
+      let dominated =
+        if is_max then result.score > acc.score
+        else result.score < acc.score
+      in
       let new_acc =
-        if result.score > acc.score then
+        if dominated then
           { score = result.score; best_move = Some m;
             nodes_searched = total_nodes; depth_reached = result.depth_reached + 1 }
         else
           { acc with nodes_searched = total_nodes }
       in
-      let new_alpha = max alpha new_acc.score in
-      if new_alpha >= beta then new_acc  (* beta cutoff *)
-      else alphabeta_max state rest depth new_alpha beta new_acc
-
-  and alphabeta_min state moves depth alpha beta acc =
-    match moves with
-    | [] -> acc
-    | m :: rest ->
-      let child = G.apply_move state m in
-      let result = alphabeta child (depth - 1) alpha beta in
-      let total_nodes = acc.nodes_searched + result.nodes_searched in
-      let new_acc =
-        if result.score < acc.score then
-          { score = result.score; best_move = Some m;
-            nodes_searched = total_nodes; depth_reached = result.depth_reached + 1 }
-        else
-          { acc with nodes_searched = total_nodes }
+      let new_alpha, new_beta =
+        if is_max then (max alpha new_acc.score, beta)
+        else (alpha, min beta new_acc.score)
       in
-      let new_beta = min beta new_acc.score in
-      if alpha >= new_beta then new_acc  (* alpha cutoff *)
-      else alphabeta_min state rest depth alpha new_beta new_acc
+      if new_alpha >= new_beta then new_acc  (* cutoff *)
+      else alphabeta_branch is_max state rest depth new_alpha new_beta new_acc
 
   (* --- Alpha-beta with transposition table --- *)
   type tt_entry = { tt_depth : int; tt_score : float; tt_flag : [`Exact | `Lower | `Upper] }
@@ -156,40 +145,35 @@ module MakeAI (G : GAME) = struct
         else begin
           let moves = G.legal_moves st in
           let is_max = G.current_player st = G.Maximizer in
-          let best, alpha_out, beta_out =
-            if is_max then
-              let best = ref neg_infinity in
-              let a = ref alpha in
-              List.iter (fun m ->
-                if !a < beta then begin
-                  let v = search (G.apply_move st m) (depth - 1) !a beta in
-                  if v > !best then best := v;
-                  if v > !a then a := v
-                end
-              ) moves;
-              (!best, !a, beta)
-            else
-              let best = ref infinity in
-              let b = ref beta in
-              List.iter (fun m ->
-                if alpha < !b then begin
-                  let v = search (G.apply_move st m) (depth - 1) alpha !b in
-                  if v < !best then best := v;
-                  if v < !b then b := v
-                end
-              ) moves;
-              (!best, alpha, !b)
+          let init_best = if is_max then neg_infinity else infinity in
+          let best = ref init_best in
+          let bound = ref (if is_max then alpha else beta) in
+          let cmp = if is_max then ( > ) else ( < ) in
+          let opt = if is_max then max else min in
+          let within_window () =
+            if is_max then !bound < beta else alpha < !bound
           in
+          List.iter (fun m ->
+            if within_window () then begin
+              let a, b = if is_max then (!bound, beta) else (alpha, !bound) in
+              let v = search (G.apply_move st m) (depth - 1) a b in
+              if cmp v !best then best := v;
+              bound := opt !bound v
+            end
+          ) moves;
+          let alpha_out = if is_max then !bound else alpha in
+          let beta_out = if is_max then beta else !bound in
           (* store in TT *)
+          let bv = !best in
           let flag =
-            if best <= alpha_out && is_max then `Upper
-            else if best >= beta_out && not is_max then `Lower
-            else if best >= beta_out && is_max then `Lower
-            else if best <= alpha_out && not is_max then `Upper
+            if bv <= alpha_out && is_max then `Upper
+            else if bv >= beta_out && not is_max then `Lower
+            else if bv >= beta_out && is_max then `Lower
+            else if bv <= alpha_out && not is_max then `Upper
             else `Exact
           in
-          Hashtbl.replace table h { tt_depth = depth; tt_score = best; tt_flag = flag };
-          best
+          Hashtbl.replace table h { tt_depth = depth; tt_score = bv; tt_flag = flag };
+          bv
         end
       end
     in
