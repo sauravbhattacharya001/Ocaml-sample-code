@@ -513,132 +513,109 @@ and eval_expr sheet expr =
   | EFunc (name, args) -> eval_func sheet name args
 
 and eval_func sheet name args =
-  match name with
-  | "SUM" ->
+  (* -- Helper: evaluate a single-argument numeric function ----------- *)
+  let unary_num name' f =
+    match args with
+    | [e] ->
+      (match eval_expr sheet e with
+       | VNumber n -> f n
+       | _ -> VError ("#VALUE: " ^ name' ^ " expects number"))
+    | _ -> VError ("#ARGS: " ^ name' ^ " takes 1 argument")
+  in
+  (* -- Helper: evaluate a single-argument string function ------------ *)
+  let unary_str name' f =
+    match args with
+    | [e] -> f (value_to_string (eval_expr sheet e))
+    | _ -> VError ("#ARGS: " ^ name' ^ " takes 1 argument")
+  in
+  (* -- Helper: evaluate a two-argument numeric function -------------- *)
+  let binary_num name' f =
+    match args with
+    | [a; b] ->
+      (match eval_expr sheet a, eval_expr sheet b with
+       | VNumber x, VNumber y -> f x y
+       | _ -> VError ("#VALUE: " ^ name' ^ " expects numbers"))
+    | _ -> VError ("#ARGS: " ^ name' ^ " takes 2 arguments")
+  in
+  (* -- Helper: collect numeric values from aggregate args ------------ *)
+  let aggregate_nums () =
     let vals = List.concat_map (collect_values sheet) args in
-    let nums = List.filter_map value_to_float vals in
-    VNumber (List.fold_left (+.) 0.0 nums)
+    List.filter_map value_to_float vals
+  in
+  (* -- Helper: evaluate a condition to boolean ----------------------- *)
+  let is_truthy v =
+    match v with
+    | VNumber n -> n <> 0.0
+    | VBool b -> b
+    | VText s -> s <> ""
+    | _ -> false
+  in
+  match name with
+  (* Aggregate functions *)
+  | "SUM" ->
+    VNumber (List.fold_left (+.) 0.0 (aggregate_nums ()))
 
   | "AVG" | "AVERAGE" ->
-    let vals = List.concat_map (collect_values sheet) args in
-    let nums = List.filter_map value_to_float vals in
+    let nums = aggregate_nums () in
     if nums = [] then VError "#DIV/0!"
     else VNumber (List.fold_left (+.) 0.0 nums /. float_of_int (List.length nums))
 
   | "MIN" ->
-    let vals = List.concat_map (collect_values sheet) args in
-    let nums = List.filter_map value_to_float vals in
+    let nums = aggregate_nums () in
     if nums = [] then VNumber 0.0
     else VNumber (List.fold_left min infinity nums)
 
   | "MAX" ->
-    let vals = List.concat_map (collect_values sheet) args in
-    let nums = List.filter_map value_to_float vals in
+    let nums = aggregate_nums () in
     if nums = [] then VNumber 0.0
     else VNumber (List.fold_left max neg_infinity nums)
 
   | "COUNT" ->
     let vals = List.concat_map (collect_values sheet) args in
-    let count = List.length (List.filter value_is_number vals) in
-    VNumber (float_of_int count)
+    VNumber (float_of_int (List.length (List.filter value_is_number vals)))
 
   | "COUNTA" ->
     let vals = List.concat_map (collect_values sheet) args in
-    let count = List.length (List.filter (fun v -> not (value_is_blank v)) vals) in
-    VNumber (float_of_int count)
+    VNumber (float_of_int (List.length (List.filter (fun v -> not (value_is_blank v)) vals)))
 
-  | "ABS" ->
-    (match args with
-     | [e] ->
-       (match eval_expr sheet e with
-        | VNumber n -> VNumber (Float.abs n)
-        | _ -> VError "#VALUE: ABS expects number")
-     | _ -> VError "#ARGS: ABS takes 1 argument")
+  (* Unary numeric functions *)
+  | "ABS"  -> unary_num "ABS" (fun n -> VNumber (Float.abs n))
+  | "CEIL" | "CEILING" -> unary_num "CEIL" (fun n -> VNumber (ceil n))
+  | "FLOOR" -> unary_num "FLOOR" (fun n -> VNumber (floor n))
+  | "SQRT" -> unary_num "SQRT" (fun n ->
+      if n < 0.0 then VError "#NUM: negative sqrt"
+      else VNumber (sqrt n))
 
-  | "ROUND" ->
-    (match args with
-     | [e; d] ->
-       (match eval_expr sheet e, eval_expr sheet d with
-        | VNumber n, VNumber dp ->
-          let m = 10.0 ** (Float.round dp) in
-          VNumber (Float.round (n *. m) /. m)
-        | _ -> VError "#VALUE: ROUND expects numbers")
-     | _ -> VError "#ARGS: ROUND takes 2 arguments")
+  (* Binary numeric functions *)
+  | "ROUND" -> binary_num "ROUND" (fun n dp ->
+      let m = 10.0 ** (Float.round dp) in
+      VNumber (Float.round (n *. m) /. m))
+  | "MOD" -> binary_num "MOD" (fun n d ->
+      if d = 0.0 then VError "#DIV/0!"
+      else VNumber (Float.rem n d))
 
-  | "CEIL" | "CEILING" ->
-    (match args with
-     | [e] ->
-       (match eval_expr sheet e with
-        | VNumber n -> VNumber (Float.round ~-.n |> fun x -> -.x)
-        | _ -> VError "#VALUE: CEIL expects number")
-     | _ -> VError "#ARGS: CEIL takes 1 argument")
-
-  | "FLOOR" ->
-    (match args with
-     | [e] ->
-       (match eval_expr sheet e with
-        | VNumber n -> VNumber (floor n)
-        | _ -> VError "#VALUE: FLOOR expects number")
-     | _ -> VError "#ARGS: FLOOR takes 1 argument")
-
-  | "MOD" ->
-    (match args with
-     | [a; b] ->
-       (match eval_expr sheet a, eval_expr sheet b with
-        | VNumber n, VNumber d ->
-          if d = 0.0 then VError "#DIV/0!"
-          else VNumber (Float.rem n d)
-        | _ -> VError "#VALUE: MOD expects numbers")
-     | _ -> VError "#ARGS: MOD takes 2 arguments")
-
+  (* Conditional *)
   | "IF" ->
     (match args with
      | [cond; then_; else_] ->
-       let cv = eval_expr sheet cond in
-       let truthy = match cv with
-         | VNumber n -> n <> 0.0
-         | VBool b -> b
-         | VText s -> s <> ""
-         | _ -> false
-       in
-       if truthy then eval_expr sheet then_
+       if is_truthy (eval_expr sheet cond)
+       then eval_expr sheet then_
        else eval_expr sheet else_
      | [cond; then_] ->
-       let cv = eval_expr sheet cond in
-       let truthy = match cv with
-         | VNumber n -> n <> 0.0
-         | VBool b -> b
-         | VText s -> s <> ""
-         | _ -> false
-       in
-       if truthy then eval_expr sheet then_
+       if is_truthy (eval_expr sheet cond)
+       then eval_expr sheet then_
        else VBool false
      | _ -> VError "#ARGS: IF takes 2-3 arguments")
 
+  (* String functions *)
   | "CONCAT" | "CONCATENATE" ->
-    let strs = List.map (fun e -> value_to_string (eval_expr sheet e)) args in
-    VText (String.concat "" strs)
+    VText (String.concat ""
+      (List.map (fun e -> value_to_string (eval_expr sheet e)) args))
 
-  | "LEN" ->
-    (match args with
-     | [e] ->
-       let s = value_to_string (eval_expr sheet e) in
-       VNumber (float_of_int (String.length s))
-     | _ -> VError "#ARGS: LEN takes 1 argument")
-
-  | "UPPER" ->
-    (match args with
-     | [e] ->
-       let s = value_to_string (eval_expr sheet e) in
-       VText (String.uppercase_ascii s)
-     | _ -> VError "#ARGS: UPPER takes 1 argument")
-
-  | "LOWER" ->
-    (match args with
-     | [e] ->
-       let s = value_to_string (eval_expr sheet e) in
-       VText (String.lowercase_ascii s)
-     | _ -> VError "#ARGS: LOWER takes 1 argument")
+  | "LEN"   -> unary_str "LEN" (fun s ->
+      VNumber (float_of_int (String.length s)))
+  | "UPPER" -> unary_str "UPPER" (fun s -> VText (String.uppercase_ascii s))
+  | "LOWER" -> unary_str "LOWER" (fun s -> VText (String.lowercase_ascii s))
 
   | "LEFT" ->
     (match args with
@@ -659,24 +636,20 @@ and eval_func sheet name args =
         | VNumber cnt ->
           let cnt = max 0 (int_of_float cnt) in
           let len = String.length s in
-          let start = max 0 (len - cnt) in
-          VText (String.sub s start (len - start))
+          VText (String.sub s (max 0 (len - cnt)) (min cnt len))
         | _ -> VError "#VALUE: RIGHT expects number")
      | _ -> VError "#ARGS: RIGHT takes 2 arguments")
 
+  (* Logical functions *)
   | "AND" ->
-    let vals = List.map (fun e -> eval_expr sheet e) args in
-    let all_true = List.for_all (fun v ->
-      match value_to_float v with Some n -> n <> 0.0 | None -> false
-    ) vals in
-    VBool all_true
+    VBool (List.for_all (fun e ->
+      match value_to_float (eval_expr sheet e) with
+      | Some n -> n <> 0.0 | None -> false) args)
 
   | "OR" ->
-    let vals = List.map (fun e -> eval_expr sheet e) args in
-    let any_true = List.exists (fun v ->
-      match value_to_float v with Some n -> n <> 0.0 | None -> false
-    ) vals in
-    VBool any_true
+    VBool (List.exists (fun e ->
+      match value_to_float (eval_expr sheet e) with
+      | Some n -> n <> 0.0 | None -> false) args)
 
   | "NOT" ->
     (match args with
@@ -687,31 +660,21 @@ and eval_func sheet name args =
         | _ -> VError "#VALUE: NOT expects boolean/number")
      | _ -> VError "#ARGS: NOT takes 1 argument")
 
+  (* Type-checking functions *)
   | "ISNUMBER" ->
     (match args with
      | [e] -> VBool (value_is_number (eval_expr sheet e))
      | _ -> VError "#ARGS: ISNUMBER takes 1 argument")
-
   | "ISTEXT" ->
     (match args with
      | [e] -> VBool (value_is_text (eval_expr sheet e))
      | _ -> VError "#ARGS: ISTEXT takes 1 argument")
-
   | "ISBLANK" ->
     (match args with
      | [e] -> VBool (value_is_blank (eval_expr sheet e))
      | _ -> VError "#ARGS: ISBLANK takes 1 argument")
 
-  | "SQRT" ->
-    (match args with
-     | [e] ->
-       (match eval_expr sheet e with
-        | VNumber n ->
-          if n < 0.0 then VError "#NUM: negative sqrt"
-          else VNumber (sqrt n)
-        | _ -> VError "#VALUE: SQRT expects number")
-     | _ -> VError "#ARGS: SQRT takes 1 argument")
-
+  (* Constants *)
   | "PI" -> VNumber Float.pi
 
   | _ -> VError ("#NAME: unknown function " ^ name)
