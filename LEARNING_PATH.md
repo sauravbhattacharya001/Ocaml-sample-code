@@ -363,6 +363,114 @@ Features: configurable layer sizes, activation functions (sigmoid, tanh, relu, l
 
 ---
 
+## Stage 15: Search, Optimization & Constraint Solving
+
+### [`astar.ml`](astar.ml) — A* Pathfinding
+
+**Concepts:** priority queues, heuristic search, graph traversal, grid-based pathfinding
+
+A generic A* implementation with pluggable heuristics (Manhattan, Euclidean, Chebyshev) and ASCII visualization. Demonstrates how informed search dramatically reduces exploration compared to BFS/Dijkstra by combining actual cost with estimated remaining distance.
+
+**Key takeaway:** A* is optimal when the heuristic is admissible (never overestimates). The implementation shows how OCaml's module system cleanly separates the search algorithm from domain-specific heuristics.
+
+### [`simplex.ml`](simplex.ml) — Linear Programming
+
+**Concepts:** two-phase simplex method, tableau operations, optimization, constraint systems
+
+Solves linear programs (maximize c^Tx subject to Ax ≤ b, x ≥ 0) using the classic simplex algorithm. Covers pivot operations, artificial variables for Phase I, and degeneracy handling.
+
+**Key takeaway:** The simplex method navigates vertices of a convex polytope — each pivot moves to an adjacent vertex with a better objective value.
+
+### [`dancing_links.ml`](dancing_links.ml) — Exact Cover (Algorithm X)
+
+**Concepts:** Knuth's Algorithm X, doubly-linked circular lists, backtracking, constraint satisfaction
+
+Implements Donald Knuth's DLX technique for solving exact cover problems — the foundation for efficient Sudoku solvers, polyomino tilings, and N-Queens. The "dancing" refers to the elegant unlinking/relinking of nodes during backtracking.
+
+**Key takeaway:** DLX shows how a clever data structure (doubly-linked circular lists with column headers) can make backtracking dramatically faster by enabling O(1) undo operations.
+
+### [`bdd.ml`](bdd.ml) — Binary Decision Diagrams
+
+**Concepts:** reduced ordered BDDs, memoization, canonical representations, Boolean algebra
+
+BDDs provide compact canonical representations of Boolean functions. Used in hardware verification, model checking, and symbolic computation. Operations like AND, OR, and equivalence checking become polynomial on the BDD representation.
+
+**Key takeaway:** Canonicity is powerful — two Boolean functions are equivalent if and only if their BDDs are identical, enabling O(1) equivalence checking after construction.
+
+---
+
+## Stage 16: Advanced Trees & Probabilistic Structures
+
+### [`splay_tree.ml`](splay_tree.ml) — Self-Adjusting BST
+
+**Concepts:** amortized analysis, tree rotations, self-adjusting data structures, working set property
+
+Splay trees rotate accessed nodes to the root, providing O(log n) amortized time without storing balance information. Frequently accessed elements migrate toward the root, giving excellent cache locality.
+
+### [`treap.ml`](treap.ml) — Randomized BST
+
+**Concepts:** randomized data structures, heap-ordered priorities, expected O(log n) operations
+
+A treap combines BST ordering on keys with heap ordering on random priorities. The random priorities ensure the tree is balanced in expectation — no rotations needed, just split and merge.
+
+### [`aa_tree.ml`](aa_tree.ml) — Simplified Red-Black Tree
+
+**Concepts:** level-based balancing, skew/split operations, simplified invariants
+
+AA trees use a single "level" integer instead of red/black colors, reducing the number of cases in insert/delete from ~20 to ~2. Two operations — `skew` (right rotation) and `split` (left rotation + level increment) — handle all rebalancing.
+
+### [`cuckoo_filter.ml`](cuckoo_filter.ml) — Space-Efficient Approximate Sets
+
+**Concepts:** fingerprinting, cuckoo hashing, probabilistic membership testing, deletion support
+
+Like Bloom filters but supports deletion and offers better space efficiency at low false-positive rates. Elements are stored as fingerprints in a cuckoo hash table with bucket-based relocation.
+
+### [`hyperloglog.ml`](hyperloglog.ml) — Cardinality Estimation
+
+**Concepts:** probabilistic counting, harmonic mean, register-based estimation
+
+Estimates the number of distinct elements in a stream using only O(log log n) space. Used in databases and analytics to count unique visitors, distinct queries, etc.
+
+**Key takeaway:** Probabilistic data structures trade exact answers for dramatic space savings — HyperLogLog can estimate billions of unique elements using just a few KB of memory.
+
+---
+
+## Stage 17: Systems, Languages & Computation Theory
+
+### [`turing_machine.ml`](turing_machine.ml) — Universal Computation
+
+**Concepts:** Turing machine model, transition tables, tape-based computation, halting
+
+A classic single-tape Turing machine simulator with configurable alphabets and transition rules. The foundational model of computation — any algorithm can be expressed as a Turing machine.
+
+### [`prolog.ml`](prolog.ml) — Logic Programming Interpreter
+
+**Concepts:** unification, occurs check, backtracking search, Horn clauses, SLD resolution
+
+A mini Prolog interpreter implementing unification with occurs check and depth-first search through the clause database. Demonstrates how logic programming inverts the usual control flow — you declare *what* to find, not *how* to find it.
+
+### [`forth.ml`](forth.ml) — Stack-Based Language
+
+**Concepts:** stack machines, concatenative programming, dictionary-based dispatch
+
+A Forth interpreter with a data stack, return stack, and extensible word dictionary. Forth's minimalism makes it an excellent study in language implementation — the entire interpreter loop fits in a few dozen lines.
+
+### [`consistent_hashing.ml`](consistent_hashing.ml) — Distributed Key Routing
+
+**Concepts:** hash rings, virtual nodes, minimal remapping, distributed systems
+
+A purely functional consistent hashing ring for distributing keys across nodes. When a node joins or leaves, only K/N keys need remapping (K = total keys, N = nodes) — essential for distributed caches, databases, and CDNs.
+
+### [`dining_philosophers.ml`](dining_philosophers.ml) — Concurrency Patterns
+
+**Concepts:** deadlock avoidance, resource ordering, mutual exclusion, classical concurrency problems
+
+The classic dining philosophers problem demonstrating deadlock conditions and solutions. Shows how resource ordering or asymmetric strategies prevent circular wait.
+
+**Key takeaway:** Concurrency bugs arise from the interaction of correct components. The dining philosophers problem illustrates why reasoning about concurrent systems requires thinking about *all possible interleavings*.
+
+---
+
 ## What's Next?
 
 After working through these examples, try:
@@ -385,34 +493,36 @@ After working through these examples, try:
 | Calculus & differentiation | `autodiff.ml`, `calculus.ml`, `integration.ml` |
 | Closures & encapsulation | `bytecode_vm.ml`, `fibonacci.ml`, `memoize.ml`, `parser.ml`, `regex.ml` |
 | Comonads | `comonad.ml` |
-| Compilers & interpreters | `abstract_interp.ml`, `bytecode_vm.ml`, `gadts.ml`, `lambda.ml` |
-| Compression algorithms | `huffman.ml` |
-| Computational geometry | `geometry.ml`, `kd_tree.ml` |
-| Concurrency & parallelism | `actor.ml`, `csp.ml`, `deque.ml`, `stm.ml` |
-| Constraint satisfaction | `constraint.ml`, `csp.ml` |
+| Compilers & interpreters | `abstract_interp.ml`, `bytecode_vm.ml`, `forth.ml`, `gadts.ml`, `lambda.ml`, `prolog.ml`, `turing_machine.ml` |
+| Compression algorithms | `compression.ml`, `huffman.ml` |
+| Computational geometry | `geometry.ml`, `kd_tree.ml`, `quadtree.ml` |
+| Concurrency & parallelism | `actor.ml`, `csp.ml`, `deque.ml`, `dining_philosophers.ml`, `petri_net.ml`, `stm.ml` |
+| Constraint satisfaction | `constraint.ml`, `csp.ml`, `dancing_links.ml` |
 | Continuations & CPS | `delimited_cont.ml`, `effects.ml`, `free_monad.ml`, `peg.ml` |
 | CRDTs (Conflict-free Replicated Data Types) | `crdt.ml` |
 | Cryptography | `crypto.ml` |
 | Data formats & serialization | `csv.ml`, `json.ml` |
 | Diff algorithms | `diff.ml` |
-| Distributed systems & consensus | `crdt.ml`, `raft.ml` |
+| Distributed systems & consensus | `consistent_hashing.ml`, `crdt.ml`, `merkle_tree.ml`, `raft.ml` |
 | Dynamic programming & memoization | `fibonacci.ml`, `game_ai.ml`, `memoize.ml`, `peg.ml`, `stream.ml` |
 | Evolutionary algorithms | `genetic.ml` |
-| Formal verification & model checking | `model_checker.ml`, `sat_solver.ml` |
+| Formal verification & model checking | `bdd.ml`, `model_checker.ml`, `sat_solver.ml` |
 | Free monads | `free_monad.ml` |
 | Functional reactive programming | `frp.ml` |
 | GADTs (Generalized ADTs) | `gadts.ml` |
 | Game AI & minimax | `game_ai.ml` |
 | Garbage collection simulation | `gc_simulator.ml` |
-| Generative art & simulation | `cellular_automata.ml`, `lsystem.ml` |
-| Graph algorithms (BFS, DFS, shortest path) | `dijkstra.ml`, `graph.ml`, `graph_db.ml`, `network_flow.ml` |
-| Hash-based data structures | `bloom_filter.ml`, `hamt.ml`, `hashmap.ml` |
+| Generative art & simulation | `cellular_automata.ml`, `lsystem.ml`, `music.ml` |
+| Graph algorithms (BFS, DFS, shortest path) | `astar.ml`, `dijkstra.ml`, `graph.ml`, `graph_db.ml`, `maze.ml`, `network_flow.ml` |
+| Hash-based data structures | `bloom_filter.ml`, `cuckoo_filter.ml`, `hamt.ml`, `hashmap.ml` |
 | Higher-order functions | `autodiff.ml`, `calculus.ml`, `csv.ml`, `game_ai.ml`, `genetic.ml`, `lsystem.ml`, `matrix.ml`, `mergesort.ml`, `parser.ml`, `quickcheck.ml`, `signal_processing.ml`, `sorting.ml`, `stream.ml`, `trie.ml` |
 | Incremental computation | `incremental.ml` |
 | Lambda calculus | `lambda.ml` |
 | Lazy evaluation & streams | `quickcheck.ml`, `stream.ml` |
 | Linear algebra & tensors | `matrix.ml`, `tensor.ml` |
-| Logic programming | `datalog.ml`, `minikanren.ml`, `relational.ml` |
+| Logic programming | `datalog.ml`, `minikanren.ml`, `prolog.ml`, `relational.ml` |
+| Linear programming & optimization | `simplex.ml` |
+| Logic circuits | `logic_circuit.ml` |
 | Machine learning & neural networks | `autodiff.ml`, `neural_network.ml` |
 | Modules & functors | `comonad.ml`, `constraint.ml`, `effects.ml`, `fenwick_tree.ml`, `finger_tree.ml`, `game_ai.ml`, `genetic.ml`, `heap.ml`, `matrix.ml`, `memoize.ml`, `monad_transformers.ml`, `segment_tree.ml`, `trie.ml` |
 | Monads & monad transformers | `delimited_cont.ml`, `frp.ml`, `monad_transformers.ml`, `parser.ml`, `probability.ml`, `quickcheck.ml`, `stm.ml` |
@@ -421,23 +531,24 @@ After working through these examples, try:
 | Optics & lenses | `optics.ml` |
 | Parsing & grammars | `csv.ml`, `earley.ml`, `json.ml`, `parser.ml`, `peg.ml`, `regex.ml` |
 | Pattern matching | `bst.ml`, `calculus.ml`, `csv.ml`, `factor.ml`, `fsm.ml`, `hello.ml`, `list_last_elem.ml`, `parser.ml`, `sat_solver.ml`, `sorting.ml`, `string_match.ml`, `term_rewriting.ml`, `theorem_prover.ml`, `zipper.ml` |
-| Persistent (immutable) data structures | `deque.ml`, `finger_tree.ml`, `hamt.ml`, `hashmap.ml`, `heap.ml`, `optics.ml`, `persistent_vector.ml`, `queue.ml`, `random_access_list.ml`, `rbtree.ml`, `trie.ml`, `union_find.ml`, `zipper.ml` |
+| Persistent (immutable) data structures | `deque.ml`, `finger_tree.ml`, `hamt.ml`, `hashmap.ml`, `heap.ml`, `optics.ml`, `persistent_array.ml`, `persistent_vector.ml`, `queue.ml`, `random_access_list.ml`, `rbtree.ml`, `trie.ml`, `union_find.ml`, `zipper.ml` |
 | Polymorphism (`'a`) | `bst.ml`, `btree.ml`, `csv.ml`, `diff.ml`, `dijkstra.ml`, `finger_tree.ml`, `hamt.ml`, `heap.ml`, `json.ml`, `mergesort.ml`, `monad_transformers.ml`, `parser.ml`, `persistent_vector.ml`, `quickcheck.ml`, `random_access_list.ml`, `rbtree.ml`, `skip_list.ml`, `stream.ml`, `type_infer.ml` |
-| Probabilistic data structures | `bloom_filter.ml`, `skip_list.ml` |
+| Probabilistic data structures | `bloom_filter.ml`, `count_min_sketch.ml`, `cuckoo_filter.ml`, `hyperloglog.ml`, `skip_list.ml` |
 | Probability & statistics | `probability.ml` |
 | Property-based testing | `quickcheck.ml` |
-| Queues, deques & heaps | `deque.ml`, `heap.ml`, `queue.ml` |
-| Range query structures | `fenwick_tree.ml`, `interval_tree.ml`, `segment_tree.ml` |
+| Queues, deques & heaps | `binomial_heap.ml`, `deque.ml`, `fibonacci_heap.ml`, `heap.ml`, `leftist_heap.ml`, `pairing_heap.ml`, `queue.ml` |
+| Polynomials & algebra | `polynomial.ml` |
+| Range query structures | `fenwick_tree.ml`, `interval_tree.ml`, `segment_tree.ml`, `sparse_table.ml` |
 | Ray tracing & graphics | `raytracer.ml` |
 | Recursion & structural induction | `bst.ml`, `btree.ml`, `csv.ml`, `factor.ml`, `fibonacci.ml`, `finger_tree.ml`, `game_ai.ml`, `huffman.ml`, `json.ml`, `kd_tree.ml`, `list_last_elem.ml`, `lsystem.ml`, `mergesort.ml`, `parser.ml`, `peg.ml`, `regex.ml`, `sat_solver.ml`, `sorting.ml`, `tensor.ml`, `theorem_prover.ml`, `trie.ml`, `type_infer.ml`, `zipper.ml` |
 | Signal processing & FFT | `signal_processing.ml` |
 | Software transactional memory | `stm.ml` |
 | Sorting algorithms | `mergesort.ml`, `sorting.ml` |
-| String algorithms | `rope.ml`, `string_match.ml`, `suffix_array.ml` |
+| String algorithms | `rope.ml`, `string_match.ml`, `succinct_bitvector.ml`, `suffix_array.ml`, `suffix_automaton.ml`, `suffix_tree.ml` |
 | Tail recursion & accumulators | `csv.ml`, `fibonacci.ml`, `mergesort.ml`, `persistent_vector.ml`, `sorting.ml`, `trie.ml` |
 | Term rewriting systems | `term_rewriting.ml` |
 | Theorem proving & logic | `theorem_prover.ml` |
-| Trees (BST, B-tree, red-black, etc.) | `bst.ml`, `btree.ml`, `fenwick_tree.ml`, `finger_tree.ml`, `huffman.ml`, `interval_tree.ml`, `kd_tree.ml`, `rbtree.ml`, `rope.ml`, `segment_tree.ml`, `trie.ml`, `union_find.ml` |
+| Trees (BST, B-tree, red-black, etc.) | `aa_tree.ml`, `adaptive_radix_tree.ml`, `bplus_tree.ml`, `bst.ml`, `btree.ml`, `cartesian_tree.ml`, `euler_tour_tree.ml`, `fenwick_tree.ml`, `finger_tree.ml`, `huffman.ml`, `interval_tree.ml`, `kd_tree.ml`, `link_cut_tree.ml`, `order_statistics_tree.ml`, `radix_tree.ml`, `rbtree.ml`, `rope.ml`, `scapegoat_tree.ml`, `segment_tree.ml`, `splay_tree.ml`, `treap.ml`, `trie.ml`, `two_three_tree.ml`, `union_find.ml`, `van_emde_boas.ml`, `wavelet_tree.ml`, `weight_balanced_tree.ml`, `yfast_trie.ml`, `zip_tree.ml` |
 | Type inference & type systems | `type_infer.ml` |
 | Union-Find (disjoint sets) | `union_find.ml` |
 | Zippers & cursor navigation | `zipper.ml` |
