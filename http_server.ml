@@ -126,6 +126,46 @@ let timestamp () =
     (t.tm_year + 1900) (t.tm_mon + 1) t.tm_mday
     t.tm_hour t.tm_min t.tm_sec
 
+(* ── JSON builder helpers ────────────────────────────────────────── *)
+
+(** Escape a string for safe JSON embedding.
+    Handles all control characters, backslashes, and double quotes. *)
+let json_escape s =
+  let buf = Buffer.create (String.length s + 8) in
+  String.iter (fun c -> match c with
+    | '"'  -> Buffer.add_string buf "\\\""
+    | '\\' -> Buffer.add_string buf "\\\\"
+    | '\n' -> Buffer.add_string buf "\\n"
+    | '\r' -> Buffer.add_string buf "\\r"
+    | '\t' -> Buffer.add_string buf "\\t"
+    | c when Char.code c < 0x20 ->
+      Buffer.add_string buf (Printf.sprintf "\\u%04x" (Char.code c))
+    | c -> Buffer.add_char buf c
+  ) s;
+  Buffer.contents buf
+
+(** Build a JSON string value (with proper escaping). *)
+let json_str s = Printf.sprintf {|"%s"|} (json_escape s)
+
+(** Build a JSON integer value. *)
+let json_int n = string_of_int n
+
+(** Build a JSON float value. *)
+let json_float f =
+  if Float.is_integer f && Float.is_finite f then
+    Printf.sprintf "%.0f" f
+  else Printf.sprintf "%.17g" f
+
+(** Build a JSON array from a list of pre-serialized JSON strings. *)
+let json_arr items = "[" ^ String.concat "," items ^ "]"
+
+(** Build a JSON object from (key, value) pairs of pre-serialized JSON. *)
+let json_obj pairs =
+  let entries = List.map (fun (k, v) ->
+    Printf.sprintf {|"%s":%s|} (json_escape k) v
+  ) pairs in
+  "{" ^ String.concat "," entries ^ "}"
+
 (* ── Response builders ───────────────────────────────────────────── *)
 
 let make_response ?(status=200) ?(headers=[]) ?(content_type="text/plain; charset=utf-8") body =
@@ -335,39 +375,45 @@ let register_demo_routes () =
     let name = match List.assoc_opt "name" req.query with
       | Some n -> n | None -> "World"
     in
-    json_response (Printf.sprintf {|{"greeting":"Hello, %s!","server":"ocaml-http"}|} name)
+    json_response (json_obj [
+      ("greeting", json_str ("Hello, " ^ name ^ "!"));
+      ("server", json_str "ocaml-http");
+    ])
   );
 
   (* Echo — GET echoes query params, POST echoes body *)
   register GET "/api/echo" (fun req ->
-    let pairs = List.map (fun (k,v) ->
-      Printf.sprintf {|"%s":"%s"|} k v
-    ) req.query in
-    json_response (Printf.sprintf {|{"query":{%s}}|} (String.concat "," pairs))
+    json_response (json_obj [
+      ("query", json_obj (List.map (fun (k,v) -> (k, json_str v)) req.query));
+    ])
   );
 
   register POST "/api/echo" (fun req ->
-    json_response (Printf.sprintf {|{"body":%s,"length":%d}|}
-      (Printf.sprintf {|"%s"|} (String.escaped req.body))
-      (String.length req.body))
+    json_response (json_obj [
+      ("body", json_str req.body);
+      ("length", json_int (String.length req.body));
+    ])
   );
 
   (* Server time *)
   register GET "/api/time" (fun _req ->
     let t = Unix.gettimeofday () in
     let lt = Unix.localtime t in
-    json_response (Printf.sprintf
-      {|{"timestamp":%.0f,"iso":"%04d-%02d-%02dT%02d:%02d:%02d","day":"%s"}|}
-      t (lt.tm_year+1900) (lt.tm_mon+1) lt.tm_mday lt.tm_hour lt.tm_min lt.tm_sec
-      [|"Sun";"Mon";"Tue";"Wed";"Thu";"Fri";"Sat"|].(lt.tm_wday))
+    let iso = Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02d"
+      (lt.tm_year+1900) (lt.tm_mon+1) lt.tm_mday lt.tm_hour lt.tm_min lt.tm_sec in
+    let day = [|"Sun";"Mon";"Tue";"Wed";"Thu";"Fri";"Sat"|].(lt.tm_wday) in
+    json_response (json_obj [
+      ("timestamp", json_float t);
+      ("iso", json_str iso);
+      ("day", json_str day);
+    ])
   );
 
   (* Request headers *)
   register GET "/api/headers" (fun req ->
-    let pairs = List.map (fun (k,v) ->
-      Printf.sprintf {|"%s":"%s"|} k (String.escaped v)
-    ) req.headers in
-    json_response (Printf.sprintf {|{"headers":{%s}}|} (String.concat "," pairs))
+    json_response (json_obj [
+      ("headers", json_obj (List.map (fun (k,v) -> (k, json_str v)) req.headers));
+    ])
   );
 
   (* Fibonacci *)
@@ -380,8 +426,10 @@ let register_demo_routes () =
     if n >= 1 then fibs.(1) <- 1;
     for i = 2 to n do fibs.(i) <- fibs.(i-1) + fibs.(i-2) done;
     let nums = Array.to_list (Array.sub fibs 0 (n + 1)) in
-    let nums_s = String.concat "," (List.map string_of_int nums) in
-    json_response (Printf.sprintf {|{"n":%d,"fibonacci":[%s]}|} n nums_s)
+    json_response (json_obj [
+      ("n", json_int n);
+      ("fibonacci", json_arr (List.map json_int nums));
+    ])
   );
 
   (* Server stats *)
@@ -393,9 +441,12 @@ let register_demo_routes () =
     let hours = int_of_float (uptime /. 3600.0) in
     let mins = int_of_float (mod_float (uptime /. 60.0) 60.0) in
     let secs = int_of_float (mod_float uptime 60.0) in
-    json_response (Printf.sprintf
-      {|{"uptime_seconds":%.0f,"uptime_human":"%dh %dm %ds","requests_to_stats":%d,"pid":%d}|}
-      uptime hours mins secs !request_count (Unix.getpid ()))
+    json_response (json_obj [
+      ("uptime_seconds", json_float uptime);
+      ("uptime_human", json_str (Printf.sprintf "%dh %dm %ds" hours mins secs));
+      ("requests_to_stats", json_int !request_count);
+      ("pid", json_int (Unix.getpid ()));
+    ])
   )
 
 (* ── Server core ─────────────────────────────────────────────────── *)
