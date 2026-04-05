@@ -227,12 +227,27 @@ let send_response oc resp =
 (* ── Static file serving ─────────────────────────────────────────── *)
 
 let serve_static_file basedir path =
-  (* Prevent directory traversal *)
+  (* Prevent directory traversal attacks.
+     We reject any path containing ".." segments, null bytes, or backslashes,
+     then verify the resolved filepath is still under the basedir. *)
   let normalized = if path = "/" then "/index.html" else path in
-  if String.contains normalized '.' && not (String.length normalized > 2 &&
-      String.sub normalized 0 2 = "..") then
+  (* Split path into segments and reject any ".." component *)
+  let segments = String.split_on_char '/' normalized in
+  let has_traversal = List.exists (fun s -> s = ".." || s = "." && s <> "") segments in
+  let has_null = String.contains normalized '\000' in
+  let has_backslash = String.contains normalized '\\' in
+  if has_traversal || has_null || has_backslash then None
+  else if String.contains normalized '.' then
     let filepath = basedir ^ normalized in
-    if Sys.file_exists filepath && not (Sys.is_directory filepath) then
+    (* Resolve symlinks and verify the real path is under basedir *)
+    let real_base = try Unix.realpath basedir with _ -> basedir in
+    let real_file = try Unix.realpath filepath with _ -> "" in
+    let base_prefix = real_base ^ "/" in
+    if real_file = "" ||
+       not (String.length real_file >= String.length base_prefix &&
+            String.sub real_file 0 (String.length base_prefix) = base_prefix) then
+      None
+    else if Sys.file_exists filepath && not (Sys.is_directory filepath) then
       let ic = open_in_bin filepath in
       let len = in_channel_length ic in
       let content = really_input_string ic len in
