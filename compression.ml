@@ -1,29 +1,46 @@
-(* compression.ml - LZ77 Compression & Decompression
- *
- * Implements the LZ77 sliding-window compression algorithm in pure OCaml.
- * Includes both compression and decompression, plus a CLI for compressing
- * and decompressing strings or files.
- *
- * Usage:
- *   ocaml compression.ml compress "hello hello hello"
- *   ocaml compression.ml decompress <encoded_string>
- *   ocaml compression.ml demo
- *   ocaml compression.ml bench <size>
- *)
+(** LZ77 Compression & Decompression
 
-(* --- LZ77 Token --- *)
+    A pure OCaml implementation of the LZ77 sliding-window compression
+    algorithm. LZ77 replaces repeated occurrences of data with references
+    to a single earlier copy, producing a stream of [(offset, length, next)]
+    tokens.
 
+    {2 Usage}
+
+    {[
+      ocaml compression.ml compress "hello hello hello"
+      ocaml compression.ml decompress <encoded_string>
+      ocaml compression.ml demo
+      ocaml compression.ml bench <size>
+    ]} *)
+
+(** {1 Token Representation} *)
+
+(** An LZ77 token encoding a back-reference plus the next literal character.
+
+    - [offset]: distance back into the sliding window (0 = no match)
+    - [length]: number of characters to copy from the back-reference
+    - [next]:   the literal character following the copied run *)
 type token = {
-  offset : int;    (* how far back to look *)
-  length : int;    (* how many chars to copy *)
-  next   : char;   (* next literal character *)
+  offset : int;
+  length : int;
+  next   : char;
 }
 
+(** [token_to_string t] returns the canonical [(offset,length,next)] string
+    representation of token [t]. *)
 let token_to_string t =
   Printf.sprintf "(%d,%d,%c)" t.offset t.length t.next
 
-(* --- Compression --- *)
+(** {1 Compression} *)
 
+(** [compress ?window_size ?lookahead_size input] compresses [input] using
+    LZ77 with the given sliding window and lookahead buffer sizes.
+
+    @param window_size    maximum distance to search backwards (default 4096)
+    @param lookahead_size maximum match length per token (default 18)
+    @param input          the string to compress
+    @return a list of {!token} values representing the compressed data *)
 let compress ?(window_size=4096) ?(lookahead_size=18) input =
   let n = String.length input in
   let tokens = ref [] in
@@ -32,7 +49,6 @@ let compress ?(window_size=4096) ?(lookahead_size=18) input =
     let search_start = max 0 (!pos - window_size) in
     let best_offset = ref 0 in
     let best_length = ref 0 in
-    (* Search for longest match in the sliding window *)
     let i = ref search_start in
     while !i < !pos do
       let len = ref 0 in
@@ -59,8 +75,13 @@ let compress ?(window_size=4096) ?(lookahead_size=18) input =
   done;
   List.rev !tokens
 
-(* --- Decompression --- *)
+(** {1 Decompression} *)
 
+(** [decompress tokens] reconstructs the original string from a list of
+    LZ77 tokens produced by {!compress}.
+
+    @raise Invalid_argument if token offsets reference positions before
+           the start of the output buffer *)
 let decompress tokens =
   let buf = Buffer.create 256 in
   List.iter (fun t ->
@@ -75,12 +96,18 @@ let decompress tokens =
   ) tokens;
   Buffer.contents buf
 
-(* --- Encoding tokens to/from strings --- *)
+(** {1 Serialization} *)
 
+(** [encode_tokens tokens] serializes a token list into a compact string
+    of the form [(o1,l1,c1)(o2,l2,c2)...]. *)
 let encode_tokens tokens =
   let parts = List.map token_to_string tokens in
   String.concat "" parts
 
+(** [decode_tokens s] parses a string produced by {!encode_tokens} back
+    into a token list.
+
+    @raise Failure if the input is malformed *)
 let decode_tokens s =
   let tokens = ref [] in
   let i = ref 0 in
@@ -88,37 +115,38 @@ let decode_tokens s =
   while !i < n do
     if s.[!i] = '(' then begin
       incr i;
-      (* read offset *)
       let off_start = !i in
       while !i < n && s.[!i] <> ',' do incr i done;
       let offset = int_of_string (String.sub s off_start (!i - off_start)) in
-      incr i; (* skip comma *)
-      (* read length *)
+      incr i;
       let len_start = !i in
       while !i < n && s.[!i] <> ',' do incr i done;
       let length = int_of_string (String.sub s len_start (!i - len_start)) in
-      incr i; (* skip comma *)
-      (* read next char *)
+      incr i;
       let next = s.[!i] in
-      incr i; (* skip char *)
-      incr i; (* skip ')' *)
+      incr i;
+      incr i;
       tokens := { offset; length; next } :: !tokens
     end else
       incr i
   done;
   List.rev !tokens
 
-(* --- Statistics --- *)
+(** {1 Statistics} *)
 
+(** [compression_ratio input tokens] estimates the compression ratio as
+    [original_size / compressed_size]. Each token is approximated as 3
+    bytes of encoded output. Returns [1.0] for empty input. *)
 let compression_ratio input tokens =
   let original = String.length input in
-  (* Each token is roughly 3 ints worth; approximate encoded size *)
   let compressed = List.length tokens * 3 in
   if original = 0 then 1.0
   else float_of_int original /. float_of_int (max 1 compressed)
 
-(* --- Demo --- *)
+(** {1 Demo & Benchmarking} *)
 
+(** [demo ()] runs compression/decompression on several example strings
+    and prints results with correctness verification. *)
 let demo () =
   let examples = [
     "abracadabra";
@@ -139,10 +167,9 @@ let demo () =
     Printf.printf "Match:    %s\n\n" (if input = decoded then "✓ OK" else "✗ MISMATCH!")
   ) examples
 
-(* --- Benchmark --- *)
-
+(** [bench size] generates repetitive data of the given [size] in bytes
+    and measures compression/decompression throughput. *)
 let bench size =
-  (* Generate repetitive data that compresses well *)
   let pattern = "the quick brown fox " in
   let buf = Buffer.create size in
   while Buffer.length buf < size do
@@ -160,7 +187,7 @@ let bench size =
   Printf.printf "Ratio:      %.2fx\n" (compression_ratio input tokens);
   Printf.printf "Correct:    %s\n" (if input = decoded then "✓" else "✗")
 
-(* --- CLI --- *)
+(** {1 CLI Entry Point} *)
 
 let () =
   if Array.length Sys.argv < 2 then begin
