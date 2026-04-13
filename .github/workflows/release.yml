@@ -71,7 +71,7 @@ jobs:
           echo "ARTIFACT=${ARTIFACT_DIR}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload release artifact
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ env.ARTIFACT }}
         env:
