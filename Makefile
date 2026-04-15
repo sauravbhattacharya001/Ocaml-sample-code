@@ -23,7 +23,20 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	genetic.ml monad_transformers.ml persistent_vector.ml \
 	random_access_list.ml raytracer.ml stm.ml delimited_cont.ml \
 	neural_network.ml lsystem.ml cellular_automata.ml memoize.ml \
-	signal_processing.ml spreadsheet.ml pairing_heap.ml
+	signal_processing.ml spreadsheet.ml pairing_heap.ml \
+	aa_tree.ml adaptive_radix_tree.ml astar.ml bdd.ml benchmark.ml \
+	binomial_heap.ml bplus_tree.ml cartesian_tree.ml compression.ml \
+	consistent_hashing.ml count_min_sketch.ml cuckoo_filter.ml \
+	dancing_links.ml dining_philosophers.ml euler_tour_tree.ml \
+	fibonacci_heap.ml forth.ml http_server.ml hyperloglog.ml \
+	leftist_heap.ml link_cut_tree.ml logic_circuit.ml maze.ml \
+	merkle_tree.ml mini_sql.ml music.ml order_statistics_tree.ml \
+	persistent_array.ml petri_net.ml polynomial.ml prolog.ml \
+	quadtree.ml radix_tree.ml ring_buffer.ml scapegoat_tree.ml \
+	simplex.ml sparse_table.ml splay_tree.ml succinct_bitvector.ml \
+	suffix_automaton.ml suffix_tree.ml treap.ml turing_machine.ml \
+	two_three_tree.ml typeclass.ml van_emde_boas.ml wavelet_tree.ml \
+	weight_balanced_tree.ml yfast_trie.ml zip_tree.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml
