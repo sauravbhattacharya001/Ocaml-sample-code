@@ -152,6 +152,24 @@ let memoize2 (f : 'a -> 'b -> 'c) : 'a -> 'b -> 'c =
       Hashtbl.replace cache key y;
       y
 
+(* Two-argument recursive memoize (open recursion / fix-point).
+   Like [memoize_rec] but for functions of two arguments.  The
+   user-supplied [f] receives a [self] callback that routes through
+   the cache, ensuring every recursive sub-call is memoized. *)
+
+let memoize2_rec (f : ('a -> 'b -> 'c) -> 'a -> 'b -> 'c) : 'a -> 'b -> 'c =
+  let cache = Hashtbl.create 16 in
+  let rec go a b =
+    let key = (a, b) in
+    match Hashtbl.find_opt cache key with
+    | Some y -> y
+    | None ->
+      let y = f go a b in
+      Hashtbl.replace cache key y;
+      y
+  in
+  go
+
 (* ── 6. Memoize with statistics ───────────────────────────────── *)
 
 type stats = {
@@ -217,14 +235,14 @@ let collatz_len =
     else if n mod 2 = 0 then 1 + self (n / 2)
     else 1 + self (3 * n + 1))
 
-(* Binomial coefficient C(n,k) — 2-arg memoize *)
+(* Binomial coefficient C(n,k) — 2-arg recursive memoize.
+   Uses [memoize2_rec] so that every recursive sub-call C(n-1,k-1)
+   and C(n-1,k) hits the shared cache, giving O(n*k) time instead
+   of the exponential cost of the naive recursion. *)
 let binomial =
-  memoize2 (fun n k ->
-    let rec go n k =
-      if k = 0 || k = n then 1
-      else go (n - 1) (k - 1) + go (n - 1) k
-    in
-    go n k)
+  memoize2_rec (fun self n k ->
+    if k = 0 || k = n then 1
+    else self (n - 1) (k - 1) + self (n - 1) k)
 
 (* ── Demo runner ──────────────────────────────────────────────── *)
 
