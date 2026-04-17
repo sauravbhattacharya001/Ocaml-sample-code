@@ -64,16 +64,8 @@ jobs:
           eval $(opam env)
           # Build and run individual test files for modules that have them
           BISECT_FLAGS="-package bisect_ppx -linkpkg"
-          for test_src in test_btree.ml test_crdt.ml test_crypto.ml \
-                          test_csp.ml test_diff.ml test_finger_tree.ml \
-                          test_geometry.ml test_graph_db.ml \
-                          test_interval_tree.ml test_json.ml \
-                          test_lru_cache.ml test_matrix.ml test_memoize.ml \
-                          test_persistent_vector.ml test_queue.ml \
-                          test_raft.ml test_ring_buffer.ml test_rope.ml \
-                          test_segment_tree.ml test_signal_processing.ml \
-                          test_skip_list.ml test_stm.ml \
-                          test_suffix_array.ml; do
+          # Dynamically discover ALL test files for comprehensive coverage
+          for test_src in $(ls test_*.ml | grep -v test_all.ml | grep -v test_framework.ml); do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
               ocamlfind ocamlopt $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || \
