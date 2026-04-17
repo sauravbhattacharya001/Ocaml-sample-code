@@ -66,8 +66,13 @@ let decompress tokens =
   List.iter (fun t ->
     if t.length > 0 then begin
       let start = Buffer.length buf - t.offset in
+      (* Extract the source pattern once.  When length > offset the
+         pattern repeats (LZ77 run-length trick), so we cycle through
+         it with [i mod offset].  This avoids the old code's O(n²)
+         behavior of calling Buffer.contents on every character. *)
+      let pattern = Buffer.sub buf start t.offset in
       for i = 0 to t.length - 1 do
-        Buffer.add_char buf (Buffer.contents buf).[start + i]
+        Buffer.add_char buf pattern.[i mod t.offset]
       done
     end;
     if t.next <> '\000' then
