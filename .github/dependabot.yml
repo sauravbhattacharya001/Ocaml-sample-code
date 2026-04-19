@@ -1,6 +1,6 @@
 # Dependabot configuration
-# Keeps GitHub Actions and Docker base images up to date.
-# OCaml dependencies are managed directly (no opam/dune package manager).
+# Keeps GitHub Actions, npm, and Docker dependencies up to date.
+# OCaml/opam is not supported by Dependabot natively.
 
 version: 2
 updates:
@@ -19,6 +19,10 @@ updates:
     reviewers:
       - "sauravbhattacharya001"
     open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # npm - keep JavaScript dev dependencies (jest) up to date
   - package-ecosystem: "npm"
@@ -35,6 +39,10 @@ updates:
     reviewers:
       - "sauravbhattacharya001"
     open-pull-requests-limit: 5
+    groups:
+      npm-all:
+        patterns:
+          - "*"
 
   # Docker - keep base image (ocaml/opam) up to date
   - package-ecosystem: "docker"
