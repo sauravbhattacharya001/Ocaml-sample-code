@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search — OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .search-container { max-width: 720px; margin: 0 auto; }
+        .search-box { position: relative; margin-bottom: 2rem; }
+        .search-box input {
+            width: 100%; padding: 1rem 1rem 1rem 3rem;
+            background: var(--surface); border: 2px solid var(--border);
+            border-radius: 12px; color: var(--text); font-size: 1.1rem;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus { outline: none; border-color: var(--accent2); }
+        .search-box .icon {
+            position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+            color: var(--text-dim); font-size: 1.2rem; pointer-events: none;
+        }
+        .search-stats { color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .result { display: block; padding: 1rem 1.25rem; background: var(--surface);
+            border-radius: 10px; margin-bottom: 0.75rem; text-decoration: none;
+            border: 1px solid var(--border); transition: border-color 0.2s, background 0.2s;
+        }
+        .result:hover { border-color: var(--accent2); background: var(--surface-hover); }
+        .result h3 { color: var(--accent2); margin-bottom: 0.25rem; font-size: 1rem; }
+        .result .file { color: var(--accent4); font-size: 0.8rem; font-family: monospace; }
+        .result .desc { color: var(--text-dim); font-size: 0.9rem; margin-top: 0.25rem; }
+        .result mark { background: rgba(247,118,142,0.25); color: var(--accent); border-radius: 2px; padding: 0 2px; }
+        .categories { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .cat-btn { padding: 0.4rem 0.9rem; border-radius: 20px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); cursor: pointer; font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .cat-btn:hover, .cat-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(122,162,247,0.1); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-dim); }
+        .empty-state .big { font-size: 3rem; margin-bottom: 1rem; }
+        .kbd { display: inline-block; padding: 0.15rem 0.5rem; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem;
+            color: var(--text-dim); margin-left: 0.5rem; font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <a href="index.html" class="logo">🐫 OCaml Samples</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Getting Started</div>
+            <a href="index.html" class="nav-link">Overview</a>
+            <a href="setup.html" class="nav-link">Installation</a>
+            <a href="learning-path.html" class="nav-link">Learning Path</a>
+            <a href="search.html" class="nav-link active">🔎 Search</a>
+            <a href="explorer.html" class="nav-link">🔍 Explorer</a>
+            <a href="complexity.html" class="nav-link">⚡ Complexity</a>
+            <a href="progress.html" class="nav-link">📊 Progress</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Interactive</div>
+            <a href="sort-visualizer.html" class="nav-link">🎬 Sort Visualizer</a>
+            <a href="exercises.html" class="nav-link">✏️ Practice Exercises</a>
+            <a href="ds-chooser.html" class="nav-link">🧭 DS Chooser</a>
+            <a href="recursion-viz.html" class="nav-link">🌀 Recursion Visualizer</a>
+            <a href="pattern-matching.html" class="nav-link">🎯 Pattern Matching</a>
+            <a href="modules.html" class="nav-link">🧱 Module System</a>
+            <a href="memory-model.html" class="nav-link">🧠 Memory Model</a>
+            <a href="pipeline.html" class="nav-link">🔗 Pipeline Builder</a>
+            <a href="error-decoder.html" class="nav-link">🚨 Error Decoder</a>
+            <a href="operators.html" class="nav-link">⚡ Operators</a>
+            <a href="typeclass.html" class="nav-link">🏷️ Type Classes</a>
+            <a href="monads.html" class="nav-link">🔗 Monad Playground</a>
+            <a href="code-golf.html" class="nav-link">⛳ Code Golf</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Reference</div>
+            <a href="concepts.html" class="nav-link">Concept Index</a>
+            <a href="cheat-sheet.html" class="nav-link">📋 Cheat Sheet</a>
+            <a href="flashcards.html" class="nav-link">🧠 Flashcards</a>
+            <a href="type-inference.html" class="nav-link">🔍 Type Inference</a>
+            <a href="benchmark.html" class="nav-link">🏎️ Benchmark</a>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="container search-container">
+            <header>
+                <h1>🔎 Search</h1>
+                <p class="subtitle">Find modules, concepts, and algorithms across the entire collection <kbd>/</kbd></p>
+            </header>
+
+            <div class="search-box">
+                <span class="icon">🔍</span>
+                <input type="text" id="q" placeholder="Search modules, algorithms, concepts…" autofocus>
+            </div>
+
+            <div class="categories" id="categories"></div>
+            <div class="search-stats" id="stats"></div>
+            <div id="results"></div>
+        </div>
+    </main>
+
+<script>
+const INDEX = [
+  // Data Structures
+  {title:"Binary Search Tree",file:"bst.ml",href:"bst.html",cat:"Data Structures",tags:"bst tree search insert delete traversal inorder algebraic data types polymorphism"},
+  {title:"Red-Black Tree",file:"rbtree.ml",href:"rbtree.html",cat:"Data Structures",tags:"rbtree balanced tree okasaki self-balancing persistent immutable"},
+  {title:"B-Tree",file:"btree.ml",href:null,cat:"Data Structures",tags:"btree b-tree disk database index split merge order"},
+  {title:"B+ Tree",file:"bplus_tree.ml",href:null,cat:"Data Structures",tags:"bplus b+ tree range query leaf linked list database"},
+  {title:"AA Tree",file:"aa_tree.ml",href:null,cat:"Data Structures",tags:"aa tree balanced level skew split simple"},
+  {title:"Treap",file:"treap.ml",href:null,cat:"Data Structures",tags:"treap randomized bst priority heap tree"},
+  {title:"Splay Tree",file:"splay_tree.ml",href:null,cat:"Data Structures",tags:"splay tree amortized self-adjusting access"},
+  {title:"Scapegoat Tree",file:"scapegoat_tree.ml",href:null,cat:"Data Structures",tags:"scapegoat tree rebalance weight alpha"},
+  {title:"AVL / Weight-Balanced Tree",file:"weight_balanced_tree.ml",href:null,cat:"Data Structures",tags:"weight balanced tree avl rotation"},
+  {title:"Zip Tree",file:"zip_tree.ml",href:null,cat:"Data Structures",tags:"zip tree randomized rank treap simple"},
+  {title:"Cartesian Tree",file:"cartesian_tree.ml",href:null,cat:"Data Structures",tags:"cartesian tree min heap range minimum query"},
+  {title:"Two-Three Tree",file:"two_three_tree.ml",href:null,cat:"Data Structures",tags:"2-3 tree balanced insertion functional"},
+  {title:"Trie (Prefix Tree)",file:"trie.ml",href:"trie.html",cat:"Data Structures",tags:"trie prefix tree autocomplete Map.Make functor"},
+  {title:"Radix Tree",file:"radix_tree.ml",href:null,cat:"Data Structures",tags:"radix tree patricia compressed trie prefix"},
+  {title:"Adaptive Radix Tree",file:"adaptive_radix_tree.ml",href:null,cat:"Data Structures",tags:"adaptive radix tree ART node4 node16 node48 node256"},
+  {title:"Y-Fast Trie",file:"yfast_trie.ml",href:null,cat:"Data Structures",tags:"y-fast trie x-fast predecessor successor universe"},
+  {title:"Hash Map",file:"hashmap.ml",href:"hashmap.html",cat:"Data Structures",tags:"hashmap hash table chaining resize fold"},
+  {title:"HAMT",file:"hamt.ml",href:null,cat:"Data Structures",tags:"hamt hash array mapped trie persistent immutable"},
+  {title:"Consistent Hashing",file:"consistent_hashing.ml",href:"consistent-hashing.html",cat:"Data Structures",tags:"consistent hashing ring virtual nodes distributed"},
+  {title:"LRU Cache",file:"lru_cache.ml",href:"lru-cache.html",cat:"Data Structures",tags:"lru cache eviction bounded memoization"},
+  {title:"Bloom Filter",file:"bloom_filter.ml",href:"bloom-filter.html",cat:"Data Structures",tags:"bloom filter probabilistic false positive hash"},
+  {title:"Cuckoo Filter",file:"cuckoo_filter.ml",href:"cuckoo-filter.html",cat:"Data Structures",tags:"cuckoo filter fingerprint deletion probabilistic"},
+  {title:"Count-Min Sketch",file:"count_min_sketch.ml",href:null,cat:"Data Structures",tags:"count min sketch frequency estimation streaming"},
+  {title:"HyperLogLog",file:"hyperloglog.ml",href:null,cat:"Data Structures",tags:"hyperloglog cardinality estimation probabilistic"},
+  {title:"Skip List",file:"skip_list.ml",href:"skip-list.html",cat:"Data Structures",tags:"skip list probabilistic sorted express lanes range query"},
+  {title:"Rope",file:"rope.ml",href:"rope.html",cat:"Data Structures",tags:"rope string concat split text editor efficient"},
+  {title:"Ring Buffer",file:"ring_buffer.ml",href:"ring-buffer.html",cat:"Data Structures",tags:"ring buffer circular queue bounded FIFO"},
+  {title:"Deque",file:"deque.ml",href:null,cat:"Data Structures",tags:"deque double-ended queue persistent Kaplan Tarjan"},
+  {title:"Queue",file:"queue.ml",href:null,cat:"Data Structures",tags:"queue FIFO banker physicist hood melville real-time bootstrapped implicit"},
+  {title:"Priority Queue / Heap",file:"heap.ml",href:"heap.html",cat:"Data Structures",tags:"heap priority queue leftist min merge sort top-k"},
+  {title:"Leftist Heap",file:"leftist_heap.ml",href:null,cat:"Data Structures",tags:"leftist heap merge rank persistent"},
+  {title:"Binomial Heap",file:"binomial_heap.ml",href:null,cat:"Data Structures",tags:"binomial heap merge tree forest"},
+  {title:"Fibonacci Heap",file:"fibonacci_heap.ml",href:null,cat:"Data Structures",tags:"fibonacci heap decrease key amortized"},
+  {title:"Pairing Heap",file:"pairing_heap.ml",href:null,cat:"Data Structures",tags:"pairing heap simple merge practical"},
+  {title:"Finger Tree",file:"finger_tree.ml",href:null,cat:"Data Structures",tags:"finger tree monoid sequence deque priority queue"},
+  {title:"Persistent Array",file:"persistent_array.ml",href:null,cat:"Data Structures",tags:"persistent array versioned immutable functional"},
+  {title:"Persistent Vector",file:"persistent_vector.ml",href:null,cat:"Data Structures",tags:"persistent vector trie-based immutable clojure-style"},
+  {title:"Interval Tree",file:"interval_tree.ml",href:null,cat:"Data Structures",tags:"interval tree overlap stabbing query range"},
+  {title:"Segment Tree",file:"segment_tree.ml",href:null,cat:"Data Structures",tags:"segment tree range query update lazy propagation"},
+  {title:"Fenwick Tree",file:"fenwick_tree.ml",href:null,cat:"Data Structures",tags:"fenwick tree binary indexed tree prefix sum range update"},
+  {title:"Sparse Table",file:"sparse_table.ml",href:null,cat:"Data Structures",tags:"sparse table range minimum query idempotent precompute"},
+  {title:"KD-Tree",file:"kd_tree.ml",href:null,cat:"Data Structures",tags:"kd tree k-dimensional nearest neighbor spatial"},
+  {title:"Quadtree",file:"quadtree.ml",href:null,cat:"Data Structures",tags:"quadtree spatial 2d partition region point"},
+  {title:"Euler Tour Tree",file:"euler_tour_tree.ml",href:null,cat:"Data Structures",tags:"euler tour tree dynamic forest connectivity"},
+  {title:"Link-Cut Tree",file:"link_cut_tree.ml",href:null,cat:"Data Structures",tags:"link cut tree splay dynamic path query"},
+  {title:"Van Emde Boas",file:"van_emde_boas.ml",href:null,cat:"Data Structures",tags:"van emde boas veb predecessor successor O(log log u)"},
+  {title:"Wavelet Tree",file:"wavelet_tree.ml",href:null,cat:"Data Structures",tags:"wavelet tree rank select range quantile"},
+  {title:"Succinct Bitvector",file:"succinct_bitvector.ml",href:null,cat:"Data Structures",tags:"succinct bitvector rank select space-efficient"},
+  {title:"Order Statistics Tree",file:"order_statistics_tree.ml",href:null,cat:"Data Structures",tags:"order statistics tree rank select kth element"},
+  {title:"Random Access List",file:"random_access_list.ml",href:null,cat:"Data Structures",tags:"random access list skew binary O(log n) index"},
+  {title:"Union-Find",file:"union_find.ml",href:null,cat:"Data Structures",tags:"union find disjoint set path compression rank"},
+  {title:"Merkle Tree",file:"merkle_tree.ml",href:null,cat:"Data Structures",tags:"merkle tree hash verification blockchain integrity"},
+  {title:"Suffix Tree",file:"suffix_tree.ml",href:null,cat:"Data Structures",tags:"suffix tree ukkonen substring search pattern"},
+  {title:"Suffix Array",file:"suffix_array.ml",href:null,cat:"Data Structures",tags:"suffix array lcp longest common prefix string"},
+  {title:"Suffix Automaton",file:"suffix_automaton.ml",href:null,cat:"Data Structures",tags:"suffix automaton DAWG substring matching"},
+  // Algorithms
+  {title:"Merge Sort",file:"mergesort.ml",href:"mergesort.html",cat:"Algorithms",tags:"mergesort merge sort divide conquer stable comparison"},
+  {title:"Sorting Algorithms",file:"sorting.ml",href:null,cat:"Algorithms",tags:"sorting quicksort heapsort insertion selection comparison"},
+  {title:"Fibonacci",file:"fibonacci.ml",href:"fibonacci.html",cat:"Algorithms",tags:"fibonacci memoization hash table closures benchmark"},
+  {title:"Graph Algorithms",file:"graph.ml",href:"graph.html",cat:"Algorithms",tags:"graph bfs dfs shortest path cycle topological connected"},
+  {title:"Dijkstra's Algorithm",file:"dijkstra.ml",href:"dijkstra.html",cat:"Algorithms",tags:"dijkstra shortest path weighted graph floyd warshall prim mst"},
+  {title:"A* Search",file:"astar.ml",href:null,cat:"Algorithms",tags:"astar a-star heuristic search pathfinding grid"},
+  {title:"Network Flow",file:"network_flow.ml",href:null,cat:"Algorithms",tags:"network flow max flow min cut ford fulkerson edmonds karp bipartite matching"},
+  {title:"Maze Generation & Solving",file:"maze.ml",href:null,cat:"Algorithms",tags:"maze generation solving backtracking bfs dfs astar ascii"},
+  {title:"String Matching",file:"string_match.ml",href:null,cat:"Algorithms",tags:"string matching kmp rabin karp boyer moore aho corasick"},
+  {title:"Dancing Links (DLX)",file:"dancing_links.ml",href:null,cat:"Algorithms",tags:"dancing links dlx exact cover knuth sudoku pentomino"},
+  {title:"Simplex Method",file:"simplex.ml",href:null,cat:"Algorithms",tags:"simplex linear programming optimization dual"},
+  {title:"Diff Algorithm",file:"diff.ml",href:null,cat:"Algorithms",tags:"diff lcs longest common subsequence myers edit distance patch"},
+  {title:"Huffman Coding",file:"huffman.ml",href:"huffman.html",cat:"Algorithms",tags:"huffman compression prefix-free tree encoding"},
+  {title:"LZ77 Compression",file:"compression.ml",href:null,cat:"Algorithms",tags:"lz77 compression sliding window decompression"},
+  {title:"Polynomial",file:"polynomial.ml",href:null,cat:"Algorithms",tags:"polynomial arithmetic evaluation differentiation integration fft"},
+  {title:"Calculus",file:"calculus.ml",href:null,cat:"Algorithms",tags:"calculus derivative integral symbolic differentiation"},
+  {title:"Matrix Operations",file:"matrix.ml",href:null,cat:"Algorithms",tags:"matrix multiply inverse determinant LU decomposition linear algebra"},
+  {title:"Geometry",file:"geometry.ml",href:null,cat:"Algorithms",tags:"geometry convex hull point line polygon voronoi delaunay"},
+  {title:"Signal Processing",file:"signal_processing.ml",href:null,cat:"Algorithms",tags:"signal processing fft dft filter convolution fourier"},
+  {title:"Symbolic Regression",file:"symbolic_regression.ml",href:null,cat:"Algorithms",tags:"symbolic regression genetic programming expression tree fitness"},
+  // Parsers & Languages
+  {title:"Parser Combinators",file:"parser.ml",href:"parser.html",cat:"Parsers & Languages",tags:"parser combinator monadic recursive descent arithmetic"},
+  {title:"JSON Parser",file:"json.ml",href:"json.html",cat:"Parsers & Languages",tags:"json parser rfc8259 pretty printer query"},
+  {title:"Regex Engine",file:"regex.ml",href:"regex.html",cat:"Parsers & Languages",tags:"regex nfa thompson character class match find replace split"},
+  {title:"CSV Parser",file:"csv.ml",href:null,cat:"Parsers & Languages",tags:"csv parser reader writer rfc4180 streaming"},
+  {title:"PEG Parser",file:"peg.ml",href:null,cat:"Parsers & Languages",tags:"peg parsing expression grammar packrat memoization"},
+  {title:"Earley Parser",file:"earley.ml",href:null,cat:"Parsers & Languages",tags:"earley parser context-free grammar ambiguous nullable"},
+  {title:"Lambda Calculus",file:"lambda.ml",href:null,cat:"Parsers & Languages",tags:"lambda calculus beta reduction church encoding de bruijn"},
+  {title:"Prolog Interpreter",file:"prolog.ml",href:null,cat:"Parsers & Languages",tags:"prolog logic programming unification backtracking query"},
+  {title:"Forth Interpreter",file:"forth.ml",href:null,cat:"Parsers & Languages",tags:"forth stack-based concatenative interpreter words"},
+  {title:"Mini SQL",file:"mini_sql.ml",href:null,cat:"Parsers & Languages",tags:"sql database query select insert table join where"},
+  {title:"Datalog",file:"datalog.ml",href:null,cat:"Parsers & Languages",tags:"datalog logic programming bottom-up evaluation rules facts"},
+  {title:"MiniKanren",file:"minikanren.ml",href:null,cat:"Parsers & Languages",tags:"minikanren relational programming logic unification streams"},
+  {title:"Bytecode VM",file:"bytecode_vm.ml",href:null,cat:"Parsers & Languages",tags:"bytecode virtual machine vm stack compiler opcode"},
+  {title:"Type Inference",file:"type_infer.ml",href:null,cat:"Parsers & Languages",tags:"type inference hindley milner algorithm W unification let polymorphism"},
+  {title:"Proof Assistant",file:"proof_assistant.ml",href:null,cat:"Parsers & Languages",tags:"proof assistant theorem prover dependent types curry howard"},
+  {title:"Theorem Prover",file:"theorem_prover.ml",href:null,cat:"Parsers & Languages",tags:"theorem prover resolution first-order logic skolemization"},
+  {title:"Term Rewriting",file:"term_rewriting.ml",href:null,cat:"Parsers & Languages",tags:"term rewriting system confluence completion knuth bendix"},
+  // Functional Programming
+  {title:"Monad Transformers",file:"monad_transformers.ml",href:null,cat:"Functional Programming",tags:"monad transformer state reader writer error IO stack"},
+  {title:"Free Monad",file:"free_monad.ml",href:null,cat:"Functional Programming",tags:"free monad interpreter DSL effect algebraic"},
+  {title:"Optics",file:"optics.ml",href:null,cat:"Functional Programming",tags:"optics lens prism traversal iso getter setter focus"},
+  {title:"GADTs",file:"gadts.ml",href:null,cat:"Functional Programming",tags:"gadt generalized algebraic data type type-safe expr"},
+  {title:"Type Classes",file:"typeclass.ml",href:"typeclass.html",cat:"Functional Programming",tags:"typeclass module functor show eq ord monad"},
+  {title:"Comonads",file:"comonad.ml",href:null,cat:"Functional Programming",tags:"comonad extract extend duplicate store env traced"},
+  {title:"Delimited Continuations",file:"delimited_cont.ml",href:null,cat:"Functional Programming",tags:"delimited continuation shift reset prompt control"},
+  {title:"Algebraic Effects",file:"effects.ml",href:null,cat:"Functional Programming",tags:"algebraic effects handlers perform resume OCaml 5"},
+  {title:"Zipper",file:"zipper.ml",href:null,cat:"Functional Programming",tags:"zipper focus navigation tree list cursor functional"},
+  {title:"Stream",file:"stream.ml",href:null,cat:"Functional Programming",tags:"stream lazy infinite sequence generate take drop filter"},
+  {title:"Memoization",file:"memoize.ml",href:null,cat:"Functional Programming",tags:"memoize cache lazy thunk fibonacci dynamic programming"},
+  {title:"QuickCheck",file:"quickcheck.ml",href:null,cat:"Functional Programming",tags:"quickcheck property-based testing generator shrink arbitrary"},
+  // Concurrency & Distributed
+  {title:"Actor Model",file:"actor.ml",href:"actor.html",cat:"Concurrency",tags:"actor message passing mailbox spawn erlang"},
+  {title:"STM",file:"stm.ml",href:"stm.html",cat:"Concurrency",tags:"stm software transactional memory atomically retry"},
+  {title:"Raft Consensus",file:"raft.ml",href:"raft.html",cat:"Concurrency",tags:"raft consensus distributed leader election log replication"},
+  {title:"CRDTs",file:"crdt.ml",href:"crdt.html",cat:"Concurrency",tags:"crdt conflict-free replicated data type counter set map"},
+  {title:"CSP",file:"csp.ml",href:null,cat:"Concurrency",tags:"csp communicating sequential processes channel goroutine"},
+  {title:"Dining Philosophers",file:"dining_philosophers.ml",href:null,cat:"Concurrency",tags:"dining philosophers deadlock mutex semaphore concurrency"},
+  {title:"Task Scheduler",file:"task_scheduler.ml",href:null,cat:"Concurrency",tags:"task scheduler work stealing priority dependency async"},
+  {title:"Petri Net",file:"petri_net.ml",href:null,cat:"Concurrency",tags:"petri net place transition token marking reachability"},
+  {title:"Process Calculus",file:"process_calculus.ml",href:null,cat:"Concurrency",tags:"process calculus pi calculus CCS bisimulation"},
+  // AI & Simulation
+  {title:"Neural Network",file:"neural_network.ml",href:"neural-network.html",cat:"AI & Simulation",tags:"neural network backpropagation layer activation gradient"},
+  {title:"Automatic Differentiation",file:"autodiff.ml",href:"autodiff.html",cat:"AI & Simulation",tags:"autodiff automatic differentiation forward reverse gradient"},
+  {title:"SAT Solver",file:"sat_solver.ml",href:"sat-solver.html",cat:"AI & Simulation",tags:"sat solver dpll cdcl boolean satisfiability clause"},
+  {title:"Genetic Algorithms",file:"genetic.ml",href:null,cat:"AI & Simulation",tags:"genetic algorithm evolution fitness crossover mutation population"},
+  {title:"Game AI",file:"game_ai.ml",href:null,cat:"AI & Simulation",tags:"game ai minimax alpha beta monte carlo mcts"},
+  {title:"Constraint Solver",file:"constraint.ml",href:null,cat:"AI & Simulation",tags:"constraint solver propagation arc consistency backtracking CSP"},
+  {title:"Planning",file:"planning.ml",href:null,cat:"AI & Simulation",tags:"planning STRIPS action precondition effect heuristic search"},
+  {title:"Cellular Automata",file:"cellular_automata.ml",href:null,cat:"AI & Simulation",tags:"cellular automata game of life rule 110 grid simulation"},
+  {title:"L-Systems",file:"lsystem.ml",href:null,cat:"AI & Simulation",tags:"l-system lindenmayer fractal turtle graphics rewriting"},
+  {title:"Raytracer",file:"raytracer.ml",href:null,cat:"AI & Simulation",tags:"raytracer ray tracing sphere intersection reflection shadow"},
+  {title:"Music DSL",file:"music.ml",href:null,cat:"AI & Simulation",tags:"music dsl note chord melody midi composition"},
+  {title:"Turing Machine",file:"turing_machine.ml",href:null,cat:"AI & Simulation",tags:"turing machine tape state transition computation"},
+  {title:"GC Simulator",file:"gc_simulator.ml",href:null,cat:"AI & Simulation",tags:"garbage collector gc mark sweep generational simulation"},
+  {title:"Logic Circuit",file:"logic_circuit.ml",href:null,cat:"AI & Simulation",tags:"logic circuit gate and or not simulation boolean"},
+  {title:"Model Checker",file:"model_checker.ml",href:null,cat:"AI & Simulation",tags:"model checker temporal logic CTL LTL verification state space"},
+  {title:"FSM",file:"fsm.ml",href:null,cat:"AI & Simulation",tags:"finite state machine automaton transition accept reject"},
+  {title:"Automata Theory",file:"automata.ml",href:null,cat:"AI & Simulation",tags:"automata dfa nfa regex conversion minimization"},
+  {title:"BDD",file:"bdd.ml",href:null,cat:"AI & Simulation",tags:"bdd binary decision diagram boolean function canonical"},
+  {title:"Probability",file:"probability.ml",href:null,cat:"AI & Simulation",tags:"probability distribution sampling bayesian markov chain"},
+  // Systems
+  {title:"HTTP Server",file:"http_server.ml",href:null,cat:"Systems",tags:"http server request response header routing middleware"},
+  {title:"Spreadsheet Engine",file:"spreadsheet.ml",href:null,cat:"Systems",tags:"spreadsheet cell formula dependency graph topological sort reactive"},
+  {title:"Cryptography",file:"crypto.ml",href:null,cat:"Systems",tags:"crypto aes sha256 hmac encryption hash digest"},
+  {title:"Graph Database",file:"graph_db.ml",href:null,cat:"Systems",tags:"graph database node edge query traversal cypher"},
+  {title:"FRP",file:"frp.ml",href:null,cat:"Systems",tags:"frp functional reactive programming signal event behavior"},
+  {title:"Incremental Computation",file:"incremental.ml",href:null,cat:"Systems",tags:"incremental computation memoization dependency change propagation"},
+  {title:"Relational Algebra",file:"relational.ml",href:null,cat:"Systems",tags:"relational algebra select project join union intersection sql"},
+  {title:"Tensor",file:"tensor.ml",href:null,cat:"Systems",tags:"tensor multidimensional array broadcasting reshape matmul"},
+  {title:"Abstract Interpretation",file:"abstract_interp.ml",href:null,cat:"Systems",tags:"abstract interpretation lattice fixpoint static analysis interval"},
+  {title:"Integration Testing",file:"integration.ml",href:null,cat:"Systems",tags:"integration test framework assertion suite runner"},
+  // Getting Started
+  {title:"Hello OCaml",file:"hello.ml",href:"hello.html",cat:"Getting Started",tags:"hello basics let binding pipe type inference tutorial"},
+  {title:"Last Element",file:"list_last_elem.ml",href:"list-last.html",cat:"Getting Started",tags:"list last element option recursive pattern matching"},
+  {title:"Prime Factorization",file:"factor.ml",href:"factor.html",cat:"Getting Started",tags:"factor prime trial division mutual recursion"},
+  {title:"Benchmark",file:"benchmark.ml",href:"benchmark.html",cat:"Getting Started",tags:"benchmark timing performance comparison"},
+];
+
+const categories = [...new Set(INDEX.map(e => e.cat))];
+let activeCategory = null;
+
+function init() {
+  const catDiv = document.getElementById('categories');
+  const allBtn = document.createElement('button');
+  allBtn.className = 'cat-btn active';
+  allBtn.textContent = `All (${INDEX.length})`;
+  allBtn.onclick = () => { activeCategory = null; updateCats(); search(); };
+  catDiv.appendChild(allBtn);
+  categories.forEach(c => {
+    const n = INDEX.filter(e => e.cat === c).length;
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.dataset.cat = c;
+    btn.textContent = `${c} (${n})`;
+    btn.onclick = () => { activeCategory = c; updateCats(); search(); };
+    catDiv.appendChild(btn);
+  });
+  search();
+  document.getElementById('q').addEventListener('input', search);
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault(); document.getElementById('q').focus();
+    }
+  });
+}
+
+function updateCats() {
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.classList.toggle('active', activeCategory ? b.dataset.cat === activeCategory : !b.dataset.cat);
+  });
+}
+
+function search() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  let items = activeCategory ? INDEX.filter(e => e.cat === activeCategory) : INDEX;
+  if (q) {
+    const terms = q.split(/\s+/);
+    items = items.map(e => {
+      const haystack = `${e.title} ${e.file} ${e.cat} ${e.tags}`.toLowerCase();
+      let score = 0;
+      for (const t of terms) {
+        if (!haystack.includes(t)) return null;
+        if (e.title.toLowerCase().includes(t)) score += 10;
+        if (e.file.toLowerCase().includes(t)) score += 5;
+        if (e.tags.includes(t)) score += 3;
+      }
+      return { ...e, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score);
+  }
+  render(items, q);
+}
+
+function highlight(text, q) {
+  if (!q) return text;
+  const terms = q.split(/\s+/).filter(Boolean);
+  let result = text;
+  for (const t of terms) {
+    const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    result = result.replace(re, '<mark>$1</mark>');
+  }
+  return result;
+}
+
+function render(items, q) {
+  const div = document.getElementById('results');
+  const stats = document.getElementById('stats');
+  if (!items.length) {
+    stats.textContent = '';
+    div.innerHTML = '<div class="empty-state"><div class="big">🔍</div><p>No results found. Try different keywords.</p></div>';
+    return;
+  }
+  stats.textContent = `${items.length} module${items.length === 1 ? '' : 's'} found`;
+  div.innerHTML = items.map(e => {
+    const tag = e.href ? 'a' : 'div';
+    const href = e.href ? ` href="${e.href}"` : '';
+    const title = highlight(e.title, q);
+    const noPage = e.href ? '' : ' · <span style="color:var(--text-dim)">source only</span>';
+    return `<${tag} class="result"${href}>
+      <h3>${title}</h3>
+      <span class="file">${e.file}${noPage}</span>
+      <div class="desc">${e.cat} · ${highlight(e.tags.split(' ').slice(0, 8).join(', '), q)}</div>
+    </${tag}>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
