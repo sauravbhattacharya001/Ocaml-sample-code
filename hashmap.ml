@@ -29,7 +29,10 @@ module FunMap = struct
     { buckets = Array.make cap []; size = 0; capacity = cap;
       seed = fresh_seed () }
 
-  let empty = create ()
+  (** [empty] is a function, not a value, so each call gets a fresh
+      random seed.  A shared seed across maps would let an attacker
+      craft collisions once and hit every map in the process. *)
+  let empty () = create ()
 
   (** Randomised hash: mixes [Hashtbl.hash] output with the per-map
       seed before taking the modulus.  The XOR + multiply is a fast
@@ -165,7 +168,7 @@ module FunMap = struct
     fold (fun acc k v -> (k, v) :: acc) [] m
 
   let of_list pairs =
-    List.fold_left (fun m (k, v) -> insert k v m) empty pairs
+    List.fold_left (fun m (k, v) -> insert k v m) (empty ()) pairs
 
   let to_list m = bindings m
 
@@ -180,7 +183,7 @@ module FunMap = struct
       match f k (Some v1) (find k m2) with
       | Some v -> insert k v acc
       | None -> acc
-    ) (create ()) m1 in
+    ) (empty ()) m1 in
     (* Keys only in m2: pass (None, Some v2) *)
     fold (fun acc k v2 ->
       if not (mem k m1) then
@@ -219,7 +222,7 @@ module FunMap = struct
        | Some _ -> remove k m)
     | Some new_v -> insert k new_v m
 
-  let singleton k v = insert k v empty
+  let singleton k v = insert k v (empty ())
 
   let union f m1 m2 =
     fold (fun acc k v ->
@@ -229,8 +232,8 @@ module FunMap = struct
     ) m2 m1
 
   let partition f m =
-    let yes = ref (create ()) in
-    let no = ref (create ()) in
+    let yes = ref (empty ()) in
+    let no = ref (empty ()) in
     iter (fun k v ->
       if f k v then yes := insert k v !yes
       else no := insert k v !no
