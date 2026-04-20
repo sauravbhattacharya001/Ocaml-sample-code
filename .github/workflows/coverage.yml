@@ -50,7 +50,15 @@ jobs:
                      pairing_heap.ml sat_solver.ml treap.ml \
                      persistent_vector.ml signal_processing.ml \
                      crypto.ml crdt.ml csp.ml diff.ml graph_db.ml \
-                     raft.ml stm.ml; do
+                     raft.ml stm.ml \
+                     deque.ml string_match.ml zipper.ml hamt.ml \
+                     kd_tree.ml binomial_heap.ml fibonacci_heap.ml \
+                     leftist_heap.ml radix_tree.ml scapegoat_tree.ml \
+                     two_three_tree.ml weight_balanced_tree.ml \
+                     van_emde_boas.ml count_min_sketch.ml \
+                     consistent_hashing.ml merkle_tree.ml \
+                     hyperloglog.ml sparse_table.ml polynomial.ml \
+                     autodiff.ml tensor.ml integration.ml; do
             if [ -f "$src" ]; then
               ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "${src%.ml}_cov" 2>/dev/null || true
             fi
@@ -94,6 +102,27 @@ jobs:
             fi
           done
 
+      - name: Build standalone modules with inline tests
+        run: |
+          eval $(opam env)
+          BISECT_FLAGS="-package bisect_ppx -linkpkg"
+          # Many modules have inline test suites (let () = ... at bottom)
+          # Build each as a standalone executable for coverage
+          for src in deque.ml string_match.ml zipper.ml hamt.ml \
+                     kd_tree.ml binomial_heap.ml fibonacci_heap.ml \
+                     leftist_heap.ml radix_tree.ml scapegoat_tree.ml \
+                     two_three_tree.ml weight_balanced_tree.ml \
+                     van_emde_boas.ml count_min_sketch.ml \
+                     consistent_hashing.ml merkle_tree.ml \
+                     hyperloglog.ml sparse_table.ml polynomial.ml \
+                     autodiff.ml tensor.ml integration.ml; do
+            if [ -f "$src" ]; then
+              out="${src%.ml}_inline_cov"
+              ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "$out" 2>/dev/null || \
+              ocamlfind ocamlc $BISECT_FLAGS "$src" -o "$out" 2>/dev/null || true
+            fi
+          done
+
       - name: Run all tests with coverage
         run: |
           eval $(opam env)
@@ -102,9 +131,17 @@ jobs:
           # Run main test suite
           ./test_all_cov || true
 
-          # Run individual test suites
+          # Run individual test suites (test_*_cov)
           for cov_bin in test_*_cov; do
             if [ -x "$cov_bin" ] && [ "$cov_bin" != "test_all_cov" ]; then
+              echo "=== Running $cov_bin ==="
+              ./"$cov_bin" || true
+            fi
+          done
+
+          # Run standalone modules with inline tests
+          for cov_bin in *_inline_cov; do
+            if [ -x "$cov_bin" ]; then
               echo "=== Running $cov_bin ==="
               ./"$cov_bin" || true
             fi
