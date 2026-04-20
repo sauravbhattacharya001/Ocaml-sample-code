@@ -43,7 +43,14 @@ jobs:
                      interval_tree.ml fenwick_tree.ml suffix_array.ml \
                      matrix.ml huffman.ml calculus.ml json.ml regex.ml \
                      memoize.ml ring_buffer.ml cuckoo_filter.ml \
-                     compression.ml splay_tree.ml; do
+                     compression.ml splay_tree.ml aa_tree.ml astar.ml \
+                     bplus_tree.ml btree.ml cellular_automata.ml \
+                     constraint.ml dancing_links.ml finger_tree.ml \
+                     free_monad.ml geometry.ml order_statistics_tree.ml \
+                     pairing_heap.ml sat_solver.ml treap.ml \
+                     persistent_vector.ml signal_processing.ml \
+                     crypto.ml crdt.ml csp.ml diff.ml graph_db.ml \
+                     raft.ml stm.ml; do
             if [ -f "$src" ]; then
               ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "${src%.ml}_cov" 2>/dev/null || true
             fi
@@ -64,16 +71,22 @@ jobs:
           eval $(opam env)
           # Build and run individual test files for modules that have them
           BISECT_FLAGS="-package bisect_ppx -linkpkg"
-          for test_src in test_btree.ml test_crdt.ml test_crypto.ml \
-                          test_csp.ml test_diff.ml test_finger_tree.ml \
+          for test_src in test_aa_tree.ml test_astar.ml \
+                          test_bloom_filter.ml test_bplus_tree.ml \
+                          test_btree.ml test_cellular_automata.ml \
+                          test_constraint.ml test_crdt.ml test_crypto.ml \
+                          test_csp.ml test_dancing_links.ml test_diff.ml \
+                          test_finger_tree.ml test_free_monad.ml \
                           test_geometry.ml test_graph_db.ml \
-                          test_interval_tree.ml test_json.ml \
-                          test_lru_cache.ml test_matrix.ml test_memoize.ml \
-                          test_persistent_vector.ml test_queue.ml \
-                          test_raft.ml test_ring_buffer.ml test_rope.ml \
+                          test_huffman.ml test_interval_tree.ml \
+                          test_json.ml test_lru_cache.ml test_matrix.ml \
+                          test_memoize.ml test_order_statistics_tree.ml \
+                          test_pairing_heap.ml test_persistent_vector.ml \
+                          test_queue.ml test_raft.ml test_ring_buffer.ml \
+                          test_rope.ml test_sat_solver.ml \
                           test_segment_tree.ml test_signal_processing.ml \
                           test_skip_list.ml test_stm.ml \
-                          test_suffix_array.ml; do
+                          test_suffix_array.ml test_treap.ml; do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
               ocamlfind ocamlopt $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || \
