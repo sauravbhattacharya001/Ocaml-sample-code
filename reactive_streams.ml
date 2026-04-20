@@ -213,16 +213,17 @@ let stream_distinct events =
   | e :: rest -> aux (value_to_string e.payload) [e] rest
 
 let stream_buffer n events =
-  let rec aux chunk ts acc = function
-    | [] -> if chunk = [] then List.rev acc
+  let rec aux chunk chunk_len ts acc = function
+    | [] -> if chunk_len = 0 then List.rev acc
       else List.rev (make_event ~tag:"buffer" ts (VList (List.rev chunk)) :: acc)
     | e :: rest ->
       let chunk' = e.payload :: chunk in
-      if List.length chunk' >= n then
-        aux [] (ts+1) (make_event ~tag:"buffer" ts (VList (List.rev chunk')) :: acc) rest
+      let chunk_len' = chunk_len + 1 in
+      if chunk_len' >= n then
+        aux [] 0 (ts+1) (make_event ~tag:"buffer" ts (VList (List.rev chunk')) :: acc) rest
       else
-        aux chunk' ts acc rest
-  in aux [] 0 [] events
+        aux chunk' chunk_len' ts acc rest
+  in aux [] 0 0 [] events
 
 let stream_window_tumbling size events =
   stream_buffer size events
@@ -276,7 +277,7 @@ let stream_group_by key_fn events =
   ) (List.sort compare groups)
 
 let stream_sample n events =
-  List.filteri (fun i _ -> i mod n = 0) events
+  stream_throttle n events
 
 (* ===== Sinks ===== *)
 let sink_print events =
@@ -300,15 +301,19 @@ let sink_avg events =
   end
 
 let sink_stats events =
-  let n = List.length events in
+  (* Single-pass collection of count, sum, min, max; then one pass for variance *)
+  let n, s, mn, mx =
+    List.fold_left (fun (cnt, sm, lo, hi) e ->
+      let v = value_to_float e.payload in
+      (cnt + 1, sm +. v, min lo v, max hi v)
+    ) (0, 0.0, infinity, neg_infinity) events
+  in
   if n = 0 then Printf.printf "Stats: N/A (empty stream)\n"
   else begin
-    let vals = List.map (fun e -> value_to_float e.payload) events in
-    let mn = List.fold_left min infinity vals in
-    let mx = List.fold_left max neg_infinity vals in
-    let s = List.fold_left (+.) 0.0 vals in
     let mean = s /. float_of_int n in
-    let var = List.fold_left (fun acc v -> acc +. (v -. mean) ** 2.0) 0.0 vals /. float_of_int n in
+    let var = List.fold_left (fun acc e ->
+      let v = value_to_float e.payload in
+      acc +. (v -. mean) ** 2.0) 0.0 events /. float_of_int n in
     let stddev = sqrt var in
     Printf.printf "Stats: n=%d  min=%.4f  max=%.4f  mean=%.4f  stddev=%.4f\n" n mn mx mean stddev
   end
