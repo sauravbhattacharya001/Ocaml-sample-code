@@ -94,7 +94,8 @@ jobs:
                           test_rope.ml test_sat_solver.ml \
                           test_segment_tree.ml test_signal_processing.ml \
                           test_skip_list.ml test_stm.ml \
-                          test_suffix_array.ml test_treap.ml; do
+                          test_suffix_array.ml test_treap.ml 
+                          test_autodiff.ml; do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
               ocamlfind ocamlopt $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || \
