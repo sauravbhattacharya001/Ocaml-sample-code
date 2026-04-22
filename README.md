@@ -122,6 +122,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`euler_tour_tree.ml`](euler_tour_tree.ml) | Euler Tour Tree — dynamic forest connectivity via Euler tour sequences | Treap-backed implicit sequences, link/cut operations, connectivity queries, subtree aggregates, rerooting |
 | [`incremental.ml`](incremental.ml) | Incremental Computation — self-adjusting computation framework | Dependency graph, change propagation, Var/map/map2/bind/array_fold, observers, cutoff functions, freeze, spreadsheet example |
 | [`hyperloglog.ml`](hyperloglog.ml) | HyperLogLog — probabilistic cardinality estimator | Register-based sketching, harmonic mean estimation, bias correction, merge/union, intersection via inclusion-exclusion, Jaccard similarity, serialization |
+| [`bandit.ml`](bandit.ml) | Multi-Armed Bandit Solver — exploration vs exploitation strategies | Epsilon-Greedy, UCB1, Softmax, Thompson Sampling, EXP3, Gradient Bandit, regret analysis, strategy comparison, non-stationary detection, interactive REPL |
 
 ## Getting Started
 
