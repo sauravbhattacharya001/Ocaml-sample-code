@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A* Pathfinding — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🧭 A* Pathfinding Algorithm</h1>
+    <p class="subtitle">Informed search, heuristics, and grid-based pathfinding</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A generic <strong>A* search</strong> implementation with multiple heuristics,
+      grid-based pathfinding with obstacles, and ASCII visualization. A* combines
+      Dijkstra's completeness with greedy best-first speed using an admissible heuristic.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Min-heap priority queue</strong> — array-backed binary heap with sift-up/down</li>
+        <li><strong>A* search</strong> — f(n) = g(n) + h(n) with open/closed sets</li>
+        <li><strong>Heuristic functions</strong> — Manhattan, Euclidean, and Chebyshev distances</li>
+        <li><strong>Grid pathfinding</strong> — obstacle avoidance with optional diagonal movement</li>
+        <li><strong>Path reconstruction</strong> — predecessor map traversal</li>
+        <li><strong>ASCII visualization</strong> — rendering paths and explored nodes on a grid</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>PQ.create</code></td><td>Create a min-heap priority queue</td></tr>
+        <tr><td><code>PQ.push / PQ.pop</code></td><td>Insert and extract-min operations</td></tr>
+        <tr><td><code>astar</code></td><td>Generic A* search over any graph</td></tr>
+        <tr><td><code>grid_astar</code></td><td>Grid-specific A* with obstacle support</td></tr>
+        <tr><td><code>manhattan / euclidean / chebyshev</code></td><td>Distance heuristic functions</td></tr>
+        <tr><td><code>visualize_grid</code></td><td>ASCII rendering of grid, path, and explored cells</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How A* Works</h2>
+      <pre><code>(* A* maintains two costs per node:
+   g(n) = actual cost from start to n
+   h(n) = heuristic estimate from n to goal
+   f(n) = g(n) + h(n) — nodes expanded in f-order *)
+
+(* 1. Push start with f = h(start, goal) *)
+(* 2. Pop node with lowest f from priority queue *)
+(* 3. If it's the goal, reconstruct path *)
+(* 4. Expand neighbors: if new g < known g, update *)
+(* 5. Repeat until goal found or queue empty *)
+
+let path = grid_astar grid start goal Manhattan in
+visualize_grid grid path</code></pre>
+    </section>
+
+    <section>
+      <h2>Heuristics Comparison</h2>
+      <table>
+        <tr><th>Heuristic</th><th>Formula</th><th>Best For</th></tr>
+        <tr><td>Manhattan</td><td>|dx| + |dy|</td><td>4-directional grids</td></tr>
+        <tr><td>Euclidean</td><td>√(dx² + dy²)</td><td>Any-angle movement</td></tr>
+        <tr><td>Chebyshev</td><td>max(|dx|, |dy|)</td><td>8-directional grids</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/astar.ml">View source: astar.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

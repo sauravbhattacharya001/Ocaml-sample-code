@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genetic Algorithms — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🧬 Genetic Algorithm Framework</h1>
+    <p class="subtitle">Evolutionary computation with functors, selection, crossover, and mutation</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A full-featured <strong>genetic algorithm</strong> framework using OCaml's module
+      system. Defines a <code>PROBLEM</code> signature and a <code>Make</code> functor that
+      builds a complete GA solver for any conforming problem. Includes tournament/roulette/rank
+      selection, multiple crossover and mutation operators, island model parallelism,
+      fitness sharing, and adaptive parameter control.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Module signatures &amp; functors</strong> — abstract problem interface with generic solver</li>
+        <li><strong>Selection strategies</strong> — tournament, roulette wheel, rank-based, elitist</li>
+        <li><strong>Crossover operators</strong> — single-point, two-point, uniform</li>
+        <li><strong>Mutation operators</strong> — per-gene, swap, scramble</li>
+        <li><strong>Island model</strong> — parallel subpopulations with migration</li>
+        <li><strong>Fitness sharing</strong> — niching for diversity maintenance</li>
+        <li><strong>Adaptive control</strong> — self-adjusting mutation/crossover rates</li>
+        <li><strong>Convergence detection</strong> — stagnation restart mechanism</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Components</h2>
+      <table>
+        <tr><th>Component</th><th>Description</th></tr>
+        <tr><td><code>PROBLEM</code> signature</td><td>Define gene type, fitness, init, crossover, mutate</td></tr>
+        <tr><td><code>Make(P)</code> functor</td><td>Build a GA solver from any PROBLEM implementation</td></tr>
+        <tr><td><code>evolve</code></td><td>Run the GA for N generations with given config</td></tr>
+        <tr><td><code>island_evolve</code></td><td>Multi-island GA with periodic migration</td></tr>
+        <tr><td><code>OneMax / TSP / Knapsack</code></td><td>Three complete example problem implementations</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Usage Pattern</h2>
+      <pre><code>(* 1. Define a problem module *)
+module MyProblem : PROBLEM = struct
+  type gene = ...
+  let fitness individual = ...
+  let random_individual () = ...
+  let crossover a b = ...
+  let mutate rate individual = ...
+end
+
+(* 2. Build a solver via the functor *)
+module Solver = Make(MyProblem)
+
+(* 3. Configure and run *)
+let config = {
+  pop_size = 100;
+  generations = 500;
+  mutation_rate = 0.01;
+  crossover_rate = 0.8;
+  selection = Tournament 3;
+  elitism = 2;
+}
+let best = Solver.evolve config</code></pre>
+    </section>
+
+    <section>
+      <h2>Example Problems</h2>
+      <table>
+        <tr><th>Problem</th><th>Description</th><th>Gene Type</th></tr>
+        <tr><td>OneMax</td><td>Maximize 1-bits in a bitstring</td><td><code>bool array</code></td></tr>
+        <tr><td>TSP</td><td>Travelling salesman — minimize route distance</td><td><code>int array</code> (permutation)</td></tr>
+        <tr><td>Knapsack</td><td>Maximize value under weight constraint</td><td><code>bool array</code> (inclusion mask)</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/genetic.ml">View source: genetic.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>

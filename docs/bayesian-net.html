@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayesian Networks — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🎲 Bayesian Network Inference</h1>
+    <p class="subtitle">Probabilistic graphical models, exact inference, and d-separation</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A complete <strong>Bayesian network</strong> inference engine supporting directed
+      acyclic graphs of random variables with conditional probability tables. Includes
+      exact inference via enumeration and variable elimination, d-separation testing,
+      and three classic example networks.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Conditional probability tables (CPTs)</strong> — P(X | parents) specification</li>
+        <li><strong>Enumeration inference</strong> — exact marginal/posterior computation via summation</li>
+        <li><strong>Variable elimination</strong> — efficient inference by factor multiplication and marginalization</li>
+        <li><strong>D-separation</strong> — conditional independence testing in DAGs</li>
+        <li><strong>Record types</strong> — structured representation of nodes, CPTs, and networks</li>
+        <li><strong>Classic networks</strong> — alarm, sprinkler, and Asia diagnostic models</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Key Functions</h2>
+      <table>
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>find_node</code></td><td>Retrieve a node by variable name</td></tr>
+        <tr><td><code>lookup_cpt</code></td><td>Look up P(X=true | parent values) from a CPT</td></tr>
+        <tr><td><code>enumerate_ask</code></td><td>Exact posterior P(X | evidence) by enumeration</td></tr>
+        <tr><td><code>variable_elimination</code></td><td>Factor-based inference with marginalization</td></tr>
+        <tr><td><code>d_separated</code></td><td>Test conditional independence between variables</td></tr>
+        <tr><td><code>children_of</code></td><td>Find child nodes in the DAG</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Network Structure</h2>
+      <pre><code>type node = {
+  name: variable;
+  parents: variable list;
+  cpt: cpt_entry list;  (* P(true | each parent config) *)
+}
+
+(* Classic sprinkler network:
+   Cloudy → Sprinkler → WetGrass
+   Cloudy → Rain → WetGrass *)
+
+(* Query: P(Rain | WetGrass=true) *)
+let p = enumerate_ask sprinkler_net "Rain"
+  [("WetGrass", true)]</code></pre>
+    </section>
+
+    <section>
+      <h2>Inference Methods</h2>
+      <table>
+        <tr><th>Method</th><th>Complexity</th><th>Approach</th></tr>
+        <tr><td>Enumeration</td><td>O(2ⁿ)</td><td>Sum over all hidden variable assignments</td></tr>
+        <tr><td>Variable Elimination</td><td>O(2ʷ)</td><td>Factor operations with optimal ordering (w = treewidth)</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      <p><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/blob/master/bayesian_net.ml">View source: bayesian_net.ml</a></p>
+    </footer>
+  </main>
+</body>
+</html>
