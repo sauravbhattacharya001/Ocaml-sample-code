@@ -58,8 +58,7 @@ module FunMap = struct
         new_buckets.(idx) <- pair :: new_buckets.(idx)
       ) bucket
     ) m.buckets;
-    { buckets = new_buckets; size = m.size; capacity = new_cap;
-      seed = m.seed }
+    { m with buckets = new_buckets; capacity = new_cap }
 
   (** Single-pass bucket update: replaces existing key or prepends new entry.
       Returns [(new_bucket, replaced)] where [replaced] is true if the key
@@ -71,16 +70,21 @@ module FunMap = struct
       let (updated, replaced) = bucket_upsert k v rest in
       (pair :: updated, replaced)
 
+  (** [with_bucket m idx new_bucket] returns a new map whose bucket at
+      [idx] is replaced with [new_bucket].  All other buckets are shared
+      via a shallow [Array.copy], avoiding per-field record rebuilds that
+      were duplicated across [insert], [remove], and similar operations. *)
+  let with_bucket m idx new_bucket =
+    let new_buckets = Array.copy m.buckets in
+    new_buckets.(idx) <- new_bucket;
+    { m with buckets = new_buckets }
+
   let insert k v m =
     let m = if should_resize m then resize m else m in
     let idx = hash_key m.capacity m.seed k in
     let (new_bucket, replaced) = bucket_upsert k v m.buckets.(idx) in
-    let new_buckets = Array.copy m.buckets in
-    new_buckets.(idx) <- new_bucket;
-    { buckets = new_buckets;
-      size = if replaced then m.size else m.size + 1;
-      capacity = m.capacity;
-      seed = m.seed }
+    let m' = with_bucket m idx new_bucket in
+    { m' with size = if replaced then m.size else m.size + 1 }
 
   let find k m =
     let idx = hash_key m.capacity m.seed k in
@@ -112,14 +116,7 @@ module FunMap = struct
     let idx = hash_key m.capacity m.seed k in
     let (new_bucket, removed) = bucket_remove k m.buckets.(idx) in
     if not removed then m
-    else begin
-      let new_buckets = Array.copy m.buckets in
-      new_buckets.(idx) <- new_bucket;
-      { buckets = new_buckets;
-        size = m.size - 1;
-        capacity = m.capacity;
-        seed = m.seed }
-    end
+    else { (with_bucket m idx new_bucket) with size = m.size - 1 }
 
   let size m = m.size
 
@@ -155,8 +152,7 @@ module FunMap = struct
       new_buckets.(i) <- filtered;
       new_size := !new_size + List.length filtered
     ) m.buckets;
-    { buckets = new_buckets; size = !new_size; capacity = m.capacity;
-      seed = m.seed }
+    { m with buckets = new_buckets; size = !new_size }
 
   let keys m =
     fold (fun acc k _v -> k :: acc) [] m
