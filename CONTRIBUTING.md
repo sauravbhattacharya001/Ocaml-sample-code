@@ -13,6 +13,8 @@ Thanks for your interest in contributing! This repository is a curated collectio
 - [Contributing Documentation](#contributing-documentation)
 - [CI Pipeline](#ci-pipeline)
 - [Reporting Issues](#reporting-issues)
+- [Security Vulnerabilities](#security-vulnerabilities)
+- [Troubleshooting](#troubleshooting)
 - [Code of Conduct](#code-of-conduct)
 
 ## Project Architecture
@@ -299,6 +301,48 @@ Include:
 - **What** you found or want to change
 - **Why** it matters (correctness, clarity, performance)
 - **How** you'd fix it (if you have a suggestion)
+
+## Security Vulnerabilities
+
+If you discover a security vulnerability (e.g., in the `crypto.ml`, `http_server.ml`, or docs site JavaScript), **do not open a public issue**. Instead:
+
+1. Email the maintainer directly (see profile for contact)
+2. Include a clear description of the vulnerability and steps to reproduce
+3. Allow up to 72 hours for an initial response
+
+Security fixes receive priority review. Credit is given in the release notes unless you prefer anonymity.
+
+## Troubleshooting
+
+### Common Build Issues
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| `Unbound module` errors | Missing dependency or wrong OCaml version | Run `opam install . --deps-only` and ensure OCaml ≥ 4.14 |
+| `make` builds only some files | Incremental build skips unchanged files | Run `make clean && make all` for a full rebuild |
+| Jest tests fail with `Cannot find module` | Missing Node dependencies | Run `npm install` in the repo root |
+| Coverage report empty | `bisect_ppx` not installed | Run `opam install bisect_ppx` then `make coverage` |
+| Docker build fails on Apple Silicon | Platform mismatch | Add `--platform linux/amd64` to `docker build` |
+| Pages deploy 404 after merge | GitHub Pages source not set | Ensure repo Settings → Pages → Source is set to "GitHub Actions" |
+
+### Verifying Your Changes Locally
+
+```bash
+# Build everything
+make clean && make all
+
+# Run OCaml tests
+make test
+
+# Run docs site tests
+npm test
+
+# Check coverage
+make coverage
+
+# Validate a single file compiles
+ocamlfind ocamlopt -package str -linkpkg your_file.ml -o /dev/null
+```
 
 ## Code of Conduct
 
