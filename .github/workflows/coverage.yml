@@ -58,7 +58,35 @@ jobs:
                      van_emde_boas.ml count_min_sketch.ml \
                      consistent_hashing.ml merkle_tree.ml \
                      hyperloglog.ml sparse_table.ml polynomial.ml \
-                     autodiff.ml tensor.ml integration.ml; do
+                     autodiff.ml tensor.ml integration.ml \
+                     abstract_interp.ml abstract_machine.ml actor.ml \
+                     adaptive_radix_tree.ml ant_colony.ml argumentation.ml \
+                     auction.ml automata.ml bandit.ml bayesian_net.ml \
+                     bdd.ml bdi_agent.ml behavior_tree.ml blackboard.ml \
+                     bytecode_vm.ml cartesian_tree.ml comonad.ml \
+                     contract_net.ml csv.ml datalog.ml delimited_cont.ml \
+                     earley.ml effects.ml euler_tour_tree.ml forth.ml \
+                     frp.ml fsm.ml gadts.ml game_ai.ml gc_simulator.ml \
+                     genetic.ml gossip.ml hmm.ml http_server.ml \
+                     incremental.ml influence_maximization.ml lambda.ml \
+                     leader_election.ml link_cut_tree.ml logic_circuit.ml \
+                     lsystem.ml maze.ml mdp.ml mini_sql.ml \
+                     minikanren.ml model_checker.ml monad_transformers.ml \
+                     music.ml negotiation.ml network_flow.ml \
+                     neural_network.ml optics.ml parser.ml peg.ml \
+                     persistent_array.ml petri_net.ml planning.ml \
+                     probability.ml process_calculus.ml prolog.ml \
+                     proof_assistant.ml quadtree.ml quickcheck.ml \
+                     random_access_list.ml raytracer.ml \
+                     reactive_streams.ml relational.ml simplex.ml \
+                     spreadsheet.ml stream.ml succinct_bitvector.ml \
+                     suffix_automaton.ml suffix_tree.ml \
+                     symbolic_regression.ml task_scheduler.ml \
+                     term_rewriting.ml theorem_prover.ml \
+                     turing_machine.ml type_infer.ml typeclass.ml \
+                     wavelet_tree.ml yfast_trie.ml zip_tree.ml \
+                     benchmark.ml dining_philosophers.ml hello.ml \
+                     list_last_elem.ml; do
             if [ -f "$src" ]; then
               ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "${src%.ml}_cov" 2>/dev/null || true
             fi
@@ -94,7 +122,7 @@ jobs:
                           test_rope.ml test_sat_solver.ml \
                           test_segment_tree.ml test_signal_processing.ml \
                           test_skip_list.ml test_stm.ml \
-                          test_suffix_array.ml test_treap.ml 
+                          test_suffix_array.ml test_treap.ml \
                           test_autodiff.ml; do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
@@ -116,7 +144,32 @@ jobs:
                      van_emde_boas.ml count_min_sketch.ml \
                      consistent_hashing.ml merkle_tree.ml \
                      hyperloglog.ml sparse_table.ml polynomial.ml \
-                     autodiff.ml tensor.ml integration.ml; do
+                     autodiff.ml tensor.ml integration.ml \
+                     abstract_interp.ml abstract_machine.ml actor.ml \
+                     adaptive_radix_tree.ml ant_colony.ml automata.ml \
+                     bandit.ml bayesian_net.ml bdd.ml bdi_agent.ml \
+                     behavior_tree.ml blackboard.ml bytecode_vm.ml \
+                     cartesian_tree.ml comonad.ml contract_net.ml \
+                     datalog.ml delimited_cont.ml earley.ml effects.ml \
+                     euler_tour_tree.ml forth.ml frp.ml fsm.ml gadts.ml \
+                     game_ai.ml gc_simulator.ml genetic.ml gossip.ml \
+                     hmm.ml incremental.ml influence_maximization.ml \
+                     lambda.ml leader_election.ml link_cut_tree.ml \
+                     logic_circuit.ml lsystem.ml maze.ml mdp.ml \
+                     mini_sql.ml minikanren.ml model_checker.ml \
+                     monad_transformers.ml music.ml negotiation.ml \
+                     network_flow.ml neural_network.ml optics.ml \
+                     parser.ml peg.ml persistent_array.ml petri_net.ml \
+                     planning.ml probability.ml process_calculus.ml \
+                     prolog.ml proof_assistant.ml quadtree.ml \
+                     quickcheck.ml random_access_list.ml raytracer.ml \
+                     reactive_streams.ml relational.ml simplex.ml \
+                     spreadsheet.ml stream.ml succinct_bitvector.ml \
+                     suffix_automaton.ml suffix_tree.ml \
+                     symbolic_regression.ml task_scheduler.ml \
+                     term_rewriting.ml theorem_prover.ml \
+                     turing_machine.ml type_infer.ml typeclass.ml \
+                     wavelet_tree.ml yfast_trie.ml zip_tree.ml; do
             if [ -f "$src" ]; then
               out="${src%.ml}_inline_cov"
               ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "$out" 2>/dev/null || \
