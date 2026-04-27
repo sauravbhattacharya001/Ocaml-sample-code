@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turing Machine — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>📼 Turing Machine Simulator</h1>
+    <p class="subtitle">The foundational model of computation — tape, head, states, and transitions</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>Turing machine</strong> is the theoretical foundation of all computing.
+      Despite its simplicity — an infinite tape, a read/write head, a finite set of states,
+      and a transition function — it can compute anything any modern computer can.</p>
+      <p>This implementation provides a clean, generic Turing machine simulator with
+      configurable alphabets, step-by-step tracing, and several built-in machines
+      demonstrating classic algorithms.</p>
+    </section>
+
+    <section>
+      <h2>Machine Definition</h2>
+      <pre><code>type direction = Left | Right | Stay
+
+type transition = {
+  from_state : string;   (* current state *)
+  read_sym   : char;     (* symbol under head *)
+  to_state   : string;   (* next state *)
+  write_sym  : char;     (* symbol to write *)
+  move       : direction;(* head movement *)
+}
+
+type machine = {
+  name          : string;
+  states        : string list;
+  alphabet      : char list;
+  blank         : char;           (* default tape symbol, usually '_' *)
+  initial_state : string;
+  accept_states : string list;
+  reject_states : string list;
+  transitions   : transition list;
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Tape Implementation</h2>
+      <pre><code>type tape = {
+  left   : char list;   (* symbols to the left of head, reversed *)
+  current: char;        (* symbol under the head *)
+  right  : char list;   (* symbols to the right of head *)
+  blank  : char;        (* blank symbol for extending *)
+}
+
+(* Head movement — extends tape with blanks as needed *)
+let move_left tape =
+  match tape.left with
+  | []     -> { tape with current = tape.blank; right = tape.current :: tape.right }
+  | h :: t -> { left = t; current = h; right = tape.current :: tape.right; blank = tape.blank }
+
+let move_right tape =
+  match tape.right with
+  | []     -> { tape with current = tape.blank; left = tape.current :: tape.left }
+  | h :: t -> { left = tape.current :: tape.left; current = h; right = t; blank = tape.blank }</code></pre>
+      <p>The tape is implemented as a <strong>zipper</strong>: the current cell is explicit,
+      with two lists representing the left and right sides. This gives O(1) head movement
+      and O(1) read/write while keeping the tape conceptually infinite.</p>
+    </section>
+
+    <section>
+      <h2>Execution Engine</h2>
+      <pre><code>type config = {
+  tape  : tape;
+  state : string;
+  steps : int;
+}
+
+(* Single step: find matching transition, apply it *)
+let step machine config =
+  let t = List.find_opt (fun t ->
+    t.from_state = config.state && t.read_sym = config.tape.current
+  ) machine.transitions in
+  match t with
+  | None -> None  (* halts: no matching transition *)
+  | Some t ->
+    let tape' = write_tape config.tape t.write_sym |> move tape' t.move in
+    Some { tape = tape'; state = t.to_state; steps = config.steps + 1 }
+
+(* Run to completion or max_steps *)
+let run ?(max_steps=10000) ?(verbose=false) machine input = ...</code></pre>
+    </section>
+
+    <section>
+      <h2>Built-in Machines</h2>
+      <table>
+        <tr><th>Machine</th><th>Input</th><th>Description</th></tr>
+        <tr>
+          <td><strong>Binary Increment</strong></td>
+          <td><code>1011</code> → <code>1100</code></td>
+          <td>Adds 1 to a binary number by scanning right-to-left, flipping bits</td>
+        </tr>
+        <tr>
+          <td><strong>Unary Addition</strong></td>
+          <td><code>111+11</code> → <code>11111</code></td>
+          <td>Adds two unary numbers by erasing the <code>+</code> separator</td>
+        </tr>
+        <tr>
+          <td><strong>Palindrome Checker</strong></td>
+          <td><code>abcba</code> → accept</td>
+          <td>Checks if a string is a palindrome by comparing ends inward</td>
+        </tr>
+        <tr>
+          <td><strong>Busy Beaver (3-state)</strong></td>
+          <td>blank tape</td>
+          <td>The 3-state busy beaver — writes 6 ones in 14 steps before halting</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Verbose Trace Output</h2>
+      <pre><code>(* Binary Increment: 1011 → 1100 *)
+Step 0: state=q0  ..._ [1] 0 1 1 _...
+Step 1: state=q0  ..._ 1 [0] 1 1 _...
+Step 2: state=q0  ..._ 1 0 [1] 1 _...
+Step 3: state=q0  ..._ 1 0 1 [1] _...
+Step 4: state=q0  ..._ 1 0 1 1 [_]...
+Step 5: state=q1  ..._ 1 0 1 [1] _...   ← scan left, flip 1→0
+Step 6: state=q1  ..._ 1 0 [1] 0 _...   ← flip 1→0
+Step 7: state=q1  ..._ 1 [0] 0 0 _...   ← found 0, flip to 1
+Step 8: state=q2  ..._ 1 [1] 0 0 _...   ← done!
+Result: ACCEPTED (8 steps) | Tape: 1100</code></pre>
+    </section>
+
+    <section>
+      <h2>Statistics</h2>
+      <pre><code>(* run_stats returns execution metrics *)
+let run_stats machine input =
+  (* Returns: steps taken, cells visited, final tape contents,
+     accept/reject/timeout status *)
+
+(* Busy Beaver 3-state:
+   Steps: 14  |  Cells visited: 9  |  Ones written: 6
+   This is provably the maximum for any 3-state, 2-symbol TM *)</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Zipper data structure</strong> — the tape is a classic zipper, giving O(1) bidirectional traversal</li>
+        <li><strong>Variant types</strong> — <code>direction</code> as <code>Left | Right | Stay</code></li>
+        <li><strong>Option-based transitions</strong> — <code>List.find_opt</code> returns <code>None</code> for halting (no matching rule)</li>
+        <li><strong>Immutable state threading</strong> — each step produces a new config; the machine is pure</li>
+        <li><strong>Named parameters</strong> — <code>~max_steps</code>, <code>~verbose</code> for readable configuration</li>
+        <li><strong>Pattern matching on lists</strong> — tape movement handles empty lists (infinite extension) naturally</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run
+ocamlfind ocamlopt turing_machine.ml -o turing_machine
+./turing_machine
+
+# Demonstrates all four machines with verbose traces and statistics</code></pre>
+    </section>
+
+    <section>
+      <h2>Further Reading</h2>
+      <ul>
+        <li>Turing, A. M. — <em>On Computable Numbers</em> (1936)</li>
+        <li>Sipser, M. — <em>Introduction to the Theory of Computation</em>, Chapter 3</li>
+        <li><a href="https://en.wikipedia.org/wiki/Busy_beaver">Wikipedia: Busy Beaver</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

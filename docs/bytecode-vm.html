@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bytecode Virtual Machine — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🖥️ Bytecode Virtual Machine</h1>
+    <p class="subtitle">A stack-based VM with compiler, garbage-safe execution, and tracing</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>This module implements a complete <strong>bytecode virtual machine</strong> from scratch:
+      a high-level expression language compiles down to a flat array of opcodes, which
+      a stack-based VM executes. It covers the same ground as the internals of languages
+      like Lua, Python, and early Java — making abstract "how interpreters work" concepts
+      concrete and runnable.</p>
+    </section>
+
+    <section>
+      <h2>Architecture</h2>
+      <pre><code>┌─────────────┐     ┌──────────┐     ┌────────────┐
+│  Source AST  │ ──▶ │ Compiler │ ──▶ │  Bytecode  │
+│  (expr)      │     │          │     │  (opcode   │
+│              │     │          │     │   array)   │
+└─────────────┘     └──────────┘     └────────────┘
+                                           │
+                                           ▼
+                                     ┌────────────┐
+                                     │     VM     │
+                                     │  (stack +  │
+                                     │   frames)  │
+                                     └────────────┘</code></pre>
+    </section>
+
+    <section>
+      <h2>Instruction Set</h2>
+      <table>
+        <tr><th>Opcode</th><th>Stack Effect</th><th>Description</th></tr>
+        <tr><td><code>CONST v</code></td><td>→ v</td><td>Push a constant value</td></tr>
+        <tr><td><code>ADD</code></td><td>a b → (a+b)</td><td>Pop two, push sum</td></tr>
+        <tr><td><code>SUB / MUL / DIV / MOD</code></td><td>a b → result</td><td>Arithmetic operations</td></tr>
+        <tr><td><code>NEG</code></td><td>a → (−a)</td><td>Negate top of stack</td></tr>
+        <tr><td><code>EQ / LT / GT / LE / GE</code></td><td>a b → bool</td><td>Comparison operators</td></tr>
+        <tr><td><code>NOT</code></td><td>a → (¬a)</td><td>Boolean negation</td></tr>
+        <tr><td><code>AND / OR</code></td><td>a b → bool</td><td>Logical operators</td></tr>
+        <tr><td><code>GET_LOCAL i</code></td><td>→ v</td><td>Push local variable at slot <em>i</em></td></tr>
+        <tr><td><code>SET_LOCAL i</code></td><td>v →</td><td>Store top into local slot <em>i</em></td></tr>
+        <tr><td><code>JMP offset</code></td><td>—</td><td>Unconditional jump</td></tr>
+        <tr><td><code>JMP_IF_FALSE offset</code></td><td>cond →</td><td>Conditional branch</td></tr>
+        <tr><td><code>CALL func_idx</code></td><td>args → result</td><td>Push call frame, enter function</td></tr>
+        <tr><td><code>RETURN</code></td><td>result →</td><td>Pop call frame, return value</td></tr>
+        <tr><td><code>PRINT</code></td><td>v →</td><td>Output a value</td></tr>
+        <tr><td><code>HALT</code></td><td>—</td><td>Stop execution</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Value Types</h2>
+      <pre><code>type value =
+  | VFloat of float     (* all numbers are double-precision *)
+  | VBool of bool       (* boolean true/false *)
+  | VNil                (* null/unit value *)
+  | VString of string   (* string literals *)
+  | VFunc of int        (* function reference by index *)
+
+(* Truthiness: VBool false and VNil are falsy; everything else is truthy *)
+let value_is_truthy = function
+  | VBool false | VNil -> false
+  | _ -> true</code></pre>
+    </section>
+
+    <section>
+      <h2>VM State</h2>
+      <pre><code>type call_frame = {
+  func_idx   : int;        (* which function we're in *)
+  return_ip  : int;        (* instruction pointer to return to *)
+  base_slot  : int;        (* stack base for local variables *)
+}
+
+type vm = {
+  mutable stack  : value array;  (* operand stack *)
+  mutable sp     : int;          (* stack pointer *)
+  mutable ip     : int;          (* instruction pointer *)
+  mutable frames : call_frame list; (* call stack *)
+  mutable steps  : int;          (* execution counter *)
+  mutable output : string list;  (* captured print output *)
+  trace          : bool;         (* instruction tracing enabled *)
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Safety Features</h2>
+      <ul>
+        <li><strong>Bounded execution</strong> — configurable <code>max_execution_steps</code> (default 1M) prevents infinite loops</li>
+        <li><strong>Call depth limit</strong> — <code>max_call_depth</code> (default 512) catches runaway recursion</li>
+        <li><strong>Stack bounds checking</strong> — push/pop verify the stack pointer, raising <code>VM_error</code> on overflow/underflow</li>
+        <li><strong>Tracing mode</strong> — when enabled, prints every instruction with stack state for debugging</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The Compiler</h2>
+      <pre><code>(* High-level expressions compiled to flat bytecode *)
+type expr =
+  | EConst of float | EBool of bool | ENil
+  | EVar of string | EBinOp of op * expr * expr
+  | EUnaryOp of unary_op * expr
+  | EIf of expr * expr * expr
+  | ELet of string * expr * expr
+  | EFunc of string list * expr  (* params, body *)
+  | ECall of expr * expr list
+  | EBlock of expr list | EPrint of expr
+
+(* compile_expr recursively emits opcodes *)
+(* Local variables are assigned stack slots at compile time *)
+(* Functions are compiled to separate code arrays referenced by index *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Disassembler</h2>
+      <pre><code>(* Built-in disassembler for inspecting generated bytecode *)
+let disassemble_op i = function
+  | CONST v   -> Printf.sprintf "%04d CONST %s" i (value_to_string v)
+  | ADD       -> Printf.sprintf "%04d ADD" i
+  | CALL idx  -> Printf.sprintf "%04d CALL func_%d" i idx
+  | JMP off   -> Printf.sprintf "%04d JMP %04d" i (i + off)
+  | RETURN    -> Printf.sprintf "%04d RETURN" i
+  | ...
+
+(* Example output:
+   0000 CONST 3.0
+   0001 CONST 4.0
+   0002 ADD
+   0003 PRINT
+   0004 HALT  *)</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Mutable arrays for performance</strong> — stack and bytecode use OCaml arrays for O(1) random access</li>
+        <li><strong>Pattern matching on opcodes</strong> — the main <code>run_code</code> loop dispatches via a large match expression</li>
+        <li><strong>Variant types as instruction encoding</strong> — opcodes carry their operands directly in the constructor</li>
+        <li><strong>Compile-time environment</strong> — local variable resolution at compile time, slot-based at runtime</li>
+        <li><strong>Ref cells for mutable counters</strong> — step counter and call depth tracked mutably</li>
+        <li><strong>Recursive descent compilation</strong> — <code>compile_expr</code> mirrors the AST structure</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run
+ocamlfind ocamlopt bytecode_vm.ml -o bytecode_vm
+./bytecode_vm
+
+# Runs built-in examples demonstrating arithmetic, conditionals,
+# function calls, recursion, and the disassembler</code></pre>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ray Tracer — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🎨 Ray Tracer</h1>
+    <p class="subtitle">A from-scratch ray tracer with reflections, shadows, and multi-sample anti-aliasing</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>This module implements a <strong>recursive ray tracer</strong> in pure OCaml — no
+      external graphics libraries. It renders 3D scenes by simulating how light rays bounce
+      off objects, producing PPM images with realistic reflections, shadows, and
+      diffuse/specular shading.</p>
+      <p>The architecture separates geometry (vector math, intersection), shading (materials,
+      lighting), and rendering (camera, anti-aliasing) into clean modules.</p>
+    </section>
+
+    <section>
+      <h2>Core Modules</h2>
+      <pre><code>module Vec3 = struct
+  type t = { x: float; y: float; z: float }
+  let add a b = { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
+  let sub a b = ...
+  let scale t s = { x = t.x *. s; y = t.y *. s; z = t.z *. s }
+  let dot a b = a.x *. b.x +. a.y *. b.y +. a.z *. b.z
+  let cross a b = ...
+  let length v = sqrt (dot v v)
+  let normalize v = scale v (1.0 /. length v)
+end
+
+module Ray = struct
+  type t = { origin: Vec3.t; direction: Vec3.t }
+  let at ray t = Vec3.add ray.origin (Vec3.scale ray.direction t)
+end</code></pre>
+    </section>
+
+    <section>
+      <h2>Materials and Shapes</h2>
+      <pre><code>type material = {
+  color     : Color.t;     (* base color *)
+  ambient   : float;       (* ambient coefficient 0–1 *)
+  diffuse   : float;       (* Lambertian diffuse coefficient *)
+  specular  : float;       (* specular highlight coefficient *)
+  shininess : float;       (* Phong exponent *)
+  reflective: float;       (* mirror reflectivity 0–1 *)
+}
+
+type shape =
+  | Sphere of Vec3.t * float * material    (* center, radius, material *)
+  | Plane of Vec3.t * Vec3.t * material    (* point, normal, material *)
+
+(* Intersection returns the closest hit point, normal, and material *)
+type hit = {
+  t        : float;       (* ray parameter at intersection *)
+  point    : Vec3.t;      (* world-space hit point *)
+  normal   : Vec3.t;      (* surface normal at hit *)
+  material : material;    (* material of the hit surface *)
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Ray-Object Intersection</h2>
+      <pre><code>(* Sphere intersection via quadratic formula *)
+let intersect_sphere ray center radius =
+  let oc = Vec3.sub ray.origin center in
+  let a = Vec3.dot ray.direction ray.direction in
+  let b = 2.0 *. Vec3.dot oc ray.direction in
+  let c = Vec3.dot oc oc -. radius *. radius in
+  let discriminant = b *. b -. 4.0 *. a *. c in
+  if discriminant < 0.0 then None
+  else
+    let t1 = (-.b -. sqrt discriminant) /. (2.0 *. a) in
+    let t2 = (-.b +. sqrt discriminant) /. (2.0 *. a) in
+    (* Return closest positive t *)
+    ...
+
+(* Plane intersection: t = dot(point - origin, normal) / dot(direction, normal) *)
+let intersect_plane ray point normal = ...</code></pre>
+    </section>
+
+    <section>
+      <h2>Shading Model</h2>
+      <p>The renderer implements <strong>Phong shading</strong> with shadow rays and recursive reflections:</p>
+      <pre><code>(* For each light source: *)
+(* 1. Shadow test — cast ray from hit point toward light *)
+let is_shadowed scene light_pos hit_point = ...
+
+(* 2. Diffuse — Lambertian: max(0, dot(N, L)) *)
+(* 3. Specular — Phong: max(0, dot(R, V))^shininess *)
+
+(* Recursive reflection *)
+let rec trace scene ray depth =
+  if depth <= 0 then Color.black
+  else match closest_hit ray scene.shapes with
+    | None -> scene.background
+    | Some hit ->
+      let local = shade scene ray hit in
+      if hit.material.reflective > 0.0 then
+        let reflect_dir = Vec3.reflect ray.direction hit.normal in
+        let reflect_ray = { origin = ...; direction = reflect_dir } in
+        let reflected = trace scene reflect_ray (depth - 1) in
+        Color.lerp local reflected hit.material.reflective
+      else local</code></pre>
+    </section>
+
+    <section>
+      <h2>Camera and Anti-Aliasing</h2>
+      <pre><code>module Camera = struct
+  type t = {
+    origin   : Vec3.t;
+    lower_left: Vec3.t;
+    horizontal: Vec3.t;
+    vertical  : Vec3.t;
+  }
+  (* Constructs a camera from position, look-at, up vector, and FOV *)
+end
+
+(* Multi-sample anti-aliasing: shoot N random rays per pixel *)
+let render ~width ~height ~samples scene camera =
+  Array.init height (fun j ->
+    Array.init width (fun i ->
+      let color = ref Color.black in
+      for _ = 1 to samples do
+        let u = (float i +. Random.float 1.0) /. float width in
+        let v = (float j +. Random.float 1.0) /. float height in
+        let ray = Camera.ray_at camera u v in
+        color := Color.add !color (trace scene ray 5)
+      done;
+      Color.scale !color (1.0 /. float samples)
+    )
+  )</code></pre>
+    </section>
+
+    <section>
+      <h2>Output</h2>
+      <pre><code>(* Renders to PPM (Portable Pixmap) — universal, no dependencies *)
+let write_ppm filename pixels =
+  let oc = open_out filename in
+  let h = Array.length pixels in
+  let w = Array.length pixels.(0) in
+  Printf.fprintf oc "P3\n%d %d\n255\n" w h;
+  (* Write RGB triplets, gamma-corrected *)
+  ...
+
+(* Demo scene: reflective spheres on a checkerboard floor *)
+let demo_scene () = {
+  shapes = [
+    Sphere((0, 1, 0), 1.0, mirror_material);
+    Sphere((-2, 0.5, 1), 0.5, red_matte);
+    Sphere((2, 0.5, -1), 0.5, blue_shiny);
+    Plane((0, 0, 0), (0, 1, 0), checkerboard);
+  ];
+  lights = [ PointLight((-5, 5, -5), white) ];
+  background = sky_gradient;
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Modules as namespaces</strong> — <code>Vec3</code>, <code>Color</code>, <code>Ray</code>, <code>Camera</code> each encapsulate a domain</li>
+        <li><strong>Record types</strong> — materials, hits, camera parameters all use named fields</li>
+        <li><strong>Recursive functions with depth</strong> — <code>trace</code> recurses with decreasing depth for reflections</li>
+        <li><strong>Option types for intersections</strong> — <code>intersect_*</code> returns <code>Some hit</code> or <code>None</code></li>
+        <li><strong>Array.init for image buffer</strong> — 2D array generation using higher-order functions</li>
+        <li><strong>Float arithmetic</strong> — extensive use of OCaml's <code>+.</code>, <code>*.</code>, <code>sqrt</code> for vector math</li>
+        <li><strong>Ref cells for accumulation</strong> — <code>color</code> ref in anti-aliasing loop</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run
+ocamlfind ocamlopt raytracer.ml -o raytracer
+./raytracer
+
+# Produces output.ppm — open with any image viewer
+# Also runs built-in test suite verifying vector math and intersections</code></pre>
+    </section>
+  </main>
+</body>
+</html>

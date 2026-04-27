@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abstract Machines — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>⚙️ Abstract Machine Simulator</h1>
+    <p class="subtitle">SECD, CEK, and Krivine machines — three classic evaluation strategies</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Abstract machines</strong> bridge the gap between the lambda calculus (a mathematical
+      model of computation) and real interpreters/compilers. Each machine defines a small set of
+      states and transition rules that mechanically reduce lambda terms to values.</p>
+      <p>This implementation provides three machines side-by-side, all evaluating the same
+      lambda calculus AST, so you can directly compare how call-by-value (SECD, CEK)
+      and call-by-name (Krivine) strategies differ in practice.</p>
+    </section>
+
+    <section>
+      <h2>The Three Machines</h2>
+      <table>
+        <tr><th>Machine</th><th>Strategy</th><th>Components</th><th>Invented</th></tr>
+        <tr>
+          <td><strong>SECD</strong></td>
+          <td>Call-by-value (strict)</td>
+          <td><strong>S</strong>tack, <strong>E</strong>nvironment, <strong>C</strong>ontrol, <strong>D</strong>ump</td>
+          <td>Landin, 1964</td>
+        </tr>
+        <tr>
+          <td><strong>CEK</strong></td>
+          <td>Call-by-value (strict)</td>
+          <td><strong>C</strong>ontrol, <strong>E</strong>nvironment, <strong>K</strong>ontinuation</td>
+          <td>Felleisen & Friedman, 1986</td>
+        </tr>
+        <tr>
+          <td><strong>Krivine</strong></td>
+          <td>Call-by-name (lazy)</td>
+          <td>Term, Environment, Stack of closures</td>
+          <td>Krivine, 2007 (published)</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Shared Lambda Calculus AST</h2>
+      <pre><code>(* All three machines evaluate the same expression type *)
+type expr =
+  | Var of string           (* variable reference *)
+  | Lam of string * expr    (* λx.body — abstraction *)
+  | App of expr * expr      (* (f arg) — application *)
+  | Int of int              (* integer literal *)
+  | Add of expr * expr      (* arithmetic addition *)
+  | Mul of expr * expr      (* arithmetic multiplication *)
+  | Let of string * expr * expr  (* let x = e1 in e2 *)</code></pre>
+    </section>
+
+    <section>
+      <h2>SECD Machine</h2>
+      <p>The oldest abstract machine for the lambda calculus. It uses four registers:</p>
+      <ul>
+        <li><strong>Stack</strong> — holds intermediate values during evaluation</li>
+        <li><strong>Environment</strong> — maps variable names to values (closures)</li>
+        <li><strong>Control</strong> — list of instructions still to execute</li>
+        <li><strong>Dump</strong> — saved states for returning from function calls</li>
+      </ul>
+      <pre><code>module SECD = struct
+  type value =
+    | VInt of int
+    | VClosure of string * expr * env
+  and env = (string * value) list
+
+  type control =
+    | CEval of expr
+    | CApply
+
+  (* Transition: evaluate application *)
+  (* 1. Push CApply, then evaluate arg, then func *)
+  (* 2. When CApply fires: save S/E/C to Dump, enter closure body *)
+  (* 3. On return: restore from Dump, push result *)
+end</code></pre>
+    </section>
+
+    <section>
+      <h2>CEK Machine</h2>
+      <p>A refinement that replaces the dump with first-class continuations,
+      making the control flow explicit:</p>
+      <pre><code>module CEK = struct
+  type cont =
+    | Done
+    | ArgK of expr * env * cont    (* evaluate the argument next *)
+    | FunK of value * cont         (* apply the function to result *)
+    | AddLK of expr * env * cont   (* evaluate right operand of Add *)
+    | AddRK of value * cont        (* perform the addition *)
+    | ...
+
+  (* State = (Control expr, Environment, Kontinuation) *)
+  (* Each step pattern-matches on the triple and produces a new state *)
+end</code></pre>
+      <p>The CEK machine is widely used in PL research because continuations
+      compose cleanly with features like call/cc, exceptions, and delimited control.</p>
+    </section>
+
+    <section>
+      <h2>Krivine Machine</h2>
+      <p>Unlike SECD and CEK, Krivine implements <strong>call-by-name</strong>: arguments
+      are not evaluated before being passed. Instead, they are stored as <em>closures</em>
+      (unevaluated expression + environment) on a stack.</p>
+      <pre><code>module Krivine = struct
+  type closure = Clo of expr * env
+  and env = (string * closure) list
+
+  (* State = (Term, Environment, Stack of closures) *)
+  (* Key rule: App(f, arg) → push Clo(arg, env) onto stack, continue with f *)
+  (* When Lam(x, body) meets a stack closure: bind x to the closure, eval body *)
+end</code></pre>
+      <p>This means <code>(λx. 42) (infinite_loop)</code> returns 42 under Krivine
+      but diverges under SECD/CEK, since the argument is never evaluated.</p>
+    </section>
+
+    <section>
+      <h2>Comparison Examples</h2>
+      <pre><code>(* The implementation runs all three on the same expression *)
+let examples = [
+  ("identity", App(Lam("x", Var "x"), Int 42), "λx.x applied to 42");
+  ("arithmetic", Let("a", Int 3, Let("b", Int 4, Add(Var "a", Var "b"))),
+   "let a=3 in let b=4 in a+b");
+  ("higher-order", App(App(Lam("f", Lam("x", App(Var "f", Var "x"))),
+                          Lam("y", Add(Var "y", Int 1))), Int 5),
+   "apply (λf.λx.f x) (λy.y+1) 5");
+]
+
+(* Each machine reaches the same result (for terminating, strict programs) *)
+(* but through different state transition sequences *)</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Modules</strong> — each machine is its own module with independent types and eval functions</li>
+        <li><strong>Mutually recursive types</strong> — <code>value</code> and <code>env</code> are co-defined</li>
+        <li><strong>Variant types for control flow</strong> — continuations and control instructions as algebraic data types</li>
+        <li><strong>Pattern matching</strong> — every transition rule is a match arm, making the semantics readable as formal rules</li>
+        <li><strong>Closures</strong> — both in the OCaml implementation and as first-class values in the simulated machines</li>
+        <li><strong>Substitution vs environments</strong> — demonstrates why environment-based evaluation avoids exponential blowup</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run
+ocamlfind ocamlopt -package str -linkpkg abstract_machine.ml -o abstract_machine
+./abstract_machine
+
+# Interactive REPL mode is also available
+# Enter lambda calculus expressions to see all three machines evaluate them</code></pre>
+    </section>
+
+    <section>
+      <h2>Further Reading</h2>
+      <ul>
+        <li>Landin, P. J. — <em>The Mechanical Evaluation of Expressions</em> (1964)</li>
+        <li>Felleisen & Friedman — <em>Control Operators, the SECD-Machine, and the λ-Calculus</em> (1986)</li>
+        <li>Krivine, J.-L. — <em>A Call-by-Name Lambda-Calculus Machine</em> (2007)</li>
+        <li><a href="https://en.wikipedia.org/wiki/SECD_machine">Wikipedia: SECD Machine</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

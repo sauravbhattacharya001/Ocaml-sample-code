@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theorem Prover — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>📐 Theorem Prover</h1>
+    <p class="subtitle">Automated propositional logic prover with proof search, NNF, and truth tables</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>This module implements an <strong>automated theorem prover</strong> for propositional
+      logic. Given a formula, it can determine whether it's a tautology, find a constructive
+      proof via sequent-calculus-style backward search, verify entailment from assumptions,
+      and generate truth tables — all from scratch in pure OCaml.</p>
+      <p>The prover uses <strong>fuel-bounded search</strong> to guarantee termination while
+      exploring deep proof trees.</p>
+    </section>
+
+    <section>
+      <h2>Formula Language</h2>
+      <pre><code>type formula =
+  | Atom of string                 (* propositional variable: "P", "Q" *)
+  | Not of formula                 (* ¬φ *)
+  | And of formula * formula       (* φ ∧ ψ *)
+  | Or of formula * formula        (* φ ∨ ψ *)
+  | Implies of formula * formula   (* φ → ψ *)
+  | Iff of formula * formula       (* φ ↔ ψ *)
+  | True | False                   (* constants *)
+
+(* Parser included: "P -> (Q & R)" parses to Implies(Atom "P", And(Atom "Q", Atom "R")) *)
+let parse s = ... (* tokenizer + recursive descent *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Proof Search</h2>
+      <p>The core algorithm works by <strong>backward proof search</strong> on sequents
+      (context ⊢ goal). It applies logical rules to decompose the goal until it
+      matches an axiom (goal found in context) or runs out of fuel:</p>
+      <pre><code>type rule_name =
+  | Axiom           (* goal ∈ context *)
+  | TrueIntro       (* ⊢ True always *)
+  | FalseElim       (* False ∈ context ⊢ anything *)
+  | AndIntro        (* prove both conjuncts *)
+  | AndElimL | AndElimR  (* decompose And in context *)
+  | OrIntroL | OrIntroR  (* pick a disjunct to prove *)
+  | OrElim          (* case split on Or in context *)
+  | ImpliesIntro    (* assume antecedent, prove consequent *)
+  | ImpliesElim     (* modus ponens from context *)
+  | NotIntro        (* assume φ, derive contradiction *)
+  | NotElim         (* from ¬¬φ derive φ *)
+  | IffIntro | IffElim  (* bidirectional implication *)
+
+(* Each rule produces sub-goals; search recurses with decremented fuel *)
+let prove_sequent ?(fuel=50) ctx goal = ...</code></pre>
+    </section>
+
+    <section>
+      <h2>Proof Objects</h2>
+      <pre><code>type proof = {
+  rule    : rule_name;
+  sequent : context * formula;  (* what was proved *)
+  children: proof list;         (* sub-proofs *)
+}
+
+(* Proofs can be inspected for size, depth, and which rules were used *)
+let rec proof_size p = 1 + List.fold_left (fun s c -> s + proof_size c) 0 p.children
+let rec proof_depth p = 1 + List.fold_left (fun d c -> max d (proof_depth c)) 0 p.children
+let rules_used proof = ... (* collect all rule names in the proof tree *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Additional Features</h2>
+      <table>
+        <tr><th>Feature</th><th>Description</th></tr>
+        <tr><td><strong>Negation Normal Form</strong></td><td><code>nnf</code> pushes negations inward, eliminating double negation and Implies/Iff</td></tr>
+        <tr><td><strong>Substitution</strong></td><td><code>subst name replacement f</code> replaces atoms in a formula</td></tr>
+        <tr><td><strong>Truth Table</strong></td><td><code>truth_table f</code> enumerates all variable assignments, evaluating the formula under each</td></tr>
+        <tr><td><strong>Truth Table Tautology</strong></td><td>Brute-force verification by checking all rows — useful as a cross-check against proof search</td></tr>
+        <tr><td><strong>Entailment</strong></td><td><code>entails assumptions goal</code> checks if the assumptions logically imply the goal</td></tr>
+        <tr><td><strong>Complexity Metric</strong></td><td><code>complexity f</code> counts connectives — a rough measure of formula difficulty</td></tr>
+        <tr><td><strong>Pretty Printer</strong></td><td>Precedence-aware formatter with minimal parenthesization</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Example Session</h2>
+      <pre><code>(* Is "P → P" a tautology? *)
+# is_tautology (Implies (Atom "P", Atom "P"));;
+- : bool = true
+
+(* Prove it constructively: *)
+# prove (Implies (Atom "P", Atom "P"));;
+- : proof option = Some {
+    rule = ImpliesIntro;
+    sequent = ({P}, P);
+    children = [{rule = Axiom; sequent = ({P}, P); children = []}]
+  }
+
+(* De Morgan's law: ¬(P ∧ Q) ↔ (¬P ∨ ¬Q) *)
+# is_tautology (parse "~(P & Q) <-> (~P | ~Q)");;
+- : bool = true
+
+(* Entailment: does {P → Q, Q → R} ⊢ P → R? *)
+# entails [parse "P -> Q"; parse "Q -> R"] (parse "P -> R");;
+- : bool = true</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Recursive algebraic types</strong> — <code>formula</code> is a tree of connectives, naturally modeled as a variant</li>
+        <li><strong>Set.Make functor</strong> — <code>FormulaSet</code> gives ordered sets of formulas for contexts</li>
+        <li><strong>Recursive descent parsing</strong> — tokenizer + parser with operator precedence</li>
+        <li><strong>Optional return types</strong> — <code>prove</code> returns <code>proof option</code> (Some on success, None if unprovable within fuel)</li>
+        <li><strong>Fuel-bounded recursion</strong> — decreasing integer parameter guarantees termination</li>
+        <li><strong>Higher-order evaluation</strong> — <code>eval env f</code> takes a variable assignment as an environment</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run
+ocamlfind ocamlopt -package str -linkpkg theorem_prover.ml -o theorem_prover
+./theorem_prover
+
+# Runs demonstrations of tautology checking, proof search,
+# truth tables, NNF conversion, and entailment</code></pre>
+    </section>
+  </main>
+</body>
+</html>

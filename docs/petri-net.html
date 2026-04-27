@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Petri Nets — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🔀 Petri Nets</h1>
+    <p class="subtitle">Model and analyze concurrent systems with places, transitions, and tokens</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>Petri net</strong> is a mathematical formalism for modeling concurrent and
+      distributed systems. Tokens flow through a bipartite graph of <em>places</em> (holding
+      resources/conditions) and <em>transitions</em> (representing events/actions), connected
+      by directed arcs with weights.</p>
+      <p>This implementation goes beyond basic simulation: it includes full
+      <strong>reachability graph construction</strong>, <strong>boundedness analysis</strong>,
+      <strong>deadlock detection</strong>, <strong>liveness checking</strong>, and
+      <strong>incidence matrix computation</strong> — the core analyses used in verification
+      of concurrent protocols.</p>
+    </section>
+
+    <section>
+      <h2>Core Data Structures</h2>
+      <pre><code>type place = { name : string; id : int }
+type transition = { t_name : string; t_id : int }
+
+type arc =
+  | PlaceToTrans of int * int * int   (* place_id, trans_id, weight *)
+  | TransToPlace of int * int * int   (* trans_id, place_id, weight *)
+
+type marking = int array   (* tokens per place *)
+
+type petri_net = {
+  places      : place array;
+  transitions : transition array;
+  arcs        : arc list;
+  initial     : marking;
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Firing Rules</h2>
+      <pre><code>(* A transition is enabled when every input place has enough tokens *)
+let is_enabled net marking t_id =
+  List.for_all (fun (p_id, weight) ->
+    marking.(p_id) >= weight
+  ) (inputs net t_id)
+
+(* Firing: consume input tokens, produce output tokens *)
+let fire net marking t_id =
+  let m = copy_marking marking in
+  List.iter (fun (p, w) -> m.(p) <- m.(p) - w) (inputs net t_id);
+  List.iter (fun (p, w) -> m.(p) <- m.(p) + w) (outputs net t_id);
+  m</code></pre>
+    </section>
+
+    <section>
+      <h2>Analysis Capabilities</h2>
+      <table>
+        <tr><th>Analysis</th><th>What It Checks</th><th>Complexity</th></tr>
+        <tr>
+          <td><strong>Reachability Graph</strong></td>
+          <td>Explores all reachable markings via BFS (bounded to 10,000 states)</td>
+          <td>Exponential in places (bounded)</td>
+        </tr>
+        <tr>
+          <td><strong>Boundedness</strong></td>
+          <td>Whether token counts in any place grow unboundedly</td>
+          <td>Linear scan of reachability graph</td>
+        </tr>
+        <tr>
+          <td><strong>Deadlock Detection</strong></td>
+          <td>Markings where no transition is enabled (system stuck)</td>
+          <td>Linear scan of reachability graph</td>
+        </tr>
+        <tr>
+          <td><strong>Liveness</strong></td>
+          <td>Whether every transition can eventually fire from any reachable state</td>
+          <td>Linear in |states| × |transitions|</td>
+        </tr>
+        <tr>
+          <td><strong>Incidence Matrix</strong></td>
+          <td>Net effect of each transition on each place (for algebraic analysis)</td>
+          <td>O(|arcs|)</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Built-in Example Nets</h2>
+      <ul>
+        <li><strong>Mutex</strong> — mutual exclusion with a shared lock token, proving two processes can't both be in the critical section</li>
+        <li><strong>Producer-Consumer</strong> — bounded buffer with producer/consumer synchronization</li>
+        <li><strong>Workflow</strong> — sequential task pipeline with fork/join parallelism</li>
+        <li><strong>Dining Philosophers</strong> — the classic deadlock-prone concurrency problem</li>
+      </ul>
+      <pre><code>(* Dining Philosophers: 5 philosophers, 5 forks *)
+(* Places: think_i, eat_i, fork_i *)
+(* Transitions: pickup_i (needs fork_i and fork_(i+1)%5) *)
+(*              putdown_i (releases both forks) *)
+(* Analysis reveals: deadlock is reachable when all pick up left fork *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Simulation Output</h2>
+      <pre><code>(* The simulator prints each step with visual token placement *)
+Step 0: [P0:1] [P1:0] [P2:1] — T0 enabled
+  Fire T0 → [P0:0] [P1:1] [P2:1]
+Step 1: [P0:0] [P1:1] [P2:1] — T1 enabled
+  Fire T1 → [P0:0] [P1:0] [P2:0]
+Step 2: [P0:0] [P1:0] [P2:0] — DEADLOCK (no transitions enabled)</code></pre>
+    </section>
+
+    <section>
+      <h2>OCaml Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Mutable arrays as state</strong> — markings use <code>int array</code> for efficient token manipulation</li>
+        <li><strong>Set module for graph exploration</strong> — <code>MarkingSet</code> tracks visited states using <code>Set.Make</code> functor</li>
+        <li><strong>List.for_all / List.iter</strong> — declarative enabling checks and firing logic</li>
+        <li><strong>Record types</strong> — places, transitions, and nets use named fields for clarity</li>
+        <li><strong>Array.copy</strong> — defensive copying ensures firing doesn't corrupt the source marking</li>
+        <li><strong>BFS with queue</strong> — reachability graph built using standard breadth-first search</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Running It</h2>
+      <pre><code># Compile and run all examples with analysis
+ocamlfind ocamlopt petri_net.ml -o petri_net
+./petri_net
+
+# Output includes simulation traces and analysis reports for
+# each built-in net (mutex, producer-consumer, workflow, dining philosophers)</code></pre>
+    </section>
+
+    <section>
+      <h2>Further Reading</h2>
+      <ul>
+        <li>Murata, T. — <em>Petri Nets: Properties, Analysis and Applications</em> (1989)</li>
+        <li>Reisig, W. — <em>Understanding Petri Nets</em> (Springer, 2013)</li>
+        <li><a href="https://en.wikipedia.org/wiki/Petri_net">Wikipedia: Petri net</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
