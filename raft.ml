@@ -106,6 +106,17 @@ let get_log_term node idx =
   | None -> 0
   | Some e -> e.term
 
+(* Extract entries from log starting at index [from_idx], returned in forward
+   (ascending index) order. Log is stored in reverse order (head = newest). *)
+let entries_from node from_idx =
+  let len = List.length node.log in
+  if from_idx < 1 || from_idx > len then []
+  else
+    (* In the reversed list, log index i sits at list position (len - i).
+       We want log indices >= from_idx, i.e. list positions 0 .. (len - from_idx). *)
+    let selected = List.filteri (fun i _ -> i <= len - from_idx) node.log in
+    List.rev selected
+
 let role_to_string = function
   | Follower -> "Follower"
   | Candidate -> "Candidate"
@@ -247,15 +258,17 @@ let handle_append_entries node req =
         { aer_term = node.term; aer_success = false;
           aer_node_id = node.id; aer_match_index = 0 }
       else begin
-        (* Append new entries (truncate conflicts) *)
+        (* Append new entries (truncate conflicting suffix, keep 1..prev_idx) *)
         let keep = req.ae_prev_log_idx in
         let len = List.length node.log in
+        (* trimmed retains entries 1..keep in reverse order (head = newest kept) *)
         let trimmed = if keep < len then
-          let rev = List.rev node.log in
-          List.rev (List.filteri (fun i _ -> i < keep) rev)
+          (* Drop the (len - keep) newest list elements *)
+          let rec drop n l = if n = 0 then l else drop (n-1) (List.tl l) in
+          drop (len - keep) node.log
         else node.log in
-        let new_entries = req.ae_entries in
-        node.log <- trimmed @ new_entries;
+        (* new_entries arrive in forward order; reverse to maintain head=newest *)
+        node.log <- List.rev req.ae_entries @ trimmed;
         let new_match = last_log_index node in
         if req.ae_leader_commit > node.commit_index then
           node.commit_index <- min req.ae_leader_commit new_match;
@@ -264,7 +277,7 @@ let handle_append_entries node req =
       end
     end else begin
       (* prev_log_idx = 0 means starting from scratch *)
-      node.log <- req.ae_entries;
+      node.log <- List.rev req.ae_entries;
       let new_match = last_log_index node in
       if req.ae_leader_commit > node.commit_index then
         node.commit_index <- min req.ae_leader_commit new_match;
@@ -298,9 +311,7 @@ let handle_append_entries_resp node resp majority =
       ) node.next_index;
       let ni = List.assoc resp.aer_node_id node.next_index in
       let prev_idx = ni - 1 in
-      let entries_to_send =
-        List.filteri (fun i _ -> i >= ni - 1) node.log
-      in
+      let entries_to_send = entries_from node ni in
       let req = {
         ae_term = node.term;
         ae_leader_id = node.id;
@@ -367,9 +378,7 @@ let tick_node cluster node =
     List.iter (fun (nid, ni) ->
       if not (is_partitioned cluster node.id nid) then begin
         let prev_idx = ni - 1 in
-        let entries =
-          List.filteri (fun i _ -> i >= ni - 1) node.log
-        in
+        let entries = entries_from node ni in
         let req = {
           ae_term = node.term;
           ae_leader_id = node.id;
