@@ -1,0 +1,80 @@
+name: Performance Issue
+description: Report slow compilation, excessive memory use, or runtime bottlenecks in an example
+title: "[Perf] "
+labels: ["performance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us keep the examples efficient! Report any performance concerns below.
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Performance Area
+      description: Where is the performance problem?
+      options:
+        - Runtime speed (algorithm too slow)
+        - Memory usage (excessive allocation / OOM)
+        - Compilation time (takes too long to build)
+        - Startup latency
+        - Scaling (works for small input, fails for large)
+    validations:
+      required: true
+
+  - type: input
+    id: example-file
+    attributes:
+      label: Affected File(s)
+      description: Which `.ml` file(s) exhibit the issue?
+      placeholder: "e.g. raytracer.ml, petri_net.ml"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the performance issue and its impact.
+      placeholder: |
+        What input size triggers the problem?
+        How long does it take vs. what you'd expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: |
+        If available, include timing measurements or profiler output.
+        Run with: `ocamlfind ocamlopt -package landmarks -ppx ... -o prog file.ml && OCAML_LANDMARKS=auto prog`
+        Or simply: `time ./<program>`
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Optimization
+      description: If you have ideas for improving performance, describe them here.
+    validations:
+      required: false
+
+  - type: input
+    id: ocaml-version
+    attributes:
+      label: OCaml Version
+      description: Output of `ocaml -version`
+      placeholder: "5.1.0"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: "Ubuntu 22.04 / macOS 14 / Windows 11"
+    validations:
+      required: false

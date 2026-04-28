@@ -1,0 +1,50 @@
+name: Question
+description: Ask about OCaml concepts, implementation choices, or how an example works
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about an example or the OCaml concepts it demonstrates? Ask away!
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      description: What area does your question relate to?
+      options:
+        - Understanding an algorithm / data structure
+        - OCaml language feature (pattern matching, modules, GADTs, etc.)
+        - Build / compilation / tooling
+        - Extending or modifying an example
+        - Design decisions in existing code
+        - Comparing approaches (e.g. imperative vs functional)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: related-file
+    attributes:
+      label: Related File(s)
+      description: Which example file(s) does this relate to?
+      placeholder: "e.g. abstract_machine.ml, theorem_prover.ml"
+    validations:
+      required: false
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: Be as specific as possible — include line numbers or code snippets if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: research
+    attributes:
+      label: What You've Already Tried
+      description: What resources or experiments have you tried? This helps us give a more targeted answer.
+    validations:
+      required: false

@@ -6,3 +6,6 @@ contact_links:
   - name: 99 OCaml Problems
     url: https://ocaml.org/exercises
     about: Practice problems for learning OCaml
+  - name: OCaml Discuss Forum
+    url: https://discuss.ocaml.org
+    about: Community forum for general OCaml questions and discussions
