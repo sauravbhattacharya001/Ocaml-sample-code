@@ -205,6 +205,19 @@ let error_response status msg =
 
 (* ── Request parsing ─────────────────────────────────────────────── *)
 
+(** Maximum allowed request body size (10 MB).
+    Prevents denial-of-service via malicious Content-Length headers that
+    would cause the server to allocate arbitrarily large buffers. *)
+let max_body_size = 10 * 1024 * 1024
+
+(** Maximum number of request headers.
+    Limits memory consumption from header-flooding attacks. *)
+let max_header_count = 100
+
+(** Maximum length of a single header line (8 KB).
+    Prevents memory exhaustion from oversized header values. *)
+let max_header_line_length = 8192
+
 let read_all ic max_len =
   let buf = Buffer.create 4096 in
   let chunk = Bytes.create 4096 in
@@ -219,30 +232,44 @@ let read_all ic max_len =
   with _ -> ());
   Buffer.contents buf
 
+(** Raised when a request exceeds configured limits. *)
+exception Request_too_large of string
+
 let parse_request ic =
   let request_line = input_line ic in
   let request_line = String.trim request_line in
+  if String.length request_line > max_header_line_length then
+    raise (Request_too_large "Request line too long");
   let parts = String.split_on_char ' ' request_line in
   match parts with
   | meth_s :: raw_path :: _ ->
-    (* Parse headers *)
+    (* Parse headers with count and size limits *)
     let headers = ref [] in
+    let header_count = ref 0 in
     (try while true do
       let line = String.trim (input_line ic) in
       if line = "" then raise Exit;
+      incr header_count;
+      if !header_count > max_header_count then
+        raise (Request_too_large "Too many headers");
+      if String.length line > max_header_line_length then
+        raise (Request_too_large "Header line too long");
       match String.index_opt line ':' with
       | Some i ->
         let key = String.lowercase_ascii (String.trim (String.sub line 0 i)) in
         let value = String.trim (String.sub line (i+1) (String.length line - i - 1)) in
         headers := (key, value) :: !headers
       | None -> ()
-    done with _ -> ());
+    done with Exit -> ());
     let headers = List.rev !headers in
-    (* Read body if Content-Length present *)
+    (* Read body if Content-Length present, enforcing max_body_size *)
     let body =
       match List.assoc_opt "content-length" headers with
       | Some len_s ->
         let len = try int_of_string len_s with _ -> 0 in
+        if len > max_body_size then
+          raise (Request_too_large
+            (Printf.sprintf "Content-Length %d exceeds maximum %d" len max_body_size));
         if len > 0 then read_all ic len else ""
       | None -> ""
     in
@@ -462,7 +489,21 @@ let handle_request req =
      | Some resp -> resp
      | None -> not_found_response ())
 
+(** Per-connection timeout in seconds.
+    Prevents slow-loris attacks where a client holds a connection open
+    by sending data very slowly, exhausting server file descriptors. *)
+let connection_timeout_sec = 30
+
 let handle_client (client_sock : Unix.file_descr) addr =
+  (* Set a read/write timeout on the socket to defend against slow-loris.
+     If the client does not send a complete request within the timeout,
+     the read will raise Unix.Unix_error(EAGAIN/ETIMEDOUT, ...). *)
+  let timeval = { Unix.tv_sec = connection_timeout_sec; tv_usec = 0 } in
+  (try Unix.setsockopt_float client_sock Unix.SO_RCVTIMEO (float_of_int connection_timeout_sec)
+   with _ -> ());
+  (try Unix.setsockopt_float client_sock Unix.SO_SNDTIMEO (float_of_int connection_timeout_sec)
+   with _ -> ());
+  ignore timeval;
   let ic = Unix.in_channel_of_descr client_sock in
   let oc = Unix.out_channel_of_descr client_sock in
   let addr_str = match addr with
@@ -479,7 +520,12 @@ let handle_client (client_sock : Unix.file_descr) addr =
     | None ->
       let resp = error_response 400 "Bad Request" in
       send_response oc resp
-  with e ->
+  with
+  | Request_too_large reason ->
+    Printf.printf "[%s] %s Rejected: %s\n%!" (timestamp ()) addr_str reason;
+    let resp = error_response 413 "Request Entity Too Large" in
+    (try send_response oc resp with _ -> ())
+  | e ->
     Printf.printf "[%s] %s Error: %s\n%!" (timestamp ()) addr_str (Printexc.to_string e));
   (try close_in ic with _ -> ());
   (try Unix.close client_sock with _ -> ())
