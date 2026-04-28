@@ -420,8 +420,6 @@ let all_stats : test_stats list ref = ref []
 
 let check ?(config = default_config) (name : string)
     (gen : 'a gen) (prop : 'a -> bool) =
-  let to_string = Printf.sprintf "%s" in  (* placeholder *)
-  ignore to_string;
   incr total_checks;
 
   Printf.printf "  %-50s " name;
@@ -465,76 +463,53 @@ let check ?(config = default_config) (name : string)
       shrink_steps = 0; seed = config.seed;
     } :: !all_stats
 
-(* Typed check variants with counterexample display *)
+(* ── Typed check with counterexample display ────────────────────────────
+   Generic over a show function so we avoid duplicating the run/report
+   logic for every type. check_int, check_string, check_list are thin
+   wrappers that supply the appropriate formatter. ──────────────────────── *)
 
-let check_int ?(config = default_config) name gen prop =
-  let wrapped_gen = { gen with
-    generate = gen.generate;
-    shrink = gen.shrink;
-  } in
+let check_with_show ?(config = default_config) name
+    (show : 'a -> string) (gen : 'a gen) (prop : 'a -> bool) =
   incr total_checks;
   Printf.printf "  %-50s " name;
-  match run_test ~config wrapped_gen prop with
-  | Pass ->
-    incr total_passed;
-    Printf.printf "OK (%d tests)\n" config.num_tests;
-  | Fail input ->
-    incr total_failed;
-    Printf.printf "FAIL! Counterexample: %d\n" input
-  | Shrunk (input, steps) ->
-    incr total_failed;
-    Printf.printf "FAIL! Shrunk to: %d (%d steps)\n" input steps
-  | Error (input, exn) ->
-    incr total_failed;
-    Printf.printf "ERROR on input %d: %s\n" input (Printexc.to_string exn)
-
-let check_string ?(config = default_config) name gen prop =
-  incr total_checks;
-  Printf.printf "  %-50s " name;
+  let record result ce steps =
+    all_stats := {
+      name; num_tests = config.num_tests;
+      result; counterexample = ce;
+      shrink_steps = steps; seed = config.seed;
+    } :: !all_stats
+  in
   match run_test ~config gen prop with
   | Pass ->
     incr total_passed;
     Printf.printf "OK (%d tests)\n" config.num_tests;
+    record "pass" None 0
   | Fail input ->
     incr total_failed;
-    Printf.printf "FAIL! Counterexample: %S\n" input
+    Printf.printf "FAIL! Counterexample: %s\n" (show input);
+    record "fail" (Some (show input)) 0
   | Shrunk (input, steps) ->
     incr total_failed;
-    Printf.printf "FAIL! Shrunk to: %S (%d steps)\n" input steps
+    Printf.printf "FAIL! Shrunk to: %s (%d steps)\n" (show input) steps;
+    record "fail" (Some (show input)) steps
   | Error (input, exn) ->
     incr total_failed;
-    Printf.printf "ERROR on input %S: %s\n" input (Printexc.to_string exn)
+    Printf.printf "ERROR on input %s: %s\n" (show input)
+      (Printexc.to_string exn);
+    record "error" (Some (show input)) 0
+
+let check_int ?(config = default_config) name gen prop =
+  check_with_show ~config name string_of_int gen prop
+
+let check_string ?(config = default_config) name gen prop =
+  check_with_show ~config name (Printf.sprintf "%S") gen prop
 
 let check_list ?(config = default_config) name
     (show : 'a -> string) gen prop =
-  incr total_checks;
-  Printf.printf "  %-50s " name;
-  match run_test ~config gen prop with
-  | Pass ->
-    incr total_passed;
-    Printf.printf "OK (%d tests)\n" config.num_tests;
-  | Fail input ->
-    incr total_failed;
-    let s = "[" ^ String.concat "; " (List.map show input) ^ "]" in
-    Printf.printf "FAIL! Counterexample: %s\n" s
-  | Shrunk (input, steps) ->
-    incr total_failed;
-    let s = "[" ^ String.concat "; " (List.map show input) ^ "]" in
-    Printf.printf "FAIL! Shrunk to: %s (%d steps)\n" s steps
-  | Error (input, exn) ->
-    incr total_failed;
-    let s = "[" ^ String.concat "; " (List.map show input) ^ "]" in
-    Printf.printf "ERROR on input %s: %s\n" s (Printexc.to_string exn)
-
-let print_summary () =
-  Printf.printf "\n  ── QuickCheck Summary ──\n";
-  Printf.printf "  Properties tested: %d\n" !total_checks;
-  Printf.printf "  Passed:            %d\n" !total_passed;
-  Printf.printf "  Failed:            %d\n" !total_failed;
-  if !total_failed = 0 then
-    Printf.printf "  ✓ All properties hold!\n"
-  else
-    Printf.printf "  ✗ %d properties violated\n" !total_failed
+  let show_list xs =
+    "[" ^ String.concat "; " (List.map show xs) ^ "]"
+  in
+  check_with_show ~config name show_list gen prop
 
 (* ── Predefined property helpers ────────────────────────────────────────── *)
 
@@ -543,11 +518,42 @@ let ( ==> ) precond prop input =
   if not (precond input) then true  (* vacuously true *)
   else prop input
 
-(* Classify: tag test cases for distribution reporting *)
-let classify label _condition _prop = ignore label; true
+(* classify: tag test cases for distribution analysis.
+   Accumulates labels and passes through to the property under test.
+   Distribution is printed by print_summary. *)
+let distribution_table : (string, int) Hashtbl.t = Hashtbl.create 16
 
-(* Collect: accumulate a label for each test *)
-let collect _label _prop = true
+let classify label condition prop input =
+  if condition input then begin
+    let n = try Hashtbl.find distribution_table label with Not_found -> 0 in
+    Hashtbl.replace distribution_table label (n + 1)
+  end;
+  prop input
+
+(* collect: accumulate a string label derived from each test input.
+   Delegates to classify with label = f(input), condition = always true. *)
+let collect (label_fn : 'a -> string) prop input =
+  classify (label_fn input) (fun _ -> true) prop input
+
+let print_summary () =
+  Printf.printf "\n  ── QuickCheck Summary ──\n";
+  Printf.printf "  Properties tested: %d\n" !total_checks;
+  Printf.printf "  Passed:            %d\n" !total_passed;
+  Printf.printf "  Failed:            %d\n" !total_failed;
+  if Hashtbl.length distribution_table > 0 then begin
+    Printf.printf "\n  ── Label Distribution ──\n";
+    let entries = Hashtbl.fold (fun k v acc -> (k, v) :: acc) distribution_table [] in
+    let sorted = List.sort (fun (_, a) (_, b) -> compare b a) entries in
+    let total = List.fold_left (fun acc (_, v) -> acc + v) 0 sorted in
+    List.iter (fun (label, count) ->
+      let pct = 100.0 *. float_of_int count /. float_of_int (max 1 total) in
+      Printf.printf "  %-30s %4d (%5.1f%%)\n" label count pct
+    ) sorted
+  end;
+  if !total_failed = 0 then
+    Printf.printf "  ✓ All properties hold!\n"
+  else
+    Printf.printf "  ✗ %d properties violated\n" !total_failed
 
 (* ── Demo / Self-test ───────────────────────────────────────────────────── *)
 
