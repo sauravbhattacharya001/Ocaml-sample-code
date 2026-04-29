@@ -343,6 +343,17 @@ module Sequence = struct
       let t = String.trim t in
       try Some (int_of_string t) with _ -> None)
 
+  (** Compute consecutive differences: [a;b;c;d] → [b-a; c-b; d-c].
+      Avoids the O(n²) pattern of List.filteri + List.combine. *)
+  let consecutive_diffs nums =
+    let rec aux = function
+      | a :: (b :: _ as rest) -> (b - a) :: aux rest
+      | _ -> []
+    in aux nums
+
+  (** Last element of a non-empty list. *)
+  let last_elem lst = List.nth lst (List.length lst - 1)
+
   (* KS: Constant difference detector *)
   let ks_const_diff = {
     ks_name = "ConstDiffDetector";
@@ -356,9 +367,7 @@ module Sequence = struct
       | Some e ->
         let nums = parse_seq e.value in
         if List.length nums >= 3 then begin
-          let diffs = List.combine (List.tl nums)
-            (List.filteri (fun i _ -> i < List.length nums - 1) nums)
-            |> List.map (fun (a,b) -> a - b) in
+          let diffs = consecutive_diffs nums in
           let all_same = match diffs with
             | [] -> false
             | d :: rest -> List.for_all ((=) d) rest in
@@ -368,8 +377,7 @@ module Sequence = struct
               ~level:Refined ~source:"ConstDiffDetector";
             bb_write bb ~key:"common_diff" ~value:(string_of_int d)
               ~level:Refined ~source:"ConstDiffDetector";
-            let last = List.nth nums (List.length nums - 1) in
-            let next = last + d in
+            let next = last_elem nums + d in
             bb_write bb ~key:"next" ~value:(string_of_int next)
               ~level:Solution ~source:"ConstDiffDetector";
             bb.solved <- true
@@ -390,12 +398,15 @@ module Sequence = struct
       | None -> ()
       | Some e ->
         let nums = parse_seq e.value in
-        if List.length nums >= 3 then begin
-          let ratios = List.combine (List.tl nums)
-            (List.filteri (fun i _ -> i < List.length nums - 1) nums)
-            |> List.filter_map (fun (a,b) ->
-              if b <> 0 && a mod b = 0 then Some (a / b) else None) in
-          if List.length ratios = List.length nums - 1 then begin
+        let n = List.length nums in
+        if n >= 3 then begin
+          (* Compute consecutive ratios; filter_map drops pairs where b=0 or non-integer division *)
+          let ratios = let rec aux = function
+            | a :: (b :: _ as rest) ->
+              (if a <> 0 && b mod a = 0 then Some (b / a) else None) :: aux rest
+            | _ -> []
+          in List.filter_map Fun.id (aux nums) in
+          if List.length ratios = n - 1 then begin
             let all_same = match ratios with
               | [] -> false
               | r :: rest -> List.for_all ((=) r) rest in
@@ -405,8 +416,7 @@ module Sequence = struct
                 ~level:Refined ~source:"ConstRatioDetector";
               bb_write bb ~key:"common_ratio" ~value:(string_of_int r)
                 ~level:Refined ~source:"ConstRatioDetector";
-              let last = List.nth nums (List.length nums - 1) in
-              let next = last * r in
+              let next = last_elem nums * r in
               bb_write bb ~key:"next" ~value:(string_of_int next)
                 ~level:Solution ~source:"ConstRatioDetector";
               bb.solved <- true
@@ -429,12 +439,8 @@ module Sequence = struct
       | Some e ->
         let nums = parse_seq e.value in
         if List.length nums >= 4 then begin
-          let diffs = List.combine (List.tl nums)
-            (List.filteri (fun i _ -> i < List.length nums - 1) nums)
-            |> List.map (fun (a,b) -> a - b) in
-          let diffs2 = List.combine (List.tl diffs)
-            (List.filteri (fun i _ -> i < List.length diffs - 1) diffs)
-            |> List.map (fun (a,b) -> a - b) in
+          let diffs = consecutive_diffs nums in
+          let diffs2 = consecutive_diffs diffs in
           let all_same = match diffs2 with
             | [] -> false
             | d :: rest -> List.for_all ((=) d) rest in
@@ -444,10 +450,8 @@ module Sequence = struct
               ~level:Refined ~source:"SecondDiffDetector";
             bb_write bb ~key:"second_diff" ~value:(string_of_int d2)
               ~level:Refined ~source:"SecondDiffDetector";
-            let last_d = List.nth diffs (List.length diffs - 1) in
-            let next_d = last_d + d2 in
-            let last = List.nth nums (List.length nums - 1) in
-            let next = last + next_d in
+            let next_d = last_elem diffs + d2 in
+            let next = last_elem nums + next_d in
             bb_write bb ~key:"next" ~value:(string_of_int next)
               ~level:Solution ~source:"SecondDiffDetector";
             bb.solved <- true
@@ -468,17 +472,19 @@ module Sequence = struct
       | None -> ()
       | Some e ->
         let nums = parse_seq e.value in
-        if List.length nums >= 4 then begin
+        let n = List.length nums in
+        if n >= 4 then begin
+          (* Convert to array for O(1) indexed access instead of O(n) List.nth *)
+          let arr = Array.of_list nums in
           let is_fib = ref true in
-          for i = 2 to List.length nums - 1 do
-            if List.nth nums i <> List.nth nums (i-1) + List.nth nums (i-2) then
+          for i = 2 to n - 1 do
+            if arr.(i) <> arr.(i-1) + arr.(i-2) then
               is_fib := false
           done;
           if !is_fib then begin
             bb_write bb ~key:"pattern_type" ~value:"fibonacci-like"
               ~level:Refined ~source:"FibonacciDetector";
-            let n = List.length nums in
-            let next = List.nth nums (n-1) + List.nth nums (n-2) in
+            let next = arr.(n-1) + arr.(n-2) in
             bb_write bb ~key:"next" ~value:(string_of_int next)
               ~level:Solution ~source:"FibonacciDetector";
             bb.solved <- true
