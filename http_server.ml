@@ -280,11 +280,41 @@ let parse_request ic =
 
 (* ── Response serialization ──────────────────────────────────────── *)
 
+(** Sanitize an HTTP header value to prevent CRLF injection (CWE-113).
+    Strips CR, LF, and null bytes — characters that would allow an attacker
+    to inject arbitrary headers or split the HTTP response. *)
+let sanitize_header_value v =
+  let len = String.length v in
+  let buf = Buffer.create len in
+  for i = 0 to len - 1 do
+    match v.[i] with
+    | '\r' | '\n' | '\000' -> ()  (* strip dangerous characters *)
+    | c -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
+
+(** Sanitize an HTTP header name: only visible ASCII, no colon/CR/LF.
+    Rejects header names containing characters outside RFC 7230 token set. *)
+let sanitize_header_name k =
+  let len = String.length k in
+  let buf = Buffer.create len in
+  for i = 0 to len - 1 do
+    let c = k.[i] in
+    (* RFC 7230 token: VCHAR except delimiters; at minimum strip CR/LF/null/colon *)
+    match c with
+    | '\r' | '\n' | '\000' | ':' -> ()
+    | _ -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
+
 let send_response oc resp =
   let buf = Buffer.create 1024 in
   Buffer.add_string buf (Printf.sprintf "HTTP/1.1 %d %s\r\n" resp.status resp.status_text);
   List.iter (fun (k, v) ->
-    Buffer.add_string buf (Printf.sprintf "%s: %s\r\n" k v)
+    let safe_k = sanitize_header_name k in
+    let safe_v = sanitize_header_value v in
+    if safe_k <> "" then
+      Buffer.add_string buf (Printf.sprintf "%s: %s\r\n" safe_k safe_v)
   ) resp.resp_headers;
   Buffer.add_string buf "\r\n";
   Buffer.add_string buf resp.resp_body;
