@@ -1,27 +1,47 @@
-(* auction.ml — Multi-Agent Auction Simulator
-   Demonstrates: auction mechanisms, autonomous bidding strategies,
-   multi-agent game theory, adaptive learning.
-   Run: ocaml auction.ml *)
+(** {1 Multi-Agent Auction Simulator}
+
+    Implements four standard auction mechanisms (English, Dutch, Sealed-First-Price,
+    Vickrey) with six autonomous bidding strategies. Agents learn across rounds via
+    adaptive multipliers, demonstrating multi-agent game theory and mechanism design.
+
+    Run interactively: [ocaml auction.ml] *)
 
 (* ─── Types ──────────────────────────────────────────────────────── *)
 
+(** Item categories used for catalog diversity and agent preference modeling. *)
 type category = Art | Tech | Collectibles | RealEstate
 
+(** An auctionable item with a seller-defined [reserve_price] (minimum acceptable
+    sale price) and an approximate [base_value] representing fair market value.
+    Agent valuations are derived from [base_value] with per-agent noise. *)
 type item = {
   item_name : string;
   category : category;
   reserve_price : float;
-  base_value : float; (* approximate market value *)
+  base_value : float; (** Approximate market value used as valuation baseline *)
 }
 
+(** Bidding strategies that govern how agents compute their willingness-to-pay.
+    - [Truthful]: bids close to true valuation (dominant in Vickrey auctions)
+    - [Conservative]: bids 70–80% of valuation, maximizes surplus when winning
+    - [Aggressive]: bids 90–110% of valuation, maximizes win rate
+    - [Adaptive]: uses a learned multiplier updated after each auction via EMA
+    - [Sniper]: withholds bids until late ticks (effective in English auctions)
+    - [Budget]: caps bids at remaining budget, applies conservative factor *)
 type strategy = Truthful | Conservative | Aggressive | Adaptive | Sniper | Budget
 
+(** A single bid event recording [bidder_id], monetary [amount], and the
+    auction [tick] (round number) at which it was placed. *)
 type bid = {
   bidder_id : int;
   amount : float;
   tick : int;
 }
 
+(** A stateful auction participant. Mutable fields track cumulative performance
+    metrics across multiple auctions within a tournament session.
+    @field adaptive_multiplier Exponential moving average target for Adaptive
+    strategy; converges toward 0.80 on wins and 0.90 on losses (α=0.2). *)
 type agent = {
   id : int;
   name : string;
@@ -31,11 +51,19 @@ type agent = {
   mutable total_spend : float;
   mutable total_surplus : float;
   mutable auctions_entered : int;
-  mutable adaptive_multiplier : float; (* for Adaptive strategy *)
+  mutable adaptive_multiplier : float;
 }
 
+(** Supported auction mechanisms.
+    - [English]: ascending-price open outcry with tick-based timeout
+    - [Dutch]: descending-price clock; first acceptor wins
+    - [SealedFirstPrice]: highest sealed bid wins at own price
+    - [Vickrey]: highest sealed bid wins at second-highest price *)
 type auction_type = English | Dutch | SealedFirstPrice | Vickrey
 
+(** Outcome of a single auction execution. [surplus] is the winner's
+    consumer surplus (valuation − price_paid); negative surplus indicates
+    over-payment relative to the agent's private valuation. *)
 type auction_result = {
   auction_kind : auction_type;
   item_sold : item;
@@ -70,10 +98,14 @@ let strategy_of_string = function
   | "sniper" -> Some Sniper | "budget" -> Some Budget
   | _ -> None
 
+(** [noise lo hi] returns a uniform random float in [\[lo, hi)]. *)
 let noise lo hi = lo +. Random.float (hi -. lo)
 
+(** [valuation agent item] computes a deterministic private valuation for
+    [agent] on [item]. Uses a hash-based seed so each agent consistently
+    values an item between 0.7× and 1.3× its [base_value], simulating
+    heterogeneous preferences without external randomness per call. *)
 let valuation agent item =
-  (* Each agent values item differently based on base_value + personal noise *)
   let seed = float_of_int (Hashtbl.hash (agent.id, item.item_name)) in
   let factor = 0.7 +. (mod_float (seed /. 97.0) 0.6) in
   item.base_value *. factor
@@ -97,6 +129,9 @@ let items : item list ref = ref preset_items
 
 let next_id = ref 1
 
+(** [make_agent name strat budget_amt] constructs a fresh agent with a unique
+    auto-incremented id, the given [strategy], and initial [budget]. The
+    adaptive multiplier starts at 0.85 (between Conservative and Aggressive). *)
 let make_agent name strat budget_amt =
   let a = { id = !next_id; name; strategy = strat; budget = budget_amt;
              wins = 0; total_spend = 0.0; total_surplus = 0.0;
@@ -107,6 +142,13 @@ let agents : agent list ref = ref []
 
 (* ─── Bidding Logic ──────────────────────────────────────────────── *)
 
+(** [compute_bid agent item ~current_price ~tick ~max_ticks] returns the
+    maximum amount [agent] is willing to bid for [item] given the current
+    auction state. Returns [0.0] if the agent's valuation is below
+    [current_price]. The bid is always capped at the agent's remaining budget.
+    Strategy-specific behavior:
+    - Sniper returns 0.0 until tick ≥ 75% of max_ticks
+    - Budget applies an affordability cap before the noise factor *)
 let compute_bid agent item ~current_price ~tick ~max_ticks =
   let v = valuation agent item in
   if v < current_price then 0.0 (* won't bid above valuation in most cases *)
@@ -128,6 +170,11 @@ let compute_bid agent item ~current_price ~tick ~max_ticks =
 
 (* ─── Auction Engines ────────────────────────────────────────────── *)
 
+(** [run_english item participants] simulates an ascending-price English
+    auction over up to 20 ticks. Bidders raise the price by 5–15% per bid.
+    An agent drops out after 2 consecutive passes. The last bidder standing
+    wins at the final price. Returns [winner = None] if no bid exceeds
+    the reserve price. *)
 let run_english item participants =
   let max_ticks = 20 in
   let current_price = ref item.reserve_price in
@@ -172,6 +219,11 @@ let run_english item participants =
     { auction_kind = English; item_sold = item; winner = None;
       price_paid = 0.0; all_bids = List.rev !all_bids; surplus = 0.0 }
 
+(** [run_dutch item participants] simulates a descending-price Dutch
+    auction. The clock starts at 2× base_value and decreases by ~5% per
+    tick. The first agent to accept the current price wins immediately.
+    If the clock falls below [reserve_price] with no takers, the item
+    goes unsold. *)
 let run_dutch item participants =
   let start_price = item.base_value *. 2.0 in
   let max_ticks = 30 in
@@ -215,6 +267,11 @@ let run_dutch item participants =
   | None -> { auction_kind = Dutch; item_sold = item; winner = None;
               price_paid = 0.0; all_bids = []; surplus = 0.0 }
 
+(** [run_sealed_bid auction_kind item participants] runs a single-round
+    sealed-bid auction. All agents submit one bid simultaneously.
+    For [SealedFirstPrice], the winner pays their own bid.
+    For [Vickrey], the winner pays the second-highest bid (incentive-compatible
+    for truthful bidders). Bids below [reserve_price] result in no sale. *)
 let run_sealed_bid auction_kind item participants =
   let bids = List.map (fun ag ->
     let v = valuation ag item in
@@ -251,6 +308,10 @@ let run_sealed_bid auction_kind item participants =
         price_paid = price; all_bids = List.map snd bids; surplus }
     end
 
+(** [run_auction kind item participants] dispatches to the appropriate auction
+    engine, increments each participant's [auctions_entered] counter, updates
+    adaptive multipliers via EMA (α=0.2), and appends the result to the
+    global [results_log]. Returns the {!auction_result}. *)
 let run_auction kind item participants =
   List.iter (fun a -> a.auctions_entered <- a.auctions_entered + 1) participants;
   let r = match kind with
@@ -272,6 +333,7 @@ let run_auction kind item participants =
 
 (* ─── Display ────────────────────────────────────────────────────── *)
 
+(** Prints a one-line summary of an auction result (winner, price, surplus). *)
 let print_result r =
   Printf.printf "  [%s] %s → " (string_of_auction_type r.auction_kind) r.item_sold.item_name;
   match r.winner with
@@ -303,6 +365,8 @@ let print_history () =
   List.iter print_result (List.rev !results_log);
   print_newline ()
 
+(** Prints a tabular comparison of each strategy's aggregate performance:
+    total wins, auctions entered, cumulative surplus, and ROI percentage. *)
 let print_compare () =
   Printf.printf "\n  Strategy Comparison:\n";
   Printf.printf "  %-12s %5s %8s %10s %8s\n" "Strategy" "Wins" "Entered" "Surplus" "ROI";
@@ -339,6 +403,9 @@ let print_chart () =
 
 (* ─── Tournament ─────────────────────────────────────────────────── *)
 
+(** [run_tournament rounds] runs [rounds] × 4 auctions (one per mechanism)
+    on random items, printing results incrementally. Useful for accumulating
+    enough data to compare strategy effectiveness statistically. *)
 let run_tournament rounds =
   Printf.printf "\n  Running tournament: %d rounds x 4 auction types...\n" rounds;
   let kinds = [English; Dutch; SealedFirstPrice; Vickrey] in
@@ -353,6 +420,9 @@ let run_tournament rounds =
 
 (* ─── Demo ───────────────────────────────────────────────────────── *)
 
+(** [run_demo] initializes 6 agents (one per strategy) with varying budgets
+    and runs a 3-round tournament. Provides immediate out-of-the-box
+    demonstration of mechanism and strategy dynamics. *)
 let run_demo () =
   agents := [
     make_agent "Alice" Truthful 10000.0;
@@ -402,6 +472,9 @@ let run_single_auction kind args =
     print_result r
   end
 
+(** Interactive REPL loop. Supports agent/item management, running individual
+    auctions by type, tournaments, and reporting commands. Type 'help' for
+    the full command reference. *)
 let repl () =
   Printf.printf "\n  ╔══════════════════════════════════════════╗\n";
   Printf.printf "  ║   Multi-Agent Auction Simulator v1.0     ║\n";
