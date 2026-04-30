@@ -100,6 +100,7 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`probability.ml`](probability.ml) | Probability monad & Monte Carlo simulation | Monadic composition, sampling distributions, statistics, Monte Carlo integration, Markov chains, Bayesian inference |
 | [`queue.ml`](queue.ml) | Purely functional queue (Okasaki's Banker's Queue) | Amortised O(1) enqueue/dequeue, two-list technique, persistence |
 | [`quickcheck.ml`](quickcheck.ml) | QuickCheck — property-based testing framework | Random generators, monadic combinators, shrinking, counterexample minimization, property specification |
+| [`property_discovery.ml`](property_discovery.ml) | Autonomous Property Discovery Engine — algebraic invariant finder | Hypothesis generation, 20+ property categories, confidence scoring, compositional analysis, progressive deepening, relationship inference |
 | [`random_access_list.ml`](random_access_list.ml) | Random Access List — Okasaki's skew-binary random access list | O(1) cons/head/tail, O(log n) lookup/update, complete binary trees, skew-binary numbers, persistent data structures |
 | [`radix_tree.ml`](radix_tree.ml) | Radix Tree (Patricia Trie) — compressed prefix tree for efficient string storage | Edge compression, prefix search, insert/remove/member, all_words enumeration, space-efficient string sets |
 | [`raft.ml`](raft.ml) | Raft consensus algorithm — distributed consensus simulation | Leader election, log replication, commitment quorum, network partitioning, AppendEntries/RequestVote RPCs |
@@ -522,6 +523,7 @@ Ocaml-sample-code/
 ├── term_rewriting.ml     # Term rewriting (Knuth-Bendix completion)
 ├── zipper.ml             # Zippers for immutable structures
 ├── quickcheck.ml         # Property-based testing framework
+├── property_discovery.ml # Autonomous property/invariant discovery engine
 ├── random_access_list.ml # Random access list (skew-binary)
 ├── finger_tree.ml        # Finger trees (Hinze & Paterson)
 ├── persistent_vector.ml  # Persistent vector (Clojure-style)
