@@ -1,0 +1,149 @@
+# Publish opam repository overlay
+# On release, generates a proper opam repository structure and deploys
+# it alongside the docs site, enabling:
+#   opam repo add ocaml-sample-code https://sauravbhattacharya001.github.io/Ocaml-sample-code/
+#   opam install ocaml-sample-code
+
+name: Publish opam Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish-opam:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.x"
+
+      - name: Validate opam file
+        run: |
+          eval $(opam env)
+          opam lint ocaml-sample-code.opam
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"  # strip leading v
+          else
+            VERSION=$(grep '^version:' ocaml-sample-code.opam | sed 's/version: *"\(.*\)"/\1/')
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: ${VERSION}"
+
+      - name: Build opam repository structure
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG_NAME="ocaml-sample-code"
+          REPO_DIR="site/packages/${PKG_NAME}/${PKG_NAME}.${VERSION}"
+          
+          mkdir -p "${REPO_DIR}"
+          
+          # Create the opam file with url section pointing to the release archive
+          cp "${PKG_NAME}.opam" "${REPO_DIR}/opam"
+          
+          # Add url section with the release tarball
+          ARCHIVE_URL="https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz"
+          
+          cat >> "${REPO_DIR}/opam" <<EOF
+
+          url {
+            src: "${ARCHIVE_URL}"
+            checksum: [
+              "md5=$(curl -sL "${ARCHIVE_URL}" | md5sum | cut -d' ' -f1)"
+            ]
+          }
+          EOF
+          
+          # Create repo metadata
+          cat > site/repo <<EOF
+          opam-version: "2.0"
+          browse: "https://github.com/${{ github.repository }}"
+          upstream: "https://github.com/${{ github.repository }}"
+          EOF
+
+      - name: Copy documentation site
+        run: |
+          # Merge docs into the site root so Pages serves both
+          if [ -d docs ]; then
+            cp -r docs/* site/ 2>/dev/null || true
+          fi
+          
+          # Create an index page for the opam repo
+          cat > site/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>OCaml Sample Code - opam Repository</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+              code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+              pre { background: #f4f4f4; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+              h1 { border-bottom: 2px solid #e2725b; padding-bottom: 0.5rem; }
+            </style>
+          </head>
+          <body>
+            <h1>🐫 OCaml Sample Code</h1>
+            <p>This is an <strong>opam repository overlay</strong> for the
+            <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">ocaml-sample-code</a> package.</p>
+            
+            <h2>Installation</h2>
+            <pre><code># Add this repository
+          opam repo add ocaml-sample-code https://sauravbhattacharya001.github.io/Ocaml-sample-code/
+
+          # Install the package
+          opam install ocaml-sample-code</code></pre>
+
+            <h2>What's included</h2>
+            <p>150+ idiomatic OCaml implementations of data structures and algorithms,
+            from basic trees and sorting to advanced topics like theorem provers,
+            garbage collector simulators, and reactive streams.</p>
+            
+            <h2>Requirements</h2>
+            <ul>
+              <li>OCaml &ge; 4.14.0</li>
+              <li>ocamlfind (build dependency)</li>
+            </ul>
+            
+            <h2>Links</h2>
+            <ul>
+              <li><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code">Source Code</a></li>
+              <li><a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code/releases">Releases</a></li>
+            </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

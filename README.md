@@ -150,6 +150,18 @@ sudo apt install ocaml opam
 ocaml -version
 ```
 
+### Install via opam
+
+This project is published as an opam package via its own repository overlay:
+
+```bash
+# Add the package repository
+opam repo add ocaml-sample-code https://sauravbhattacharya001.github.io/Ocaml-sample-code/
+
+# Install the package (builds all programs and runs tests)
+opam install ocaml-sample-code
+```
+
 ### Build & Run
 
 ```bash
