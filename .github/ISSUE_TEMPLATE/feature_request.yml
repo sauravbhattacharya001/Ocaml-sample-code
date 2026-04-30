@@ -1,0 +1,74 @@
+name: "🚀 Feature Request"
+description: Suggest a new algorithm, data structure, or sample implementation
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! This repo aims to showcase idiomatic OCaml patterns and algorithms.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What kind of addition are you proposing?
+      options:
+        - New algorithm implementation
+        - New data structure
+        - New design pattern / idiom
+        - Concurrency / parallelism example
+        - Module system / functor example
+        - Performance benchmark
+        - Real-world application example
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What would you like to see added? Include references (papers, textbooks, OCaml docs) if applicable.
+      placeholder: |
+        e.g., "Implement a persistent red-black tree with O(log n) insert/delete, 
+        demonstrating GADTs for enforcing the red-black invariant at the type level."
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why would this be valuable for learners or the OCaml community?
+      placeholder: |
+        e.g., "Most OCaml learners struggle with GADTs — a well-commented example 
+        showing how to encode tree invariants would fill a gap in available resources."
+    validations:
+      required: true
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex is this to implement well?
+      options:
+        - Beginner (< 50 lines, straightforward)
+        - Intermediate (50-200 lines, requires some OCaml knowledge)
+        - Advanced (200+ lines, requires deep OCaml expertise)
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to papers, documentation, or existing implementations in other languages
+      placeholder: |
+        - https://...
+        - Okasaki, "Purely Functional Data Structures", Ch. 3
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you like to implement this yourself?
+      options:
+        - label: I'd like to submit a PR for this
+          required: false

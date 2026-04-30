@@ -1,0 +1,90 @@
+name: "🔨 Build / Compilation Issue"
+description: Report a problem building or compiling the OCaml samples
+title: "[Build]: "
+labels: ["build", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues related to compilation errors, dependency resolution, 
+        or build system problems (dune, opam, Makefile).
+  - type: input
+    id: file
+    attributes:
+      label: Affected File(s)
+      description: Which source file(s) fail to compile?
+      placeholder: "e.g., datalog.ml, leader_election.ml"
+    validations:
+      required: true
+  - type: dropdown
+    id: build-system
+    attributes:
+      label: Build System
+      description: How are you building the project?
+      options:
+        - dune
+        - make / Makefile
+        - ocamlfind / manual compilation
+        - opam install
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: Paste the full compiler or build error
+      render: text
+      placeholder: |
+        $ dune build
+        File "src/datalog.ml", line 42, characters 5-18:
+        Error: Unbound module Hashtbl
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your OCaml toolchain versions
+      placeholder: |
+        - OCaml version: 5.1.1
+        - opam version: 2.1.5
+        - dune version: 3.14.0
+        - OS: Ubuntu 24.04 / macOS 14 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact commands you ran
+      render: shell
+      placeholder: |
+        git clone https://github.com/sauravbhattacharya001/Ocaml-sample-code.git
+        cd Ocaml-sample-code
+        opam install . --deps-only
+        dune build
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: "Compilation succeeds without errors"
+    validations:
+      required: false
+  - type: dropdown
+    id: ocaml-version
+    attributes:
+      label: OCaml Version
+      description: Which OCaml version are you using?
+      options:
+        - "5.2"
+        - "5.1"
+        - "5.0"
+        - "4.14"
+        - "4.13 or older"
+        - Other
+    validations:
+      required: false
