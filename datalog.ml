@@ -145,24 +145,59 @@ module FactSet = Set.Make(struct
     else compare a.args b.args
 end)
 
-type database = FactSet.t
+(** Indexed database: maintains both a global FactSet for set operations
+    and a predicate-keyed Hashtbl index for O(1) predicate lookups.
+    Previously, facts_for_pred scanned the entire FactSet with O(N) filter
+    on every call — this sits in the innermost loop of rule evaluation,
+    making total evaluation O(R * B * N) where R=rules, B=body atoms, N=facts.
+    With the index, predicate lookup is O(1) amortised + O(k) to list k matches. *)
+type database = {
+  facts: FactSet.t;
+  by_pred: (string, FactSet.t) Hashtbl.t;
+}
 
-let empty_db : database = FactSet.empty
+let empty_db : database = { facts = FactSet.empty; by_pred = Hashtbl.create 16 }
 
-let add_fact db fact = FactSet.add fact db
+let add_fact db fact =
+  if FactSet.mem fact db.facts then db
+  else begin
+    let pred_set =
+      try Hashtbl.find db.by_pred fact.pred
+      with Not_found -> FactSet.empty in
+    let by_pred = Hashtbl.copy db.by_pred in
+    Hashtbl.replace by_pred fact.pred (FactSet.add fact pred_set);
+    { facts = FactSet.add fact db.facts; by_pred }
+  end
 
 let add_facts db facts = List.fold_left add_fact db facts
 
 let facts_for_pred db pred =
-  FactSet.filter (fun a -> a.pred = pred) db |> FactSet.elements
+  (try Hashtbl.find db.by_pred pred with Not_found -> FactSet.empty)
+  |> FactSet.elements
 
-let db_size db = FactSet.cardinal db
+let db_size db = FactSet.cardinal db.facts
 
-let db_to_list db = FactSet.elements db
+let db_to_list db = FactSet.elements db.facts
 
-let db_diff db1 db2 = FactSet.diff db1 db2
+let db_diff db1 db2 =
+  let diff_facts = FactSet.diff db1.facts db2.facts in
+  let by_pred = Hashtbl.create 16 in
+  FactSet.iter (fun f ->
+    let pred_set =
+      try Hashtbl.find by_pred f.pred with Not_found -> FactSet.empty in
+    Hashtbl.replace by_pred f.pred (FactSet.add f pred_set)
+  ) diff_facts;
+  { facts = diff_facts; by_pred }
 
-let db_union db1 db2 = FactSet.union db1 db2
+let db_union db1 db2 =
+  let union_facts = FactSet.union db1.facts db2.facts in
+  let by_pred = Hashtbl.copy db1.by_pred in
+  Hashtbl.iter (fun pred fs2 ->
+    let existing =
+      try Hashtbl.find by_pred pred with Not_found -> FactSet.empty in
+    Hashtbl.replace by_pred pred (FactSet.union existing fs2)
+  ) db2.by_pred;
+  { facts = union_facts; by_pred }
 
 (* ══════════════════════════════════════════════
    Rule Evaluation (single rule, one step)
@@ -234,11 +269,13 @@ let build_dependency_graph rules =
     rules defining P. Returns list of rule groups (stratum 0 first). *)
 let stratify rules =
   let edges = build_dependency_graph rules in
-  (* Collect all predicates *)
-  let preds = List.fold_left (fun acc e ->
-    let acc = if List.mem e.from_pred acc then acc else e.from_pred :: acc in
-    if List.mem e.to_pred acc then acc else e.to_pred :: acc
-  ) [] edges in
+  (* Collect all predicates using a hash set for O(1) membership *)
+  let pred_set = Hashtbl.create 16 in
+  List.iter (fun e ->
+    Hashtbl.replace pred_set e.from_pred true;
+    Hashtbl.replace pred_set e.to_pred true
+  ) edges;
+  let preds = Hashtbl.fold (fun p _ acc -> p :: acc) pred_set [] in
   (* Assign strata: iteratively resolve *)
   let strata = Hashtbl.create 16 in
   List.iter (fun p -> Hashtbl.replace strata p 0) preds;
@@ -281,7 +318,7 @@ let eval_naive rules db =
     List.iter (fun rule ->
       let new_facts = apply_rule !db rule in
       List.iter (fun fact ->
-        if not (FactSet.mem fact !db) then begin
+        if not (FactSet.mem fact (!db).facts) then begin
           db := add_fact !db fact;
           changed := true
         end
@@ -298,11 +335,12 @@ let eval_semi_naive rules db =
   List.iter (fun rule ->
     let derived = apply_rule db rule in
     List.iter (fun fact ->
-      if not (FactSet.mem fact db) then
+      if not (FactSet.mem fact db.facts) then
         new_facts := FactSet.add fact !new_facts
     ) derived
   ) rules;
-  let db = ref (db_union db !new_facts) in
+  let new_db = FactSet.fold (fun f acc -> add_fact acc f) !new_facts db in
+  let db = ref new_db in
   let delta = ref !new_facts in
   let iterations = ref 1 in
   (* Iterate: only use delta facts to find new derivations *)
@@ -313,7 +351,9 @@ let eval_semi_naive rules db =
       (* For semi-naive: at least one body atom must match a delta fact *)
       List.iteri (fun i body_atom ->
         if not body_atom.negated then begin
-          let delta_facts = facts_for_pred !delta body_atom.pred in
+          let delta_facts =
+            FactSet.filter (fun a -> a.pred = body_atom.pred) !delta
+            |> FactSet.elements in
           List.iter (fun delta_fact ->
             let subst = unify_atoms empty_subst
               (apply_atom empty_subst body_atom) delta_fact in
@@ -331,14 +371,15 @@ let eval_semi_naive rules db =
                 [s] remaining in
               List.iter (fun sub ->
                 let head = apply_atom sub rule.head in
-                if is_ground head && not (FactSet.mem head !db) then
+                if is_ground head && not (FactSet.mem head (!db).facts) then
                   next_delta := FactSet.add head !next_delta
               ) substs
           ) delta_facts
         end
       ) rule.body
     ) rules;
-    db := db_union !db !next_delta;
+    let next_db = FactSet.fold (fun f acc -> add_fact acc f) !next_delta !db in
+    db := next_db;
     delta := !next_delta
   done;
   (!db, !iterations)
@@ -733,7 +774,12 @@ let eval_builtin subst atom =
 
 let builtins = ["lt"; "lte"; "gt"; "gte"; "neq"; "eq"; "add"; "succ"]
 
-let is_builtin pred = List.mem pred builtins
+let _builtin_set =
+  let tbl = Hashtbl.create 16 in
+  List.iter (fun p -> Hashtbl.replace tbl p true) builtins;
+  tbl
+
+let is_builtin pred = Hashtbl.mem _builtin_set pred
 
 (* ══════════════════════════════════════════════
    Enhanced Evaluation (with builtins)
@@ -770,11 +816,12 @@ let eval_semi_naive_enhanced rules db =
   List.iter (fun rule ->
     let derived = apply_rule_enhanced db rule in
     List.iter (fun f ->
-      if not (FactSet.mem f db) then
+      if not (FactSet.mem f db.facts) then
         new_facts := FactSet.add f !new_facts
     ) derived
   ) rules;
-  let db = ref (db_union db !new_facts) in
+  let new_db = FactSet.fold (fun f acc -> add_fact acc f) !new_facts db in
+  let db = ref new_db in
   let delta = ref !new_facts in
   let iterations = ref 1 in
   while not (FactSet.is_empty !delta) do
@@ -783,11 +830,12 @@ let eval_semi_naive_enhanced rules db =
     List.iter (fun rule ->
       let derived = apply_rule_enhanced !db rule in
       List.iter (fun f ->
-        if not (FactSet.mem f !db) then
+        if not (FactSet.mem f (!db).facts) then
           next_delta := FactSet.add f !next_delta
       ) derived
     ) rules;
-    db := db_union !db !next_delta;
+    let next_db = FactSet.fold (fun f acc -> add_fact acc f) !next_delta !db in
+    db := next_db;
     delta := !next_delta
   done;
   (!db, !iterations)
