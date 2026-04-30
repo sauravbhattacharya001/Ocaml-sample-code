@@ -20,16 +20,57 @@ type network = {
   nodes: node list;
 }
 
+(* ── Index caches ──────────────────────────────────── *)
+
+(* Lazily-built Hashtbl indexes per network.  Keyed by the physical
+   identity of the node list so each network gets its own cache entry.
+   This turns every find_node from O(N) to O(1) and every children_of
+   from O(N*P) to O(1). *)
+
+let _node_idx_cache : (node list, (string, node) Hashtbl.t) Hashtbl.t =
+  Hashtbl.create 4
+
+let _children_idx_cache : (node list, (string, string list) Hashtbl.t) Hashtbl.t =
+  Hashtbl.create 4
+
+let _build_node_index nodes =
+  let tbl = Hashtbl.create (List.length nodes) in
+  List.iter (fun n -> Hashtbl.replace tbl n.name n) nodes;
+  Hashtbl.replace _node_idx_cache nodes tbl;
+  tbl
+
+let _build_children_index nodes =
+  let tbl = Hashtbl.create (List.length nodes) in
+  (* Initialize every node to empty children list *)
+  List.iter (fun n -> Hashtbl.replace tbl n.name []) nodes;
+  (* For each node, register it as a child of each parent *)
+  List.iter (fun n ->
+    List.iter (fun p ->
+      let cur = try Hashtbl.find tbl p with Not_found -> [] in
+      Hashtbl.replace tbl p (n.name :: cur)
+    ) n.parents
+  ) nodes;
+  Hashtbl.replace _children_idx_cache nodes tbl;
+  tbl
+
+let _get_node_index nodes =
+  try Hashtbl.find _node_idx_cache nodes
+  with Not_found -> _build_node_index nodes
+
+let _get_children_index nodes =
+  try Hashtbl.find _children_idx_cache nodes
+  with Not_found -> _build_children_index nodes
+
 (* ── Utilities ─────────────────────────────────────── *)
 
 let find_node net v =
-  List.find (fun n -> n.name = v) net.nodes
+  Hashtbl.find (_get_node_index net.nodes) v
 
 let all_vars net = List.map (fun n -> n.name) net.nodes
 
 let children_of net v =
-  List.filter (fun n -> List.mem v n.parents) net.nodes
-  |> List.map (fun n -> n.name)
+  try Hashtbl.find (_get_children_index net.nodes) v
+  with Not_found -> []
 
 let lookup_cpt node parent_vals =
   (* Find matching CPT entry for given parent assignment *)
@@ -151,21 +192,29 @@ let make_factor net node evidence =
   let table = Hashtbl.fold (fun k v acc -> (k, v) :: acc) merged [] in
   { vars = free_vars; table }
 
+let _factor_to_hashtbl (table : (bool list * float) list) =
+  let h = Hashtbl.create (List.length table) in
+  List.iter (fun (k, v) -> Hashtbl.replace h k v) table;
+  h
+
 let multiply_factors f1 f2 =
   let all_vars = f1.vars @ List.filter (fun v -> not (List.mem v f1.vars)) f2.vars in
   let assignments = all_assignments all_vars in
+  (* Build variable-index maps for O(1) positional lookup *)
+  let var_idx = Hashtbl.create (List.length all_vars) in
+  List.iteri (fun i v -> Hashtbl.replace var_idx v i) all_vars;
+  let f1_indices = List.map (fun v -> Hashtbl.find var_idx v) f1.vars in
+  let f2_indices = List.map (fun v -> Hashtbl.find var_idx v) f2.vars in
+  (* O(1) factor table lookups via Hashtbl *)
+  let h1 = _factor_to_hashtbl f1.table in
+  let h2 = _factor_to_hashtbl f2.table in
   let table = List.filter_map (fun vals ->
-    let assignment = List.combine all_vars vals in
-    let get_vals factor =
-      List.map (fun v -> List.assoc v assignment) factor.vars
-    in
-    let v1 = get_vals f1 in
-    let v2 = get_vals f2 in
-    let lookup factor vals =
-      try List.assoc vals factor.table with Not_found -> 0.0
-    in
-    let p = lookup f1 v1 *. lookup f2 v2 in
-    Some (vals, p)
+    let arr = Array.of_list vals in
+    let v1 = List.map (fun i -> arr.(i)) f1_indices in
+    let v2 = List.map (fun i -> arr.(i)) f2_indices in
+    let p1 = try Hashtbl.find h1 v1 with Not_found -> 0.0 in
+    let p2 = try Hashtbl.find h2 v2 with Not_found -> 0.0 in
+    Some (vals, p1 *. p2)
   ) assignments in
   { vars = all_vars; table }
 
@@ -209,9 +258,10 @@ let variable_elimination net query evidence =
     | [] -> { vars = []; table = [([],1.0)] }
     | f :: fs -> List.fold_left multiply_factors f fs
   in
-  (* Normalize *)
-  let p_true = (try List.assoc [true] result.table with Not_found -> 0.0) in
-  let p_false = (try List.assoc [false] result.table with Not_found -> 0.0) in
+  (* Normalize — use Hashtbl for O(1) lookup on final result *)
+  let result_ht = _factor_to_hashtbl result.table in
+  let p_true = (try Hashtbl.find result_ht [true] with Not_found -> 0.0) in
+  let p_false = (try Hashtbl.find result_ht [false] with Not_found -> 0.0) in
   let total = p_true +. p_false in
   if total = 0.0 then 0.5 else p_true /. total
 
@@ -220,7 +270,8 @@ let variable_elimination net query evidence =
 (* Bayes-Ball algorithm for d-separation *)
 let d_separated net x y evidence =
   (* BFS/reachability with active trail rules *)
-  let evidence_set = List.map fst evidence in
+  let evidence_ht = Hashtbl.create (List.length evidence) in
+  List.iter (fun (v, _) -> Hashtbl.replace evidence_ht v true) evidence;
   let visited = Hashtbl.create 16 in
   let queue = Queue.create () in
   (* (node, direction: `Up means from child, `Down means from parent) *)
@@ -232,7 +283,7 @@ let d_separated net x y evidence =
     let key = (v, dir) in
     if not (Hashtbl.mem visited key) then begin
       Hashtbl.add visited key true;
-      let is_evidence = List.mem v evidence_set in
+      let is_evidence = Hashtbl.mem evidence_ht v in
       match dir with
       | `Up ->
         (* Came from a child *)
