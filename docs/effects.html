@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algebraic Effects — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>⚡ Algebraic Effects and Handlers</h1>
+    <p class="subtitle">First-class computational effects with composable handlers</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Algebraic effects</strong> are one of the most exciting developments in
+      programming language theory. They separate the <em>declaration</em> of an effect
+      (what can happen) from its <em>interpretation</em> (what it means), using handlers
+      that intercept effects and can resume the suspended computation.</p>
+      <p>This module simulates algebraic effects on any OCaml version using a free monad /
+      CPS encoding. OCaml 5 adds native effect handlers, but the concepts here apply
+      universally.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Algebraic effects</strong> — operations declared as effect types, handled externally</li>
+        <li><strong>Delimited continuations</strong> — CPS-based capture and resumption</li>
+        <li><strong>Free monads</strong> — encoding effects as an AST of operations</li>
+        <li><strong>Handler composition</strong> — stack multiple independent effect handlers</li>
+        <li><strong>Effect polymorphism</strong> — write code generic over effect interpretation</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Effect Patterns</h2>
+      <table>
+        <tr><th>Effect</th><th>Operations</th><th>Handler Provides</th></tr>
+        <tr><td><strong>State</strong></td><td><code>Get</code>, <code>Put</code></td><td>Thread mutable state through pure code</td></tr>
+        <tr><td><strong>Exception</strong></td><td><code>Raise</code></td><td>Error handling without unwinding</td></tr>
+        <tr><td><strong>Nondeterminism</strong></td><td><code>Choose</code>, <code>Fail</code></td><td>Backtracking search, collect all results</td></tr>
+        <tr><td><strong>Logging</strong></td><td><code>Log</code></td><td>Collect messages, redirect output</td></tr>
+        <tr><td><strong>Async</strong></td><td><code>Await</code>, <code>Fork</code></td><td>Cooperative concurrency via scheduling</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Effects are declared as operations *)
+type _ effect =
+  | Get : int effect           (* read state *)
+  | Put : int -> unit effect   (* write state *)
+
+(* Code "performs" effects — doesn't know the implementation *)
+let increment () =
+  let x = perform Get in
+  perform (Put (x + 1));
+  x + 1
+
+(* A handler gives meaning to effects *)
+let run_state init computation =
+  handle computation () with
+  | Get, k    -> fun s -> continue k s s
+  | Put s, k  -> fun _ -> continue k () s
+  | return v  -> fun _ -> v
+  |> fun f -> f init
+
+(* Same code, different handler = different semantics *)
+(* Handler for logging all state changes: *)
+let run_logged computation =
+  handle computation () with
+  | Put s, k -> printf "State → %d\n" s; continue k ()
+  | effect    -> forward effect  (* pass other effects through *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Why Algebraic Effects?</h2>
+      <ul>
+        <li><strong>Separation of concerns:</strong> Code declares what it needs; handlers decide how</li>
+        <li><strong>Composability:</strong> Stack handlers independently (state + exceptions + logging)</li>
+        <li><strong>Testability:</strong> Swap handlers to mock I/O, state, randomness in tests</li>
+        <li><strong>No monad transformers:</strong> Avoids the "monad transformer stack" complexity</li>
+        <li><strong>Resumable exceptions:</strong> Handlers can resume after handling an effect</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Related Modules</h2>
+      <ul>
+        <li><a href="monads.html">Monads</a> — the classic approach to structuring effects</li>
+        <li><a href="stm.html">Software Transactional Memory</a> — concurrency via transactions</li>
+        <li><a href="actor.html">Actors</a> — message-passing concurrency</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

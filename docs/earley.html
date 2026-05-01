@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earley Parser — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>📖 Earley Parser</h1>
+    <p class="subtitle">Chart parser for any context-free grammar — handles ambiguity and left-recursion</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>The <strong>Earley algorithm</strong> (Jay Earley, 1970) can parse <em>any</em>
+      context-free grammar — including ambiguous and left-recursive ones — with
+      O(n³) worst-case, O(n²) for unambiguous grammars, and O(n) for many practical
+      grammars. Unlike recursive descent or combinator parsers, it never needs grammar
+      rewriting to eliminate left recursion.</p>
+      <p>This implementation builds a parse chart of <em>Earley items</em> (dotted rules
+      with origin positions) and supports shared packed parse forests (SPPF) for
+      representing all parse trees of ambiguous input.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Chart parsing</strong> — dynamic programming over substrings via item sets</li>
+        <li><strong>Earley items</strong> — <code>(rule, dot_position, origin)</code> triples</li>
+        <li><strong>Three core operations</strong> — Predict, Scan, Complete</li>
+        <li><strong>Nullable detection</strong> — fixed-point iteration for ε-producing nonterminals</li>
+        <li><strong>SPPF</strong> — compact representation of exponentially many parse trees</li>
+        <li><strong>Grammar DSL</strong> — OCaml operators for readable grammar definitions</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The Algorithm</h2>
+      <pre><code>(* Define a grammar for arithmetic expressions *)
+let g = grammar "Expr" [
+  rule "Expr"   [nt "Expr"; t '+'; nt "Term"];    (* left-recursive! *)
+  rule "Expr"   [nt "Term"];
+  rule "Term"   [nt "Term"; t '*'; nt "Factor"];
+  rule "Term"   [nt "Factor"];
+  rule "Factor" [t '('; nt "Expr"; t ')'];
+  rule "Factor" [t_pred is_digit];
+]
+
+(* Parse "3+4*5" — works despite left recursion *)
+let chart = parse g "3+4*5"
+
+(* Three operations per chart position:
+   PREDICT: if dot before nonterminal, add rules for that nonterminal
+   SCAN:    if dot before terminal matching input, advance dot
+   COMPLETE: if dot at end, advance all items that predicted this rule *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Earley vs Other Parsers</h2>
+      <table>
+        <tr><th>Parser</th><th>Grammar Class</th><th>Left Recursion</th><th>Ambiguity</th></tr>
+        <tr><td><strong>Earley</strong></td><td>All CFGs</td><td>✅ Handled</td><td>✅ All trees via SPPF</td></tr>
+        <tr><td><a href="parser.html">Combinators</a></td><td>LL(∞) / PEG-like</td><td>❌ Infinite loop</td><td>❌ First match only</td></tr>
+        <tr><td>Recursive descent</td><td>LL(k)</td><td>❌ Must rewrite</td><td>❌ Not supported</td></tr>
+        <tr><td>LALR (yacc)</td><td>LALR(1)</td><td>✅ Handled</td><td>❌ Shift-reduce conflicts</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>When to Use Earley</h2>
+      <ul>
+        <li><strong>Natural language processing</strong> — NL grammars are inherently ambiguous</li>
+        <li><strong>Grammar prototyping</strong> — write grammars naturally, no refactoring needed</li>
+        <li><strong>Language workbenches</strong> — parse user-defined grammars at runtime</li>
+        <li><strong>Education</strong> — clearly demonstrates CFG parsing theory</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Related Modules</h2>
+      <ul>
+        <li><a href="parser.html">Parser Combinators</a> — composable parsers via higher-order functions</li>
+        <li><a href="regex.html">Regex Engine</a> — regular expression matching</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

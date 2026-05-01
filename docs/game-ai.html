@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game AI — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🎮 Minimax Game AI</h1>
+    <p class="subtitle">Generic game-playing AI with alpha-beta pruning and iterative deepening</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p>A <strong>functor-based game AI framework</strong> that plays any two-player
+      zero-sum game optimally. The engine uses minimax search with alpha-beta pruning
+      to explore game trees, iterative deepening for time-bounded play, and a
+      transposition table for memoizing previously seen positions.</p>
+      <p>Two complete games are included: <strong>Tic-Tac-Toe</strong> (solved — AI never
+      loses) and <strong>Connect Four</strong> (deep search with heuristic evaluation).</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Module system</strong> — <code>GAME</code> signature defines the abstract interface</li>
+        <li><strong>Functors</strong> — <code>MakeAI(G : GAME)</code> builds an AI for any game</li>
+        <li><strong>Minimax with alpha-beta</strong> — prunes branches that can't affect the result</li>
+        <li><strong>Iterative deepening</strong> — search depth 1, 2, 3… until time runs out</li>
+        <li><strong>Transposition table</strong> — hash-consed game states avoid re-evaluation</li>
+        <li><strong>Immutable state</strong> — functional game state with move/undo via new values</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>The GAME Interface</h2>
+      <pre><code>module type GAME = sig
+  type state                        (* board representation *)
+  type move                         (* legal action *)
+  type player = Maximizer | Minimizer
+
+  val initial : state               (* starting position *)
+  val current_player : state -> player
+  val legal_moves : state -> move list
+  val apply_move : state -> move -> state
+  val is_terminal : state -> bool
+  val evaluate : state -> float     (* heuristic: +∞ max wins, -∞ min wins *)
+  val hash : state -> int           (* for transposition table *)
+end
+
+(* The functor builds a complete AI from any GAME *)
+module MakeAI (G : GAME) : sig
+  val best_move : G.state -> depth:int -> G.move
+  val best_move_timed : G.state -> seconds:float -> G.move
+end</code></pre>
+    </section>
+
+    <section>
+      <h2>Alpha-Beta Pruning</h2>
+      <pre><code>(* Minimax without pruning: explore ALL branches — O(b^d) *)
+(* Alpha-beta: skip branches that can't improve the result *)
+
+(*   α = best score Maximizer can guarantee so far
+     β = best score Minimizer can guarantee so far
+     When α ≥ β, the remaining branches are irrelevant — prune *)
+
+(* With good move ordering, alpha-beta reduces branching:
+   O(b^d) → O(b^(d/2)) — effectively doubles search depth *)
+
+let rec alphabeta state depth alpha beta =
+  if depth = 0 || is_terminal state then evaluate state
+  else match current_player state with
+  | Maximizer ->
+    legal_moves state |> List.fold_left (fun alpha move ->
+      let score = alphabeta (apply_move state move) (depth-1) alpha beta in
+      if score >= beta then beta  (* prune! *)
+      else max alpha score
+    ) alpha
+  | Minimizer -> (* symmetric *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Included Games</h2>
+      <table>
+        <tr><th>Game</th><th>Board</th><th>Branching</th><th>AI Strength</th></tr>
+        <tr><td><strong>Tic-Tac-Toe</strong></td><td>3×3</td><td>~4 avg</td><td>Perfect play (solved)</td></tr>
+        <tr><td><strong>Connect Four</strong></td><td>7×6</td><td>~7 avg</td><td>Strong with iterative deepening</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Related Modules</h2>
+      <ul>
+        <li><a href="genetic.html">Genetic Algorithms</a> — evolutionary optimization</li>
+        <li><a href="neural-network.html">Neural Networks</a> — learning-based approaches</li>
+        <li><a href="astar.html">A* Search</a> — heuristic pathfinding</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

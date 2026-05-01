@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gossip Protocol — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>📡 Gossip Protocol Simulator</h1>
+    <p class="subtitle">Epidemic-style information dissemination across distributed nodes</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>Gossip protocols</strong> (epidemic protocols) spread information through a
+      network by having each node periodically share data with random peers — much
+      like how rumors spread in a social network. They provide probabilistic guarantees
+      of consistency with O(log n) convergence rounds and remarkable resilience to
+      node failures and network partitions.</p>
+      <p>This simulator implements push, pull, and push-pull strategies with convergence
+      tracking, partition simulation, anti-entropy repair, and an autonomous protocol
+      advisor.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Epidemic algorithms</strong> — SIR (susceptible-infected-removed) model for data spread</li>
+        <li><strong>Push vs Pull vs Push-Pull</strong> — trade-offs between bandwidth and convergence speed</li>
+        <li><strong>Fanout tuning</strong> — number of peers contacted per round affects reliability</li>
+        <li><strong>Network topologies</strong> — full mesh, ring, random graph</li>
+        <li><strong>Anti-entropy</strong> — consistency repair via full state exchange</li>
+        <li><strong>Partition tolerance</strong> — behavior under network splits and healing</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Gossip Strategies</h2>
+      <table>
+        <tr><th>Strategy</th><th>Mechanism</th><th>Trade-off</th></tr>
+        <tr><td><strong>Push</strong></td><td>Infected nodes send updates to random peers</td><td>Fast initial spread, wastes bandwidth near convergence</td></tr>
+        <tr><td><strong>Pull</strong></td><td>Nodes query random peers for updates</td><td>Slower start, efficient near convergence</td></tr>
+        <tr><td><strong>Push-Pull</strong></td><td>Both directions in one exchange</td><td>Best convergence — O(log log n) rounds</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Create a network of 100 nodes *)
+let net = Network.create ~topology:FullMesh ~size:100
+
+(* Infect node 0 with a rumor *)
+let net = Network.infect net 0 { id = "breaking-news"; data = "..." }
+
+(* Run gossip rounds until convergence *)
+let result = Gossip.run net ~strategy:PushPull ~fanout:3
+
+(* result.rounds = ~7 (log₂ 100 ≈ 7) *)
+(* result.coverage = 1.0 — all nodes received the rumor *)
+
+(* Simulate a network partition *)
+let net = Network.partition net ~groups:[[0..49]; [50..99]]
+(* Gossip within partitions converges; healing merges knowledge *)
+let net = Network.heal net
+let result = Gossip.anti_entropy net  (* repair any inconsistencies *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Real-World Uses</h2>
+      <ul>
+        <li><strong>Cassandra / DynamoDB</strong> — failure detection and schema propagation</li>
+        <li><strong>Consul / Serf</strong> — cluster membership via SWIM gossip</li>
+        <li><strong>Bitcoin</strong> — transaction and block propagation</li>
+        <li><strong>CockroachDB</strong> — node liveness and range metadata</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Related Modules</h2>
+      <ul>
+        <li><a href="crdt.html">CRDTs</a> — data structures that merge without coordination</li>
+        <li><a href="raft.html">Raft</a> — consensus via leader election (stronger guarantees)</li>
+        <li><a href="consistent-hashing.html">Consistent Hashing</a> — distributing data across nodes</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

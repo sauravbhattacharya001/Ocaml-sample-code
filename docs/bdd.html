@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binary Decision Diagrams — OCaml Sample Code</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">← Home</a></nav>
+  <main>
+    <h1>🌳 Binary Decision Diagrams (BDDs)</h1>
+    <p class="subtitle">Canonical representations of Boolean functions with memoized operations</p>
+
+    <section>
+      <h2>Overview</h2>
+      <p><strong>BDDs</strong> are a compressed, canonical data structure for representing
+      Boolean functions. A <em>Reduced Ordered BDD</em> (ROBDD) guarantees that two
+      functions are equal if and only if their BDD nodes are identical, enabling
+      O(1) equivalence checking. They are the workhorse of hardware verification,
+      model checking, and symbolic computation.</p>
+      <p>This implementation provides hash-consing (unique table), the Apply algorithm
+      for arbitrary Boolean operations, quantification, and an interactive REPL for
+      exploring BDD construction.</p>
+    </section>
+
+    <section>
+      <h2>Concepts Demonstrated</h2>
+      <ul>
+        <li><strong>Hash-consing</strong> — structural sharing via a unique table ensures canonicity</li>
+        <li><strong>Apply algorithm</strong> — generic Boolean operation by simultaneous tree traversal</li>
+        <li><strong>Shannon expansion</strong> — f = x·f|ₓ₌₁ + x̄·f|ₓ₌₀ (cofactoring)</li>
+        <li><strong>Computed tables</strong> — memoization of ITE results avoids exponential blowup</li>
+        <li><strong>Algebraic data types</strong> — <code>Zero | One | Node of int * bdd * bdd</code></li>
+        <li><strong>Quantification</strong> — existential / universal / unique over Boolean variables</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Core Types</h2>
+      <pre><code>type bdd =
+  | Zero                        (* terminal false *)
+  | One                         (* terminal true *)
+  | Node of int * bdd * bdd     (* variable, low (0), high (1) *)
+
+(* Unique table for hash-consing — same structure → same node *)
+let unique_table : (int * int * int, bdd) Hashtbl.t</code></pre>
+    </section>
+
+    <section>
+      <h2>Key Operations</h2>
+      <table>
+        <tr><th>Operation</th><th>Description</th><th>Complexity</th></tr>
+        <tr><td><code>mk var low high</code></td><td>Create/lookup a BDD node (hash-consed)</td><td>O(1) amortized</td></tr>
+        <tr><td><code>apply op a b</code></td><td>Combine two BDDs with any Boolean op</td><td>O(|a|·|b|)</td></tr>
+        <tr><td><code>restrict bdd var value</code></td><td>Set a variable to true/false</td><td>O(|bdd|)</td></tr>
+        <tr><td><code>exists var bdd</code></td><td>Existential quantification</td><td>O(|bdd|²)</td></tr>
+        <tr><td><code>sat_count bdd</code></td><td>Count satisfying assignments</td><td>O(|bdd|)</td></tr>
+        <tr><td><code>all_sat bdd</code></td><td>Enumerate all solutions</td><td>O(solutions)</td></tr>
+        <tr><td><code>to_dot bdd</code></td><td>Export for Graphviz visualization</td><td>O(|bdd|)</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>How It Works</h2>
+      <pre><code>(* Build a BDD for (x1 AND x2) OR x3 *)
+let x1 = var 1
+let x2 = var 2
+let x3 = var 3
+let f = bdd_or (bdd_and x1 x2) x3
+
+(* Equivalence check is O(1) — compare node identity *)
+let g = bdd_or x3 (bdd_and x1 x2)
+(* f and g point to the SAME node thanks to canonicity *)
+
+(* Count satisfying assignments *)
+let n = sat_count f 3  (* 3 variables → 5 of 8 assignments satisfy f *)</code></pre>
+    </section>
+
+    <section>
+      <h2>Why BDDs?</h2>
+      <ul>
+        <li><strong>Canonical form:</strong> Unlike truth tables or CNF, equivalent formulas always produce identical BDDs</li>
+        <li><strong>Efficient operations:</strong> AND, OR, NOT are polynomial in BDD size (not formula size)</li>
+        <li><strong>Hardware verification:</strong> Intel, AMD, and EDA tools use BDDs to verify circuit equivalence</li>
+        <li><strong>Model checking:</strong> Symbolic state exploration represents sets of states as BDDs</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Related Modules</h2>
+      <ul>
+        <li><a href="sat-solver.html">SAT Solver</a> — DPLL-based satisfiability (complementary approach)</li>
+        <li><a href="theorem-prover.html">Theorem Prover</a> — logical deduction</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
