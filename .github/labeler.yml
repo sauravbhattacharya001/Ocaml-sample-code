@@ -26,8 +26,8 @@ tests:
   - changed-files:
       - any-glob-to-any-file:
           - 'test_*.ml'
-          - '__tests__/**'
 
+# === Core Data Structures ===
 data-structures:
   - changed-files:
       - any-glob-to-any-file:
@@ -52,7 +52,44 @@ data-structures:
           - 'persistent_vector.ml'
           - 'union_find.ml'
           - 'zipper.ml'
+          - 'aa_tree.ml'
+          - 'adaptive_radix_tree.ml'
+          - 'binomial_heap.ml'
+          - 'bplus_tree.ml'
+          - 'cartesian_tree.ml'
+          - 'count_min_sketch.ml'
+          - 'cuckoo_filter.ml'
+          - 'dancing_links.ml'
+          - 'euler_tour_tree.ml'
+          - 'fibonacci_heap.ml'
+          - 'hamt.ml'
+          - 'hyperloglog.ml'
+          - 'kd_tree.ml'
+          - 'leftist_heap.ml'
+          - 'link_cut_tree.ml'
+          - 'order_statistics_tree.ml'
+          - 'pairing_heap.ml'
+          - 'persistent_array.ml'
+          - 'quadtree.ml'
+          - 'radix_tree.ml'
+          - 'random_access_list.ml'
+          - 'ring_buffer.ml'
+          - 'scapegoat_tree.ml'
+          - 'sparse_table.ml'
+          - 'splay_tree.ml'
+          - 'succinct_bitvector.ml'
+          - 'suffix_automaton.ml'
+          - 'suffix_tree.ml'
+          - 'treap.ml'
+          - 'two_three_tree.ml'
+          - 'van_emde_boas.ml'
+          - 'wavelet_tree.ml'
+          - 'weight_balanced_tree.ml'
+          - 'yfast_trie.ml'
+          - 'zip_tree.ml'
+          - 'merkle_tree.ml'
 
+# === Algorithms ===
 algorithms:
   - changed-files:
       - any-glob-to-any-file:
@@ -67,7 +104,42 @@ algorithms:
           - 'diff.ml'
           - 'huffman.ml'
           - 'game_ai.ml'
+          - 'astar.ml'
+          - 'ant_colony.ml'
+          - 'compression.ml'
+          - 'consistent_hashing.ml'
+          - 'graph_db.ml'
+          - 'influence_maximization.ml'
+          - 'maze.ml'
+          - 'simplex.ml'
 
+# === AI & Machine Learning ===
+ai-ml:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'neural_network.ml'
+          - 'bayesian_net.ml'
+          - 'genetic.ml'
+          - 'bandit.ml'
+          - 'hmm.ml'
+          - 'symbolic_regression.ml'
+          - 'mdp.ml'
+
+# === Multi-Agent & Planning ===
+multi-agent:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'actor.ml'
+          - 'bdi_agent.ml'
+          - 'behavior_tree.ml'
+          - 'blackboard.ml'
+          - 'contract_net.ml'
+          - 'negotiation.ml'
+          - 'argumentation.ml'
+          - 'auction.ml'
+          - 'planning.ml'
+
+# === Parsing ===
 parsing:
   - changed-files:
       - any-glob-to-any-file:
@@ -78,20 +150,29 @@ parsing:
           - 'json.ml'
           - 'csv.ml'
 
+# === Concurrency ===
 concurrency:
   - changed-files:
       - any-glob-to-any-file:
-          - 'actor.ml'
           - 'stm.ml'
           - 'csp.ml'
           - 'frp.ml'
+          - 'dining_philosophers.ml'
+          - 'reactive_streams.ml'
+          - 'task_scheduler.ml'
+          - 'petri_net.ml'
 
+# === Distributed Systems ===
 distributed-systems:
   - changed-files:
       - any-glob-to-any-file:
           - 'raft.ml'
           - 'crdt.ml'
+          - 'gossip.ml'
+          - 'leader_election.ml'
+          - 'process_calculus.ml'
 
+# === Formal Methods ===
 formal-methods:
   - changed-files:
       - any-glob-to-any-file:
@@ -100,7 +181,12 @@ formal-methods:
           - 'model_checker.ml'
           - 'abstract_interp.ml'
           - 'quickcheck.ml'
+          - 'bdd.ml'
+          - 'constraint.ml'
+          - 'logic_circuit.ml'
+          - 'turing_machine.ml'
 
+# === Type Theory ===
 type-theory:
   - changed-files:
       - any-glob-to-any-file:
@@ -110,16 +196,29 @@ type-theory:
           - 'free_monad.ml'
           - 'effects.ml'
           - 'optics.ml'
+          - 'comonad.ml'
+          - 'monad_transformers.ml'
+          - 'typeclass.ml'
+          - 'delimited_cont.ml'
 
+# === Interpreters & Languages ===
 interpreters:
   - changed-files:
       - any-glob-to-any-file:
           - 'bytecode_vm.ml'
-          - 'lambda.ml'
           - 'datalog.ml'
           - 'minikanren.ml'
           - 'term_rewriting.ml'
+          - 'forth.ml'
+          - 'prolog.ml'
+          - 'proof_assistant.ml'
+          - 'abstract_machine.ml'
+          - 'mini_sql.ml'
+          - 'relational.ml'
+          - 'spreadsheet.ml'
+          - 'program_synthesis.ml'
 
+# === Numerical & Math ===
 numerical:
   - changed-files:
       - any-glob-to-any-file:
@@ -129,21 +228,55 @@ numerical:
           - 'autodiff.ml'
           - 'probability.ml'
           - 'geometry.ml'
+          - 'polynomial.ml'
+          - 'tensor.ml'
+          - 'signal_processing.ml'
+          - 'simplex.ml'
 
+# === Systems & Simulation ===
 systems:
   - changed-files:
       - any-glob-to-any-file:
           - 'gc_simulator.ml'
           - 'fsm.ml'
           - 'automata.ml'
-          - 'crypto.ml'
+          - 'http_server.ml'
+          - 'cellular_automata.ml'
+          - 'lsystem.ml'
 
+# === Graphics & Creative ===
+graphics:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'raytracer.ml'
+          - 'music.ml'
+          - 'lsystem.ml'
+
+# === Security & Cryptography ===
 security:
   - changed-files:
       - any-glob-to-any-file:
           - 'crypto.ml'
-          - 'hashmap.ml'
 
+# === Developer Tools ===
+devtools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'code_archaeology.ml'
+          - 'code_experiment.ml'
+          - 'code_mentor.ml'
+          - 'code_profiler.ml'
+          - 'code_transform.ml'
+          - 'dependency_auditor.ml'
+          - 'learning_path.ml'
+          - 'property_discovery.ml'
+          - 'refactoring_autopilot.ml'
+          - 'type_inference_debugger.ml'
+          - 'benchmark.ml'
+          - 'incremental.ml'
+          - 'memoize.ml'
+
+# === Build & Config ===
 build:
   - changed-files:
       - any-glob-to-any-file:
