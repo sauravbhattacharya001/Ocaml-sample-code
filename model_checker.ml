@@ -13,6 +13,7 @@ type transition_system = {
   states     : StateSet.t;
   initial    : StateSet.t;
   transitions: StateSet.t StateMap.t;  (* state -> set of successor states *)
+  predecessors_map: StateSet.t StateMap.t;  (* state -> set of predecessor states — precomputed reverse edges *)
   labels     : StringSet.t StateMap.t; (* state -> set of atomic propositions *)
 }
 
@@ -40,6 +41,7 @@ let empty_ts () = {
   states = StateSet.empty;
   initial = StateSet.empty;
   transitions = StateMap.empty;
+  predecessors_map = StateMap.empty;
   labels = StateMap.empty;
 }
 
@@ -56,9 +58,14 @@ let add_transition src dst ts =
     | Some set -> StateSet.add dst set
     | None -> StateSet.singleton dst
   in
+  let preds = match StateMap.find_opt dst ts.predecessors_map with
+    | Some set -> StateSet.add src set
+    | None -> StateSet.singleton src
+  in
   { ts with
     states = StateSet.add src (StateSet.add dst ts.states);
-    transitions = StateMap.add src succs ts.transitions }
+    transitions = StateMap.add src succs ts.transitions;
+    predecessors_map = StateMap.add dst preds ts.predecessors_map }
 
 let add_label s prop ts =
   let props = match StateMap.find_opt s ts.labels with
@@ -75,9 +82,9 @@ let successors ts s =
   | None -> StateSet.empty
 
 let predecessors ts s =
-  StateMap.fold (fun src succs acc ->
-    if StateSet.mem s succs then StateSet.add src acc else acc
-  ) ts.transitions StateSet.empty
+  match StateMap.find_opt s ts.predecessors_map with
+  | Some set -> set
+  | None -> StateSet.empty
 
 let has_label ts s prop =
   match StateMap.find_opt s ts.labels with
