@@ -303,7 +303,14 @@ let deliver_round c =
     match get_node c msg.dst with
     | None -> incr dropped
     | Some dst_node ->
-      if dst_node.state = Crashed then begin
+      let src_alive = match get_node c msg.src with
+        | Some n -> n.state = Alive
+        | None -> false
+      in
+      if not src_alive then begin
+        log_msg (Printf.sprintf "[Round %d] Message from Node %d dropped (source crashed)" c.round msg.src);
+        incr dropped
+      end else if dst_node.state = Crashed then begin
         log_msg (Printf.sprintf "[Round %d] Message to Node %d dropped (crashed)" c.round msg.dst);
         incr dropped
       end else if not (can_reach c msg.src msg.dst) then begin
