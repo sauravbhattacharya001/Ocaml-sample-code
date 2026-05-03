@@ -20,7 +20,7 @@
 
 This repository contains self-contained OCaml programs that each focus on a specific language feature or algorithm. Every file compiles and runs independently — perfect for learning OCaml by reading and modifying real code.
 
-**200+ programs** covering: recursion, pattern matching, algebraic data types, GADTs, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives, symbolic integration, u-substitution, numerical methods, probability monads, Monte Carlo simulation, Bayesian inference, logic programming, unification, algebraic effects, free monads, automatic differentiation, backpropagation, functional reactive programming, network flow algorithms, bytecode virtual machines, term rewriting systems, zippers, property-based testing, finger trees, persistent vectors, abstract interpretation, finite automata, constraint satisfaction, Datalog engines, double-ended queues, diff algorithms, Earley parsing, GADTs, game AI, garbage collection simulation, computational geometry, property graph databases, Huffman coding, HyperLogLog cardinality estimation, interval trees, lambda calculus, model checking, optics (lenses/prisms), PEG parsers, relational algebra, SAT solvers, string matching, suffix arrays, theorem proving, type inference, comonads, random access lists, hash array mapped tries, monad transformers, ray tracing, delimited continuations, Lindenmayer systems, turtle graphics, neural networks, signal processing (FFT, convolution, spectral analysis), behavior trees, autonomous agent task planning.
+**176 programs** covering: recursion, pattern matching, algebraic data types, GADTs, option types, higher-order functions, polymorphism, tail recursion, accumulators, tuple destructuring, input validation, hash tables, memoization, closures, pipe operator, imperative features, modules (Map, Set, Queue), records, graph algorithms, persistent data structures, priority queues, parser combinators, monadic composition, operator precedence parsing, tries, prefix search, string manipulation, Thompson's NFA construction, epsilon closure, regular expression parsing, set-based simulation, lazy evaluation, infinite sequences, self-balancing BSTs, sorting algorithms, disjoint sets, union-find, functional hash maps, separate chaining, auto-resizing, probabilistic data structures, bloom filters, double hashing, skip lists, randomized algorithms, ropes, balanced binary trees, text editing data structures, linear algebra, matrix operations, functors, module signatures, Gaussian elimination, symbolic differentiation, algebraic simplification, chain rule, partial derivatives, symbolic integration, u-substitution, numerical methods, probability monads, Monte Carlo simulation, Bayesian inference, logic programming, unification, algebraic effects, free monads, automatic differentiation, backpropagation, functional reactive programming, network flow algorithms, bytecode virtual machines, term rewriting systems, zippers, property-based testing, finger trees, persistent vectors, abstract interpretation, finite automata, constraint satisfaction, Datalog engines, double-ended queues, diff algorithms, Earley parsing, GADTs, game AI, garbage collection simulation, computational geometry, property graph databases, Huffman coding, HyperLogLog cardinality estimation, interval trees, lambda calculus, model checking, optics (lenses/prisms), PEG parsers, relational algebra, SAT solvers, string matching, suffix arrays, theorem proving, type inference, comonads, random access lists, hash array mapped tries, monad transformers, ray tracing, delimited continuations, Lindenmayer systems, turtle graphics, neural networks, signal processing (FFT, convolution, spectral analysis), behavior trees, autonomous agent task planning.
 
 ## Programs
 
@@ -130,7 +130,80 @@ This repository contains self-contained OCaml programs that each focus on a spec
 | [`euler_tour_tree.ml`](euler_tour_tree.ml) | Euler Tour Tree — dynamic forest connectivity via Euler tour sequences | Treap-backed implicit sequences, link/cut operations, connectivity queries, subtree aggregates, rerooting |
 | [`incremental.ml`](incremental.ml) | Incremental Computation — self-adjusting computation framework | Dependency graph, change propagation, Var/map/map2/bind/array_fold, observers, cutoff functions, freeze, spreadsheet example |
 | [`hyperloglog.ml`](hyperloglog.ml) | HyperLogLog — probabilistic cardinality estimator | Register-based sketching, harmonic mean estimation, bias correction, merge/union, intersection via inclusion-exclusion, Jaccard similarity, serialization |
+| [`aa_tree.ml`](aa_tree.ml) | AA Tree — simplified red-black tree (Arne Andersson, 1993) | Level-based balancing, skew/split operations, persistent BST, simplified invariants |
+| [`abstract_machine.ml`](abstract_machine.ml) | Abstract Machine Simulator — SECD, CEK, and Krivine machines | Lambda calculus evaluation, environment/stack visualization, step-by-step execution, multiple reduction strategies, interactive REPL |
+| [`adaptive_radix_tree.ml`](adaptive_radix_tree.ml) | Adaptive Radix Tree (ART) — cache-friendly radix tree with adaptive node sizes | Node4/Node16/Node48/Node256, path compression, cache efficiency, adaptive node growth |
+| [`ant_colony.ml`](ant_colony.ml) | Ant Colony Optimization — Ant System & Max-Min Ant System for TSP | Pheromone trails, evaporation, probabilistic path selection, MMAS bounds, convergence analysis |
+| [`argumentation.ml`](argumentation.ml) | Dung's Abstract Argumentation Framework | Grounded/Preferred/Stable/Complete/Admissible/Ideal semantics, attack relations, formal reasoning |
+| [`astar.ml`](astar.ml) | A* Pathfinding Algorithm — optimal graph search with heuristics | Priority queue, admissible heuristics, path reconstruction, grid-based search |
+| [`auction.ml`](auction.ml) | Multi-Agent Auction Simulator — English, Dutch, Sealed-First-Price, Vickrey | Autonomous bidding strategies, adaptive multipliers, mechanism design, game theory |
 | [`bandit.ml`](bandit.ml) | Multi-Armed Bandit Solver — exploration vs exploitation strategies | Epsilon-Greedy, UCB1, Softmax, Thompson Sampling, EXP3, Gradient Bandit, regret analysis, strategy comparison, non-stationary detection, interactive REPL |
+| [`bayesian_net.ml`](bayesian_net.ml) | Bayesian Network Inference Engine | Conditional probability tables, variable elimination, belief propagation, d-separation |
+| [`bdi_agent.ml`](bdi_agent.ml) | BDI Agent Simulator — Belief-Desire-Intention architecture | Autonomous agents, plan library, intention execution, belief revision, means-end reasoning |
+| [`benchmark.ml`](benchmark.ml) | Benchmarking framework for OCaml functions | Timing, statistical analysis, comparison, warmup, GC control |
+| [`binomial_heap.ml`](binomial_heap.ml) | Binomial Heap — purely functional mergeable priority queue | Binary arithmetic analogy, carry-propagation, forest representation, O(log n) merge |
+| [`blackboard.ml`](blackboard.ml) | Blackboard Architecture — cooperative AI problem-solving | Knowledge sources, opportunistic scheduling, shared workspace, incremental refinement |
+| [`bplus_tree.ml`](bplus_tree.ml) | B+ Tree — database-style disk-optimized search tree | Leaf-linked sequential access, range queries, bulk loading, internal/leaf node separation |
+| [`cellular_automata.ml`](cellular_automata.ml) | Cellular Automata — Game of Life, Elementary (Rule 110), Langton's Ant, Wireworld | Grid simulation, rule tables, neighborhood functions, ASCII visualization |
+| [`code_mentor.ml`](code_mentor.ml) | Autonomous Code Mentor — learner proficiency assessment engine | 8 skill dimensions, gap analysis, personalized exercises, mastery tracking |
+| [`code_transform.ml`](code_transform.ml) | Autonomous Code Transformation Pipeline — multi-pass program transformer | AST-level transforms, optimization passes, dead code elimination, pipeline composition |
+| [`compression.ml`](compression.ml) | LZ77 Compression & Decompression | Sliding window, longest match, back-references, lossless encoding |
+| [`consistent_hashing.ml`](consistent_hashing.ml) | Consistent Hashing Ring — distributed systems key distribution | Virtual nodes, minimal remapping on add/remove, ring topology, load balancing |
+| [`contract_net.ml`](contract_net.ml) | Contract Net Protocol — FIPA multi-agent task allocation | Call for proposals, bidding, award selection, task decomposition, contractor evaluation |
+| [`count_min_sketch.ml`](count_min_sketch.ml) | Count-Min Sketch — probabilistic frequency estimation | Multiple hash functions, counter table, heavy hitters, inner product, stream processing |
+| [`cuckoo_filter.ml`](cuckoo_filter.ml) | Cuckoo Filter — space-efficient probabilistic set with deletion support | Fingerprinting, cuckoo hashing, bucket relocation, false positive tuning |
+| [`dancing_links.ml`](dancing_links.ml) | Dancing Links (DLX) — Knuth's Algorithm X for exact cover problems | Doubly-linked circular lists, column covering/uncovering, Sudoku/pentomino solving |
+| [`dependency_auditor.ml`](dependency_auditor.ml) | Autonomous Module Dependency Auditor | Module graph discovery, cycle detection, coupling metrics, layering violations |
+| [`dining_philosophers.ml`](dining_philosophers.ml) | Dining Philosophers — classic concurrency problem & solutions | Deadlock prevention, resource hierarchy, arbitrator, Chandy-Misra, starvation analysis |
+| [`fibonacci_heap.ml`](fibonacci_heap.ml) | Fibonacci Heap — amortized-efficient priority queue | Mutable circular lists, cascading cuts, O(1) amortized decrease-key, lazy consolidation |
+| [`formal_verification.ml`](formal_verification.ml) | Autonomous Formal Verification Engine | Invariant checking, property specification, state space exploration, counterexample generation |
+| [`forth.ml`](forth.ml) | Forth Interpreter — stack-based concatenative language | Dictionary, stack machine, word definition, immediate words, control flow |
+| [`hmm.ml`](hmm.ml) | Hidden Markov Model — Viterbi, Forward-Backward, Baum-Welch | State estimation, emission probabilities, expectation-maximization, sequence labeling, interactive REPL |
+| [`http_server.ml`](http_server.ml) | Minimal HTTP/1.1 Server | Request parsing, response formatting, routing, socket I/O |
+| [`influence_maximization.ml`](influence_maximization.ml) | Influence Maximization — greedy seed selection for social networks | Independent Cascade model, Monte Carlo simulation, submodular optimization |
+| [`kd_tree.ml`](kd_tree.ml) | k-d Tree — spatial partitioning for multi-dimensional data | Alternating split dimensions, nearest-neighbor search, range queries, spatial indexing |
+| [`leader_election.ml`](leader_election.ml) | Distributed Leader Election Simulator | Ring-based algorithms, LCR/HS protocols, message complexity, network topology |
+| [`leftist_heap.ml`](leftist_heap.ml) | Leftist Heap — weight-biased mergeable priority queue | Rank property, O(log n) merge, persistent operations, priority scheduling |
+| [`link_cut_tree.ml`](link_cut_tree.ml) | Link-Cut Tree — dynamic tree with path queries | Sleator-Tarjan splay-based forest, amortized O(log n) link/cut/path, LCA queries |
+| [`logic_circuit.ml`](logic_circuit.ml) | Logic Circuit Simulator | AND/OR/NOT/XOR gates, combinational circuits, propagation delay, truth table generation |
+| [`maze.ml`](maze.ml) | Maze Generation & Solving | DFS/Kruskal generation, BFS/A* solving, ASCII rendering, random seed control |
+| [`mdp.ml`](mdp.ml) | Markov Decision Process Solver | Value iteration, policy iteration, reward shaping, discount factor, optimal policy |
+| [`memoize.ml`](memoize.ml) | Memoization Combinators — generic caching for recursive functions | Hash-table caching, fix-point combinator, automatic memoization, cache statistics |
+| [`mini_sql.ml`](mini_sql.ml) | Mini SQL Query Engine — in-memory relational database | SQL parsing, CREATE/INSERT/SELECT/UPDATE/DELETE, WHERE/JOIN/GROUP BY/HAVING, aggregates |
+| [`music.ml`](music.ml) | Algorithmic Music Composition | Note/chord/scale representation, generative patterns, MIDI-like output, music theory |
+| [`negotiation.ml`](negotiation.ml) | Automated Negotiation Protocol — multi-agent bilateral negotiation | Concession strategies, utility functions, deadline effects, Pareto efficiency |
+| [`pairing_heap.ml`](pairing_heap.ml) | Pairing Heap — simple self-adjusting min-heap | Two-pass merging, amortized efficiency, purely functional, persistent operations |
+| [`persistent_array.ml`](persistent_array.ml) | Persistent Array — purely functional random-access arrays | Braun tree backing, O(log n) get/set, structural sharing, functional updates |
+| [`petri_net.ml`](petri_net.ml) | Petri Net Simulator — concurrent system modeling and analysis | Places/transitions/tokens, firing rules, reachability analysis, deadlock detection |
+| [`planning.ml`](planning.ml) | STRIPS-Style AI Planner — automated planning | Preconditions/effects, forward search, heuristic planning, plan extraction |
+| [`polynomial.ml`](polynomial.ml) | Polynomial Arithmetic — comprehensive polynomial library | Sparse representation, addition/multiplication/division, evaluation, differentiation, GCD |
+| [`process_calculus.ml`](process_calculus.ml) | CCS Process Calculus — Milner's Calculus of Communicating Systems | Channel communication, parallel composition, restriction, bisimulation, LTS generation |
+| [`program_synthesis.ml`](program_synthesis.ml) | Autonomous Program Synthesis — function discovery from examples | Type-directed enumeration, example-guided search, compositional synthesis |
+| [`prolog.ml`](prolog.ml) | Mini Prolog Interpreter — logic programming in OCaml | Unification, backtracking, Horn clauses, cut, negation-as-failure, built-in predicates |
+| [`proof_assistant.ml`](proof_assistant.ml) | Interactive Proof Assistant (Coq-lite) | Tactics, proof goals, type theory, interactive theorem proving |
+| [`quadtree.ml`](quadtree.ml) | Quadtree — spatial partitioning for 2D point data | Recursive subdivision, range queries, k-nearest-neighbors, spatial indexing |
+| [`reactive_streams.ml`](reactive_streams.ml) | Reactive Stream Processor — FRP with event streams | Combinators, backpressure, windowing, stream transformations, interactive REPL |
+| [`refactoring_autopilot.ml`](refactoring_autopilot.ml) | Autonomous Refactoring Autopilot — opportunity detection and auto-apply | Code smell detection, transformation rules, safety checks, incremental application |
+| [`ring_buffer.ml`](ring_buffer.ml) | Ring Buffer (Circular Buffer) — fixed-size FIFO queue | Array-backed, wraparound indexing, O(1) enqueue/dequeue, overflow policies |
+| [`scapegoat_tree.ml`](scapegoat_tree.ml) | Scapegoat Tree — weight-balanced BST with no per-node metadata | α-weight-balance, subtree rebuilding, amortized O(log n), no balance bits |
+| [`simplex.ml`](simplex.ml) | Linear Programming Solver — Simplex Method | Tableau operations, pivot selection, Bland's rule, feasibility, optimization |
+| [`sparse_table.ml`](sparse_table.ml) | Sparse Table — O(1) range minimum/maximum queries | O(n log n) preprocessing, overlap-friendly queries, idempotent operations |
+| [`spreadsheet.ml`](spreadsheet.ml) | Spreadsheet Engine — formula evaluation with cell references | Dependency graph, topological evaluation, circular reference detection, cell functions |
+| [`succinct_bitvector.ml`](succinct_bitvector.ml) | Succinct Bitvector — space-efficient rank/select queries | Block/superblock structure, O(1) rank, binary search select, near-optimal space |
+| [`suffix_tree.ml`](suffix_tree.ml) | Suffix Tree — Ukkonen-inspired construction for string analysis | Implicit/explicit extensions, suffix links, O(n) construction, pattern matching |
+| [`symbolic_regression.ml`](symbolic_regression.ml) | Symbolic Regression — genetic programming for formula discovery | Expression trees, tournament selection, subtree crossover/mutation, parsimony pressure, ASCII plotting, interactive REPL |
+| [`task_scheduler.ml`](task_scheduler.ml) | Task Scheduler — real-time scheduling algorithms | Rate-Monotonic, Earliest-Deadline-First, priority scheduling, feasibility analysis |
+| [`tensor.ml`](tensor.ml) | N-Dimensional Tensor Library — pure OCaml tensor operations | Broadcasting, slicing, reshaping, matrix multiplication, element-wise ops |
+| [`treap.ml`](treap.ml) | Treap — randomized BST combining tree + heap properties | Random priorities, rotations, expected O(log n), split/merge, persistent |
+| [`turing_machine.ml`](turing_machine.ml) | Turing Machine Simulator | Tape, transition function, halting detection, multiple examples, step-by-step execution |
+| [`two_three_tree.ml`](two_three_tree.ml) | 2-3 Tree — balanced search tree with 2-nodes and 3-nodes | Bottom-up insertion, split propagation, guaranteed O(log n), deletion |
+| [`type_inference_debugger.ml`](type_inference_debugger.ml) | Autonomous Type Inference Debugger — step-by-step HM tracing | Constraint generation visualization, unification steps, substitution explanation |
+| [`typeclass.ml`](typeclass.ml) | Type Class Emulation — Haskell-style type classes via OCaml modules | Module types, functors, ad-hoc polymorphism, dictionary passing, Show/Eq/Ord/Functor |
+| [`van_emde_boas.ml`](van_emde_boas.ml) | Van Emde Boas Tree — O(log log u) integer set operations | Universe decomposition, recursive clustering, predecessor/successor queries |
+| [`wavelet_tree.ml`](wavelet_tree.ml) | Wavelet Tree — rank/select/access queries on sequences | Alphabet bisection, bitvector nodes, O(log σ) queries, range quantile |
+| [`weight_balanced_tree.ml`](weight_balanced_tree.ml) | Weight-Balanced Tree (BB[α]) — size-balanced BST | Weight ratio invariant, single/double rotations, join-based operations |
+| [`yfast_trie.ml`](yfast_trie.ml) | Y-Fast Trie — O(log log u) predecessor/successor with O(n) space | X-fast trie indirection, bucket BSTs, universe-based indexing |
+| [`zip_tree.ml`](zip_tree.ml) | Zip Tree — randomized BST using geometric rank distribution | Zip/unzip operations, expected O(log n), simple balancing, treap variant |
 
 ## Getting Started
 
@@ -560,14 +633,18 @@ Ocaml-sample-code/
 ├── peg.ml                # PEG parser (packrat memoization)
 ├── queue.ml              # Purely functional queue
 ├── radix_tree.ml         # Radix Tree (Patricia Trie) — compressed prefix tree
-├── raft.ml               # Raft consensus algorithm (Banker's Queue)
+├── raft.ml               # Raft consensus algorithm
 ├── raytracer.ml          # Ray tracing engine (functional)
 ├── relational.ml         # Relational algebra engine
 ├── sat_solver.ml         # SAT solver (DPLL algorithm)
 ├── string_match.ml       # String matching (KMP, Boyer-Moore, etc.)
 ├── suffix_array.ml       # Suffix array with LCP
 ├── suffix_automaton.ml   # Suffix Automaton (SAM)
+├── suffix_tree.ml        # Suffix tree (Ukkonen-inspired)
+├── tensor.ml             # N-dimensional tensor library
 ├── theorem_prover.ml     # Propositional theorem prover
+├── treap.ml              # Treap (tree + heap)
+├── turing_machine.ml     # Turing machine simulator
 ├── type_infer.ml         # Hindley-Milner type inference
 ├── incremental.ml        # Incremental computation (self-adjusting)
 ├── test_*.ml             # Test suites
