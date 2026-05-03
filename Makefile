@@ -37,7 +37,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	suffix_automaton.ml suffix_tree.ml treap.ml turing_machine.ml \
 	two_three_tree.ml typeclass.ml van_emde_boas.ml wavelet_tree.ml \
 	weight_balanced_tree.ml yfast_trie.ml zip_tree.ml process_calculus.ml 
-	bandit.ml property_discovery.ml
+	bandit.ml property_discovery.ml code_lineage.ml
 
 # Sources that require ocamlfind + external packages
 SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml
