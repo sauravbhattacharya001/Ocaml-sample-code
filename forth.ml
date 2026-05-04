@@ -61,6 +61,21 @@ and state = {
   loop_stack : (int * int) list;  (* do..loop: index, limit *)
 }
 
+(* ===== Execution Limits (DoS Prevention) ===== *)
+
+(** Maximum word-call recursion depth.
+    Prevents stack overflow from deeply-nested or mutually-recursive
+    word definitions that could crash the host process (CWE-674). *)
+let max_call_depth = ref 256
+
+(** Maximum number of loop iterations per loop construct.
+    Prevents denial-of-service via BEGIN..UNTIL or DO..LOOP programs
+    that never terminate (CWE-835). *)
+let max_loop_iterations = ref 1_000_000
+
+(** Raised when an execution limit is exceeded. *)
+exception Execution_limit of string
+
 (* ===== Helpers ===== *)
 
 let empty_state () = {
@@ -429,6 +444,9 @@ let rec tokenize_rest s acc =
 
 (* ===== Interpreter ===== *)
 
+(** Current call depth — tracks nested word invocations. *)
+let _call_depth = ref 0
+
 (* Execute a compiled token list *)
 let rec exec_tokens tokens st =
   match tokens with
@@ -475,7 +493,17 @@ let rec exec_tokens tokens st =
 and exec_word name st =
   match find_word name st.dict with
   | Some (Primitive f) -> f st
-  | Some (Compiled body) -> exec_tokens body st
+  | Some (Compiled body) ->
+    incr _call_depth;
+    if !_call_depth > !max_call_depth then begin
+      _call_depth := 0;
+      raise (Execution_limit
+        (Printf.sprintf "Call depth limit exceeded (%d frames) — \
+         possible infinite recursion in word '%s'" !max_call_depth name))
+    end;
+    let st' = exec_tokens body st in
+    decr _call_depth;
+    st'
   | Some (Variable addr) -> push_int addr st
   | Some (Constant v) -> push_int v st
   | None -> failwith (Printf.sprintf "Unknown word: %s" name)
@@ -537,14 +565,26 @@ and exec_begin tokens st =
   let (body, loop_type, after) = find_begin_end tokens in
   match loop_type with
   | `Until ->
+    let iters = ref 0 in
     let rec go st' =
+      incr iters;
+      if !iters > !max_loop_iterations then
+        raise (Execution_limit
+          (Printf.sprintf "Loop iteration limit exceeded (%d) in BEGIN..UNTIL"
+             !max_loop_iterations));
       let st'' = exec_tokens body st' in
       let (v, st3) = pop st'' in
       if is_truthy v then exec_tokens after st3
       else go st3
     in go st
   | `WhileRepeat (while_body, repeat_body) ->
+    let iters = ref 0 in
     let rec go st' =
+      incr iters;
+      if !iters > !max_loop_iterations then
+        raise (Execution_limit
+          (Printf.sprintf "Loop iteration limit exceeded (%d) in BEGIN..WHILE..REPEAT"
+             !max_loop_iterations));
       let st'' = exec_tokens while_body st' in
       let (v, st3) = pop st'' in
       if is_truthy v then
@@ -580,7 +620,13 @@ and exec_do body_and_rest st =
     | tok :: rest -> find_loop (tok :: acc) rest
   in
   let (body, is_plus, after) = find_loop [] body_and_rest in
+  let iters = ref 0 in
   let rec go st' =
+    incr iters;
+    if !iters > !max_loop_iterations then
+      raise (Execution_limit
+        (Printf.sprintf "Loop iteration limit exceeded (%d) in DO..LOOP"
+           !max_loop_iterations));
     match st'.loop_stack with
     | (i, limit) :: outer ->
       if i >= limit then
