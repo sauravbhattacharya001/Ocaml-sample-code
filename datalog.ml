@@ -328,7 +328,9 @@ let eval_naive rules db =
   (!db, !iterations)
 
 (** Semi-naive evaluation: only consider newly derived facts.
-    Much more efficient than naive for recursive rules. *)
+    Much more efficient than naive for recursive rules.
+    Delta facts use the same indexed database type for O(1)
+    predicate lookups in the inner loop. *)
 let eval_semi_naive rules db =
   (* Initial pass: derive from existing facts *)
   let new_facts = ref FactSet.empty in
@@ -341,19 +343,19 @@ let eval_semi_naive rules db =
   ) rules;
   let new_db = FactSet.fold (fun f acc -> add_fact acc f) !new_facts db in
   let db = ref new_db in
-  let delta = ref !new_facts in
+  (* Build indexed delta database for O(1) predicate lookups *)
+  let delta_db = ref (FactSet.fold (fun f acc -> add_fact acc f) !new_facts empty_db) in
   let iterations = ref 1 in
   (* Iterate: only use delta facts to find new derivations *)
-  while not (FactSet.is_empty !delta) do
+  while db_size !delta_db > 0 do
     incr iterations;
     let next_delta = ref FactSet.empty in
     List.iter (fun rule ->
       (* For semi-naive: at least one body atom must match a delta fact *)
       List.iteri (fun i body_atom ->
         if not body_atom.negated then begin
-          let delta_facts =
-            FactSet.filter (fun a -> a.pred = body_atom.pred) !delta
-            |> FactSet.elements in
+          (* O(1) predicate lookup on delta instead of O(|delta|) filter *)
+          let delta_facts = facts_for_pred !delta_db body_atom.pred in
           List.iter (fun delta_fact ->
             let subst = unify_atoms empty_subst
               (apply_atom empty_subst body_atom) delta_fact in
@@ -380,7 +382,7 @@ let eval_semi_naive rules db =
     ) rules;
     let next_db = FactSet.fold (fun f acc -> add_fact acc f) !next_delta !db in
     db := next_db;
-    delta := !next_delta
+    delta_db := FactSet.fold (fun f acc -> add_fact acc f) !next_delta empty_db
   done;
   (!db, !iterations)
 
@@ -810,7 +812,8 @@ let apply_rule_enhanced db rule =
     else None
   ) substs
 
-(** Semi-naive evaluation with builtin support. *)
+(** Semi-naive evaluation with builtin support.
+    Uses indexed delta database for O(1) predicate lookups. *)
 let eval_semi_naive_enhanced rules db =
   let new_facts = ref FactSet.empty in
   List.iter (fun rule ->
@@ -822,21 +825,56 @@ let eval_semi_naive_enhanced rules db =
   ) rules;
   let new_db = FactSet.fold (fun f acc -> add_fact acc f) !new_facts db in
   let db = ref new_db in
-  let delta = ref !new_facts in
+  let delta_db = ref (FactSet.fold (fun f acc -> add_fact acc f) !new_facts empty_db) in
   let iterations = ref 1 in
-  while not (FactSet.is_empty !delta) do
+  while db_size !delta_db > 0 do
     incr iterations;
     let next_delta = ref FactSet.empty in
     List.iter (fun rule ->
-      let derived = apply_rule_enhanced !db rule in
-      List.iter (fun f ->
-        if not (FactSet.mem f (!db).facts) then
-          next_delta := FactSet.add f !next_delta
-      ) derived
+      (* Semi-naive: at least one non-builtin body atom must match delta *)
+      List.iteri (fun i body_atom ->
+        if not body_atom.negated && not (is_builtin body_atom.pred) then begin
+          let delta_facts = facts_for_pred !delta_db body_atom.pred in
+          List.iter (fun delta_fact ->
+            let subst = unify_atoms empty_subst
+              (apply_atom empty_subst body_atom) delta_fact in
+            match subst with
+            | None -> ()
+            | Some s ->
+              let remaining = List.filteri (fun j _ -> j <> i) rule.body in
+              let substs = List.fold_left
+                (fun acc atom ->
+                   List.concat_map (fun sub ->
+                     if is_builtin atom.pred then
+                       (match eval_builtin sub atom with
+                        | Some s -> [s]
+                        | None -> [])
+                     else if atom.negated then eval_negated_atom !db sub atom
+                     else eval_positive_atom !db sub atom
+                   ) acc)
+                [s] remaining in
+              List.iter (fun sub ->
+                let head = apply_atom sub rule.head in
+                if is_ground head && not (FactSet.mem head (!db).facts) then
+                  next_delta := FactSet.add head !next_delta
+              ) substs
+          ) delta_facts
+        end
+      ) rule.body;
+      (* Also handle rules where all body atoms are builtins or negated *)
+      let has_positive_db = List.exists (fun a ->
+        not a.negated && not (is_builtin a.pred)) rule.body in
+      if not has_positive_db then begin
+        let derived = apply_rule_enhanced !db rule in
+        List.iter (fun f ->
+          if not (FactSet.mem f (!db).facts) then
+            next_delta := FactSet.add f !next_delta
+        ) derived
+      end
     ) rules;
     let next_db = FactSet.fold (fun f acc -> add_fact acc f) !next_delta !db in
     db := next_db;
-    delta := !next_delta
+    delta_db := FactSet.fold (fun f acc -> add_fact acc f) !next_delta empty_db
   done;
   (!db, !iterations)
 
