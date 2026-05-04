@@ -17,11 +17,15 @@ on:
       - 'Makefile'
       - 'Dockerfile'
       - '.dockerignore'
+  schedule:
+    # Rebuild weekly to pick up base image security patches
+    - cron: '20 4 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -61,6 +65,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -70,11 +75,41 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          load: true
 
-      - name: Test Docker image
-        if: github.event_name == 'pull_request'
+      - name: Smoke test - verify all binaries execute
         run: |
-          docker build -t ocaml-samples:test .
-          echo "=== Running container ==="
-          docker run --rm ocaml-samples:test
-          echo "=== Container test passed ==="
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing image: $IMAGE_TAG"
+
+          # Run default CMD (all 8 binaries in sequence)
+          docker run --rm "$IMAGE_TAG"
+
+          # Verify each binary individually returns exit code 0
+          for bin in hello fibonacci factor list_last_elem bst mergesort graph heap; do
+            echo "--- testing $bin ---"
+            docker run --rm --entrypoint "$bin" "$IMAGE_TAG"
+            echo "OK $bin passed"
+          done
+
+          echo "=== All binary smoke tests passed ==="
+
+      - name: Determine scan target
+        id: scan-tag
+        run: echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> "$GITHUB_OUTPUT"
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.scan-tag.outputs.tag }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+      - name: Upload Trivy scan results to GitHub Security
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: docker-trivy
