@@ -164,11 +164,6 @@ let diag (v : t) : t =
   done;
   { data; shape = [|n; n|]; strides = compute_strides [|n; n|] }
 
-let rand (sh : shape) : t =
-  let n = numel sh in
-  let data = Array.init n (fun _ -> Random.float 1.0) in
-  { data; shape = Array.copy sh; strides = compute_strides sh }
-
 (* ========== Properties ========== *)
 
 let shape (t : t) : shape = Array.copy t.shape
@@ -194,11 +189,6 @@ let set (t : t) (indices : int array) (v : float) : t =
   let data = Array.copy t.data in
   data.(flat_index t.strides indices) <- v;
   { t with data }
-
-let get_flat (t : t) (i : int) : float =
-  if i < 0 || i >= Array.length t.data then
-    raise (Index_out_of_bounds (Printf.sprintf "Flat index %d out of bounds" i));
-  t.data.(i)
 
 (* ========== Slicing ========== *)
 
@@ -355,16 +345,6 @@ let pow_scalar (t : t) (p : float) : t =
 let map (f : float -> float) (t : t) : t =
   { t with data = Array.map f t.data }
 
-let map2 (f : float -> float -> float) (a : t) (b : t) : t =
-  broadcast_op f a b
-
-let exp_t (t : t) : t = map Stdlib.exp t
-let log_t (t : t) : t = map Stdlib.log t
-let sqrt_t (t : t) : t = map Stdlib.sqrt t
-let sin_t (t : t) : t = map Stdlib.sin t
-let cos_t (t : t) : t = map Stdlib.cos t
-let tanh_t (t : t) : t = map Stdlib.tanh t
-
 let relu (t : t) : t = map (fun x -> if x > 0.0 then x else 0.0) t
 
 let sigmoid (t : t) : t =
@@ -402,14 +382,8 @@ let reduce_axis (f : float -> float -> float) (init_val : float) (t : t) (axis :
 let sum_axis (t : t) (axis : int) : t =
   reduce_axis ( +. ) 0.0 t axis
 
-let prod_axis (t : t) (axis : int) : t =
-  reduce_axis ( *. ) 1.0 t axis
-
 let max_axis (t : t) (axis : int) : t =
   reduce_axis max neg_infinity t axis
-
-let min_axis (t : t) (axis : int) : t =
-  reduce_axis min infinity t axis
 
 (** Global reductions *)
 let sum (t : t) : float =
@@ -668,10 +642,6 @@ let to_string (t : t) : string =
     Printf.sprintf "tensor(%s, shape=%s)"
       (pp_recursive t.data t.shape 0 0)
       shape_str
-
-let print (t : t) : unit =
-  print_endline (to_string t)
-
 
 (* ============================================================================
    TESTS

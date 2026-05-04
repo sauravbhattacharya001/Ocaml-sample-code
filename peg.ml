@@ -97,9 +97,6 @@ module Grammar = struct
   let get_rule g name =
     List.assoc_opt name g.rules
 
-  let rule_names g =
-    List.map fst g.rules
-
   let rule_count g =
     List.length g.rules
 end
@@ -121,8 +118,6 @@ module Memo = struct
     Hashtbl.replace memo (rule, pos) result
 
   let size (memo : t) = Hashtbl.length memo
-
-  let hit_count (memo : t) = Hashtbl.length memo
 end
 
 (* ═══════════════════════════════════════════════════════════════
@@ -426,14 +421,12 @@ let lit c = Lit c
 let str s = LitStr s
 let dot = Dot
 let cls elems = Class elems
-let neg_cls elems = NegClass elems
 let seq exprs = Sequence exprs
 let alt exprs = Choice exprs
 let star e = Star e
 let plus e = Plus e
 let opt e = Opt e
 let lookahead e = And e
-let not_ahead e = Not e
 let ref_ name = Ref name
 let action e label = Action (e, label)
 let empty = Empty

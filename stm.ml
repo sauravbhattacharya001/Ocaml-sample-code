@@ -39,8 +39,6 @@ let new_tvar (v : 'a) : 'a tvar =
   incr next_tvar_id;
   { value = v; version = 0; id }
 
-let read_tvar_raw (tv : 'a tvar) : 'a = tv.value
-
 let write_tvar_raw (tv : 'a tvar) (v : 'a) : unit =
   tv.value <- v;
   tv.version <- tv.version + 1
@@ -180,10 +178,6 @@ let stm_or_else (m1 : 'a stm) (m2 : 'a stm) : 'a stm =
 let stm_guard (cond : bool) : unit stm =
   if cond then stm_return () else stm_retry
 
-(* Check: evaluate a predicate on a TVar, retry if false *)
-let stm_check (tv : 'a tvar) (pred : 'a -> bool) : unit stm =
-  stm_bind (read_tvar tv) (fun v -> stm_guard (pred v))
-
 
 (* ═══════════════════════════════════════════════════════════════════
    §5  Commit Protocol
@@ -279,9 +273,6 @@ let new_counter (init : int) = new_tvar init
 
 let increment (c : int tvar) : unit stm =
   modify_tvar c (fun n -> n + 1)
-
-let decrement (c : int tvar) : unit stm =
-  modify_tvar c (fun n -> n - 1)
 
 let get_counter (c : int tvar) : int stm = read_tvar c
 

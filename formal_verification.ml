@@ -215,12 +215,6 @@ let verdict_to_string = function
   | Partial ids ->
     "PARTIAL (Unknown VCs: " ^ String.concat ", " (List.map string_of_int ids) ^ ")"
 
-let strategy_to_string = function
-  | ConstantPropagation -> "constant_propagation"
-  | BoundInference -> "bound_inference"
-  | RelationshipInference -> "relationship_inference"
-  | PostconditionWeakening -> "postcondition_weakening"
-
 (* ========== Expression Substitution ========== *)
 
 let rec expr_subst x e_new = function

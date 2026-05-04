@@ -133,12 +133,6 @@ module Heap = struct
   let live_count t =
     Array.fold_left (fun acc c -> if c.alive then acc + 1 else acc) 0 t.cells
 
-  let dead_count t =
-    let used = Array.fold_left
-      (fun acc c -> if c.alive || c.size > 0 then acc + 1 else acc) 0 t.cells
-    in
-    used - live_count t
-
   let reset_marks t =
     Array.iter (fun c -> c.marked <- false) t.cells
 

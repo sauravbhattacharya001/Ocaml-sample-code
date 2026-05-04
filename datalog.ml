@@ -169,15 +169,11 @@ let add_fact db fact =
     { facts = FactSet.add fact db.facts; by_pred }
   end
 
-let add_facts db facts = List.fold_left add_fact db facts
-
 let facts_for_pred db pred =
   (try Hashtbl.find db.by_pred pred with Not_found -> FactSet.empty)
   |> FactSet.elements
 
 let db_size db = FactSet.cardinal db.facts
-
-let db_to_list db = FactSet.elements db.facts
 
 let db_diff db1 db2 =
   let diff_facts = FactSet.diff db1.facts db2.facts in
@@ -685,13 +681,6 @@ let run_program ?(use_semi_naive=true) source =
   let (db, _iters) = evaluate ~use_semi_naive rules_list db in
   let results = List.map (fun q -> (q, answer_query db q)) queries in
   (db, results)
-
-(** Format the full results of running a program. *)
-let format_program_results results =
-  List.map (fun (q, bindings) ->
-    Printf.sprintf "?- %s\n%s" (atom_to_string q) (format_results bindings)
-  ) results
-  |> String.concat "\n\n"
 
 (* ══════════════════════════════════════════════
    Magic Sets Optimization (Query-directed)
