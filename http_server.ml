@@ -82,15 +82,24 @@ let url_decode s =
   done;
   Buffer.contents buf
 
+(** Parse an application/x-www-form-urlencoded query string into key/value pairs.
+    Per WHATWG URL spec, only the FIRST '=' separates key from value; subsequent
+    '=' characters are part of the value. The previous implementation used
+    [String.split_on_char '='] and dropped any pair containing more than one
+    '=' (e.g. base64-padded tokens like [token=Zm9vYmFy==]), which silently
+    discarded user input and could cause authentication or routing bugs. *)
 let parse_query_string qs =
   if qs = "" then []
   else
     let pairs = String.split_on_char '&' qs in
     List.filter_map (fun pair ->
-      match String.split_on_char '=' pair with
-      | [k; v] -> Some (url_decode k, url_decode v)
-      | [k] -> Some (url_decode k, "")
-      | _ -> None
+      if pair = "" then None
+      else match String.index_opt pair '=' with
+      | Some i ->
+        let k = String.sub pair 0 i in
+        let v = String.sub pair (i + 1) (String.length pair - i - 1) in
+        Some (url_decode k, url_decode v)
+      | None -> Some (url_decode pair, "")
     ) pairs
 
 let split_path_query raw =
@@ -328,9 +337,10 @@ let serve_static_file basedir path =
      We reject any path containing ".." segments, null bytes, or backslashes,
      then verify the resolved filepath is still under the basedir. *)
   let normalized = if path = "/" then "/index.html" else path in
-  (* Split path into segments and reject any ".." component *)
+  (* Split path into segments and reject any ".." or "." component.
+     (Parenthesised explicitly to avoid relying on precedence of && vs ||.) *)
   let segments = String.split_on_char '/' normalized in
-  let has_traversal = List.exists (fun s -> s = ".." || s = "." && s <> "") segments in
+  let has_traversal = List.exists (fun s -> s = ".." || s = ".") segments in
   let has_null = String.contains normalized '\000' in
   let has_backslash = String.contains normalized '\\' in
   if has_traversal || has_null || has_backslash then None
@@ -361,8 +371,28 @@ let routes : route list ref = ref []
 let register meth pattern handler =
   routes := { route_method = meth; route_pattern = pattern; handler } :: !routes
 
+(** Test whether [req_path] is matched by a prefix [pattern] route.
+    A prefix match requires the path to either equal the pattern exactly
+    or to continue with a '/' at the boundary. This prevents auth-bypass
+    style bugs where [/admin] would otherwise also match [/administrator]
+    or [/admin-panel]. The pattern itself may end in '/' (trailing slash)
+    in which case any path under it is accepted. The root pattern "/" is
+    treated as a true universal prefix to preserve legacy fallback behaviour. *)
+let prefix_matches pattern req_path =
+  if pattern = "" then false
+  else if pattern = "/" then true
+  else if pattern = req_path then true
+  else
+    let plen = String.length pattern in
+    let rlen = String.length req_path in
+    if rlen <= plen then false
+    else if String.sub req_path 0 plen <> pattern then false
+    else
+      (* Boundary must be a '/' so that [/admin] does not match [/administrator]. *)
+      pattern.[plen - 1] = '/' || req_path.[plen] = '/'
+
 let find_route req =
-  (* Exact match first, then prefix *)
+  (* Exact match first, then path-boundary-aware prefix *)
   match List.find_opt (fun r ->
     method_equal r.route_method req.meth && r.route_pattern = req.path
   ) !routes with
@@ -370,8 +400,7 @@ let find_route req =
   | None ->
     List.find_opt (fun r ->
       method_equal r.route_method req.meth &&
-      String.length req.path >= String.length r.route_pattern &&
-      String.sub req.path 0 (String.length r.route_pattern) = r.route_pattern
+      prefix_matches r.route_pattern req.path
     ) !routes
 
 (* ── Built-in demo routes ────────────────────────────────────────── *)
@@ -584,9 +613,17 @@ let start_server port =
 
 (* ── Main ────────────────────────────────────────────────────────── *)
 
-let () =
+let main () =
   let port = if Array.length Sys.argv > 1
     then (try int_of_string Sys.argv.(1) with _ -> 8080)
     else 8080 in
   register_demo_routes ();
   start_server port
+
+let () =
+  (* Allow the file to be loaded into tests (or other tools) without
+     immediately binding a socket: setting HTTP_SERVER_NO_AUTOSTART=1
+     skips auto-starting the server. *)
+  match Sys.getenv_opt "HTTP_SERVER_NO_AUTOSTART" with
+  | Some v when v <> "" && v <> "0" -> ()
+  | _ -> main ()
