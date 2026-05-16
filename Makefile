@@ -28,7 +28,7 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	binomial_heap.ml bplus_tree.ml cartesian_tree.ml compression.ml \
 	consistent_hashing.ml count_min_sketch.ml cuckoo_filter.ml \
 	dancing_links.ml dining_philosophers.ml euler_tour_tree.ml \
-	fibonacci_heap.ml forth.ml http_server.ml hyperloglog.ml \
+	fibonacci_heap.ml forth.ml hyperloglog.ml \
 	leftist_heap.ml link_cut_tree.ml logic_circuit.ml maze.ml \
 	merkle_tree.ml mini_sql.ml music.ml order_statistics_tree.ml \
 	persistent_array.ml petri_net.ml polynomial.ml prolog.ml \
@@ -36,11 +36,11 @@ SOURCES_PLAIN = hello.ml fibonacci.ml factor.ml list_last_elem.ml bst.ml \
 	simplex.ml sparse_table.ml splay_tree.ml succinct_bitvector.ml \
 	suffix_automaton.ml suffix_tree.ml treap.ml turing_machine.ml \
 	two_three_tree.ml typeclass.ml van_emde_boas.ml wavelet_tree.ml \
-	weight_balanced_tree.ml yfast_trie.ml zip_tree.ml process_calculus.ml 
+	weight_balanced_tree.ml yfast_trie.ml zip_tree.ml process_calculus.ml \
 	bandit.ml property_discovery.ml code_lineage.ml fuzzing_engine.ml
 
 # Sources that require ocamlfind + external packages
-SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml
+SOURCES_PKG = csv.ml free_monad.ml actor.ml kd_tree.ml tensor.ml http_server.ml
 # csv.ml needs: ocamlfind ocamlopt -package str -linkpkg csv.ml -o csv
 # free_monad.ml needs: ocamlfind ocamlopt -package str -linkpkg free_monad.ml -o free_monad
 # actor.ml needs: ocamlfind ocamlopt -package unix -linkpkg actor.ml -o actor
@@ -70,6 +70,10 @@ free_monad: free_monad.ml
 
 # actor needs the unix package via ocamlfind
 actor: actor.ml
+	ocamlfind $(OCAML) -package unix -linkpkg $< -o $@
+
+# http_server needs the unix package via ocamlfind
+http_server: http_server.ml
 	ocamlfind $(OCAML) -package unix -linkpkg $< -o $@
 
 # kd_tree needs the alcotest package via ocamlfind
