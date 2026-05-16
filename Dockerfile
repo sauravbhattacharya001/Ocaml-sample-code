@@ -20,7 +20,7 @@ COPY --chown=opam:opam Makefile *.ml ./
 RUN eval $(opam env) && make all
 
 # ---- Runtime stage ----
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:26.04 AS runtime
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
