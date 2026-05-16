@@ -12,8 +12,12 @@ WORKDIR /home/opam/app
 # Copy source files
 COPY --chown=opam:opam Makefile *.ml ./
 
-# Build all programs with the native-code compiler
-RUN make all
+# Build all programs with the native-code compiler.
+# The ocaml/opam base image does not put the opam switch's bin directory
+# on $PATH automatically in non-interactive RUN steps, so ocamlopt /
+# ocamlfind would not be found. `eval $(opam env)` exports the correct
+# PATH (and OCAMLPATH) for the duration of this RUN.
+RUN eval $(opam env) && make all
 
 # ---- Runtime stage ----
 FROM ubuntu:24.04 AS runtime
