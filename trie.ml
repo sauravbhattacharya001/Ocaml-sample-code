@@ -1,31 +1,50 @@
-(* Trie (prefix tree) — efficient string storage and prefix-based retrieval *)
-(* Demonstrates: Map module functor, recursive data types, option types, *)
-(* higher-order functions, accumulators, tail recursion, string manipulation *)
+(** {1 Trie (Prefix Tree)}
+
+    An efficient persistent string-storage structure that supports fast
+    membership, prefix queries, autocomplete, and lexicographic enumeration.
+
+    Each internal node carries a flag marking whether a word ends there
+    and a {!CharMap.t} of children keyed by the next character. All
+    operations are purely functional — they return a new trie and leave
+    the input untouched.
+
+    {2 Complexity (where [m] is the queried/inserted string length)}
+    - {!insert}, {!member}, {!has_prefix}, {!delete} : [O(m log a)] where
+      [a] is the alphabet size at each visited node (logarithmic from
+      the underlying balanced {!CharMap}).
+    - {!words_with_prefix} : [O(m + s)] where [s] is the total output size.
+
+    {2 Demonstrates}
+    Map module functor, recursive ADTs, option types, higher-order
+    functions, accumulator passing, and Buffer-based string assembly. *)
 
 module CharMap = Map.Make(Char)
 
-(* A trie node: each node may mark the end of a word and has *)
-(* children indexed by character. This is a purely functional *)
-(* persistent data structure — all operations return new tries. *)
+(** A trie node. Purely functional and persistent — every mutating
+    operation returns a new node and shares structure with the old one. *)
 type trie = {
-  is_word: bool;          (* does a word end at this node? *)
-  children: trie CharMap.t;  (* child nodes keyed by character *)
+  is_word: bool;             (** does a word end at this node? *)
+  children: trie CharMap.t;  (** child nodes keyed by character *)
 }
 
-(* The empty trie — no words stored *)
+(** The empty trie: no words stored, no children. *)
 let empty = { is_word = false; children = CharMap.empty }
 
-(* Convert a string to a list of characters for recursive processing *)
+(** [chars_of_string s] explodes [s] into its character list, preserving
+    order. Runs in [O(n)] without intermediate allocations beyond the
+    output list. *)
 let chars_of_string s =
   List.init (String.length s) (String.get s)
 
-(* Convert a character list back to a string — O(n) via Buffer *)
+(** [string_of_chars cs] is the inverse of {!chars_of_string}, built in
+    [O(n)] with a single {!Buffer.t} allocation. *)
 let string_of_chars chars =
   let buf = Buffer.create (List.length chars) in
   List.iter (Buffer.add_char buf) chars;
   Buffer.contents buf
 
-(* Insert a word into the trie — O(m) where m = word length *)
+(** [insert w t] adds the word [w] to [t]. Idempotent — inserting an
+    existing word returns an equivalent trie. Runs in [O(m log a)]. *)
 let insert word trie =
   let chars = chars_of_string word in
   let rec aux chars node =
@@ -71,8 +90,10 @@ let has_prefix prefix trie =
 let find_subtrie prefix trie =
   walk prefix trie
 
-(* Collect all words in a trie with a given prefix *)
-(* Uses an accumulator for efficient list building *)
+(** [words_with_prefix p t] returns every word in [t] whose prefix is [p],
+    in lexicographic order. Returns [[]] if [p] does not appear in [t].
+    Uses an accumulator for efficient list building; total cost is
+    [O(m + s)] where [s] is the size of the output. *)
 let words_with_prefix prefix trie =
   match find_subtrie prefix trie with
   | None -> []
@@ -86,11 +107,13 @@ let words_with_prefix prefix trie =
     in
     List.rev (collect [] (List.rev prefix_chars) subtrie)
 
-(* List all words in the trie — sorted lexicographically *)
-(* (CharMap maintains sorted order by character) *)
+(** [all_words t] lists every word in [t] in lexicographic order.
+    Equivalent to [words_with_prefix "" t]; ordering is inherited from
+    {!CharMap}, which keeps keys sorted by character code. *)
 let all_words trie = words_with_prefix "" trie
 
-(* Count the number of words in the trie *)
+(** [word_count t] counts the number of distinct words stored in [t].
+    Visits every node once — [O(n)] where [n] is the node count. *)
 let word_count trie =
   let rec aux node =
     let count = if node.is_word then 1 else 0 in
@@ -98,15 +121,17 @@ let word_count trie =
   in
   aux trie
 
-(* Count the total number of nodes in the trie *)
+(** [node_count t] is the total number of nodes in [t], including the
+    root and every internal node. Useful for capacity analysis. *)
 let node_count trie =
   let rec aux node =
     1 + CharMap.fold (fun _ child acc -> acc + aux child) node.children 0
   in
   aux trie
 
-(* Delete a word from the trie — O(m) *)
-(* Returns a pruned trie: removes nodes that are no longer needed *)
+(** [delete w t] removes [w] from [t] if present and prunes any branch
+    that becomes structurally empty afterwards (no words, no children).
+    If [w] is not in [t], [t] is returned unchanged. Runs in [O(m log a)]. *)
 let delete word trie =
   let chars = chars_of_string word in
   let rec aux chars node =
@@ -127,7 +152,9 @@ let delete word trie =
   in
   aux chars trie
 
-(* Find the longest common prefix of all words in the trie *)
+(** [longest_common_prefix t] returns the longest string that is a
+    prefix of every word in [t]. Returns [""] for an empty trie or when
+    no non-trivial common prefix exists. *)
 let longest_common_prefix trie =
   let rec aux node =
     if node.is_word && not (CharMap.is_empty node.children) then ""
@@ -140,12 +167,13 @@ let longest_common_prefix trie =
   if CharMap.is_empty trie.children then ""
   else aux trie
 
-(* Build a trie from a list of words *)
+(** [of_list ws] builds a trie containing every word in [ws].
+    Duplicates are silently absorbed. *)
 let of_list words =
   List.fold_left (fun t w -> insert w t) empty words
 
-(* ASCII visualization of the trie structure *)
-(* Shows the tree with indentation and markers *)
+(** [to_string t] renders an ASCII tree visualisation of [t] with box
+    drawing connectors. Word-terminating nodes are tagged with [" *"]. *)
 let to_string trie =
   let buf = Buffer.create 256 in
   let rec aux indent last node bindings =
