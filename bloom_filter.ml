@@ -28,11 +28,33 @@ module BloomFilter = struct
     Bytes.set bits byte_idx (Char.chr (old lor (1 lsl bit_idx)))
 
   (* ---- Hash functions ---- *)
-  (* Double hashing: h_i(x) = (h1(x) + i * h2(x)) mod m *)
-  (* Uses Hashtbl.hash with salt for h1, h2 *)
+  (* Double hashing: h_i(x) = (h1(x) + i * h2(x)) mod m                  *)
+  (*                                                                     *)
+  (* The classic Kirsch–Mitzenmacher construction requires h1 and h2 to  *)
+  (* be (near-)independent for the analytical FPR (1 - e^{-kn/m})^k to   *)
+  (* hold. An earlier version computed:                                  *)
+  (*   hash1 x = Hashtbl.hash x                                          *)
+  (*   hash2 x = Hashtbl.hash (x, 0x9e3779b9)                            *)
+  (* which is *not* independent: hash2 is just hash1 of a tuple that     *)
+  (* embeds x verbatim, so for many input types (ints, short strings)    *)
+  (* hash1 and hash2 share a large amount of mutual information and the  *)
+  (* observed FPR drifts measurably above the value reported by          *)
+  (* false_positive_rate (see issue #102).                               *)
+  (*                                                                     *)
+  (* Fix: use Hashtbl.seeded_hash with two distinct, well-mixed seeds.   *)
+  (* seeded_hash folds the seed into its internal state before consuming *)
+  (* the value, so changing the seed produces avalanche-style decorrela- *)
+  (* tion rather than a fixed offset.                                    *)
 
-  let hash1 x = Hashtbl.hash x
-  let hash2 x = Hashtbl.hash (x, 0x9e3779b9)
+  let bloom_seed_1 = 0x9e3779b1  (* golden-ratio derived, odd *)
+  let bloom_seed_2 = 0x85ebca77  (* MurmurHash3 finalizer constant, odd *)
+
+  let hash1 x = Hashtbl.seeded_hash bloom_seed_1 x
+  let hash2 x =
+    (* Force a non-zero stride: if h2 happens to be 0, every probe lands *)
+    (* on the same slot and we degenerate to a 1-bit filter for x.       *)
+    let h = Hashtbl.seeded_hash bloom_seed_2 x in
+    if h = 0 then 0x27d4eb2f else h
 
   let hash_i m h1 h2 i =
     ((h1 + i * h2) mod m + m) mod m
@@ -48,7 +70,13 @@ module BloomFilter = struct
     { bits = Bytes.make byte_count '\000'; m; k; n = 0 }
 
   (** Create a Bloom filter sized for expected element count and
-      desired false-positive probability. *)
+      desired false-positive probability.
+
+      The sizing formulae assume two statistically independent base
+      hashes; this implementation derives them from [Hashtbl.seeded_hash]
+      with two distinct seeds (see issue #102). For workloads that need
+      cryptographic-strength independence, supply your own hash via
+      a functorised variant. *)
   let create_optimal ~expected_elements ~fp_rate =
     let n_f = float_of_int (max 1 expected_elements) in
     let p = max 0.0001 (min 0.5 fp_rate) in

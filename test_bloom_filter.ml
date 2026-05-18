@@ -180,4 +180,34 @@ let () =
       (!false_positives < 50)
   );
 
+  (* ── regression: hash1 / hash2 independence (issue #102) ── *)
+  suite "hash independence (issue #102)" (fun () ->
+    (* Insert 5000 random ints into a filter sized for fp_rate=0.01     *)
+    (* and query 10000 disjoint ints. With correlated hashes the older  *)
+    (* implementation observed > 2x the theoretical FPR on adversarial  *)
+    (* int sequences; the seeded-hash fix should sit close to 0.01.    *)
+    let bf = ref (create_optimal ~expected_elements:5000 ~fp_rate:0.01) in
+    for i = 0 to 4999 do
+      bf := add (i * 2) !bf  (* even ints *)
+    done;
+    let false_positives = ref 0 in
+    for i = 0 to 9999 do
+      if mem (i * 2 + 1) !bf then incr false_positives  (* odd ints *)
+    done;
+    let observed = float_of_int !false_positives /. 10000.0 in
+    (* Loose bound: must stay under 2 * theoretical, generous slack for *)
+    (* CI variance. Pre-fix this regularly landed above 0.02.            *)
+    assert_true
+      ~msg:(Printf.sprintf "empirical FPR %.4f within 2x of 0.01" observed)
+      (observed < 0.02);
+    (* Sanity: the two hashes should disagree on most inputs. *)
+    let disagreements = ref 0 in
+    for i = 0 to 999 do
+      if hash1 i <> hash2 i then incr disagreements
+    done;
+    assert_true
+      ~msg:(Printf.sprintf "hash1<>hash2 on %d/1000 ints" !disagreements)
+      (!disagreements > 950)
+  );
+
   test_summary ()
