@@ -6,9 +6,13 @@
 (* Supports: add_node, remove_node, lookup, virtual nodes (vnodes) for       *)
 (* better load balance, node listing, key distribution stats.                *)
 (*                                                                            *)
-(* The ring is implemented as a sorted association list of (hash, node_id)   *)
-(* pairs. Virtual nodes replicate each physical node at multiple positions   *)
-(* around the ring for more uniform distribution.                            *)
+(* Performance: the ring is stored as a sorted [array] of ring points so     *)
+(* [lookup] runs in O(log R) via binary search instead of the O(R) linear    *)
+(* scan a list would require (R = node_count * vnodes). [distribution] over  *)
+(* K keys becomes O(K log R) instead of O(K * R), which is a large win for   *)
+(* the typical use case of looking up many keys against a stable ring.       *)
+(* [add_node] / [remove_node] are O(R) (array rebuild), which is fine        *)
+(* because they are rare relative to lookups in real workloads.              *)
 
 module ConsistentHash = struct
 
@@ -20,7 +24,7 @@ module ConsistentHash = struct
 
   (** The hash ring *)
   type t = {
-    ring       : ring_point list;   (** sorted by position *)
+    ring       : ring_point array;  (** sorted by position, ascending *)
     vnodes     : int;               (** virtual nodes per physical node *)
     node_set   : string list;       (** physical nodes in insertion order *)
   }
@@ -33,54 +37,79 @@ module ConsistentHash = struct
 
   (** Create an empty ring with the given number of virtual nodes *)
   let create ?(vnodes = 150) () =
-    { ring = []; vnodes; node_set = [] }
+    { ring = [||]; vnodes; node_set = [] }
 
-  (** Insert a ring_point into a sorted list *)
-  let rec insert_sorted pt = function
-    | [] -> [pt]
-    | hd :: tl when pt.position < hd.position -> pt :: hd :: tl
-    | hd :: tl -> hd :: insert_sorted pt tl
-
-  (** Generate virtual-node keys for a physical node *)
-  let vnode_keys node_id vnodes =
-    List.init vnodes (fun i ->
+  (** Generate virtual-node points for a physical node *)
+  let vnode_points node_id vnodes =
+    Array.init vnodes (fun i ->
       let key = Printf.sprintf "%s#vn%d" node_id i in
       { position = hash_string key; node_id })
+
+  (** Merge two sorted arrays of ring points into a new sorted array. *)
+  let merge_sorted a b =
+    let la = Array.length a and lb = Array.length b in
+    if la = 0 then Array.copy b
+    else if lb = 0 then Array.copy a
+    else begin
+      let out = Array.make (la + lb) a.(0) in
+      let i = ref 0 and j = ref 0 and k = ref 0 in
+      while !i < la && !j < lb do
+        if a.(!i).position <= b.(!j).position then begin
+          out.(!k) <- a.(!i); incr i
+        end else begin
+          out.(!k) <- b.(!j); incr j
+        end;
+        incr k
+      done;
+      while !i < la do out.(!k) <- a.(!i); incr i; incr k done;
+      while !j < lb do out.(!k) <- b.(!j); incr j; incr k done;
+      out
+    end
 
   (** Add a physical node to the ring *)
   let add_node t node_id =
     if List.mem node_id t.node_set then t
     else
-      let points = vnode_keys node_id t.vnodes in
-      let ring = List.fold_left (fun r pt -> insert_sorted pt r) t.ring points in
+      let new_points = vnode_points node_id t.vnodes in
+      (* Sort the new node's own vnode points (positions are hashed and
+         therefore not in order) before merging into the existing ring. *)
+      Array.sort (fun p q -> compare p.position q.position) new_points;
+      let ring = merge_sorted t.ring new_points in
       { t with ring; node_set = t.node_set @ [node_id] }
 
   (** Remove a physical node from the ring *)
   let remove_node t node_id =
     if not (List.mem node_id t.node_set) then t
     else
-      let ring = List.filter (fun pt -> pt.node_id <> node_id) t.ring in
+      let ring =
+        Array.of_list
+          (List.filter (fun pt -> pt.node_id <> node_id)
+             (Array.to_list t.ring))
+      in
       let node_set = List.filter (fun n -> n <> node_id) t.node_set in
       { t with ring; node_set }
 
+  (** Find the index of the first ring point with position >= h using
+      binary search. Returns [Array.length t.ring] if no such point exists. *)
+  let bsearch_ge ring h =
+    let lo = ref 0 and hi = ref (Array.length ring) in
+    while !lo < !hi do
+      let mid = (!lo + !hi) lsr 1 in
+      if ring.(mid).position >= h then hi := mid
+      else lo := mid + 1
+    done;
+    !lo
+
   (** Look up which node owns a given key — walks clockwise from the
-      key's hash position to find the first ring point *)
+      key's hash position to find the first ring point. O(log R). *)
   let lookup t key =
-    match t.ring with
-    | [] -> None
-    | _ ->
+    let n = Array.length t.ring in
+    if n = 0 then None
+    else
       let h = hash_string key in
-      (* Find first point with position >= h (clockwise walk) *)
-      let rec find = function
-        | [] -> None
-        | pt :: _ when pt.position >= h -> Some pt.node_id
-        | _ :: tl -> find tl
-      in
-      match find t.ring with
-      | Some _ as result -> result
-      | None ->
-        (* Wrap around to the first point on the ring *)
-        Some (List.hd t.ring).node_id
+      let idx = bsearch_ge t.ring h in
+      let idx = if idx = n then 0 else idx in  (* wrap around *)
+      Some t.ring.(idx).node_id
 
   (** List all physical nodes *)
   let nodes t = t.node_set
@@ -89,7 +118,7 @@ module ConsistentHash = struct
   let node_count t = List.length t.node_set
 
   (** Number of points on the ring (physical * vnodes) *)
-  let ring_size t = List.length t.ring
+  let ring_size t = Array.length t.ring
 
   (** Distribution stats: given a list of keys, return a list of
       (node_id, count) pairs showing how many keys map to each node *)
@@ -125,7 +154,7 @@ module ConsistentHash = struct
       (node_count t) t.vnodes (ring_size t);
     Printf.printf "Nodes: %s\n" (String.concat ", " t.node_set)
 
-  (** Simulate adding/removing a node and show key remapping impact *)
+  (** Simulate adding a node and show key remapping impact *)
   let remapping_impact t keys new_node =
     let before = List.map (fun k -> (k, lookup t k)) keys in
     let t' = add_node t new_node in
