@@ -56,7 +56,7 @@ module BoyerMoore = struct
     while !i > 0 do
       while !j <= m
             && (let ii = !i - 1 and jj = !j - 1 in
-                ii >= 0 && jj >= 0
+                ii >= 0 && jj >= 0 && jj < m
                 && pattern.[ii] <> pattern.[jj]) do
         if shift.(!j) = 0 then shift.(!j) <- !j - !i;
         j := border.(!j)
