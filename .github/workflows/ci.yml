@@ -5,7 +5,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `master` is this repo's default branch; `main` is kept for legacy/parity.
+    branches: [master, main]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -13,7 +14,7 @@ on:
       - '.gitignore'
       - '.editorconfig'
   pull_request:
-    branches: [main]
+    branches: [master, main]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
