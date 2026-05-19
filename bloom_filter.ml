@@ -86,15 +86,21 @@ module BloomFilter = struct
     let k = max 1 (int_of_float (Float.round k_f)) in
     create ~m ~k ()
 
+  (* Internal: set the k bits for [x] into the supplied (mutable) buffer. *)
+  (* Used by [add] and bulk constructors so we don't pay an O(m) Bytes.copy *)
+  (* per element when building a filter from a known collection.            *)
+  let set_bits_for ~m ~k bits x =
+    let h1 = hash1 x in
+    let h2 = hash2 x in
+    for i = 0 to k - 1 do
+      let idx = hash_i m h1 h2 i in
+      set_bit bits idx
+    done
+
   (** Add an element to the filter. Returns a new filter. *)
   let add x bf =
     let new_bits = Bytes.copy bf.bits in
-    let h1 = hash1 x in
-    let h2 = hash2 x in
-    for i = 0 to bf.k - 1 do
-      let idx = hash_i bf.m h1 h2 i in
-      set_bit new_bits idx
-    done;
+    set_bits_for ~m:bf.m ~k:bf.k new_bits x;
     { bf with bits = new_bits; n = bf.n + 1 }
 
   (** Test if an element might be in the set.
@@ -181,9 +187,56 @@ module BloomFilter = struct
       { bits = new_bits; m = bf1.m; k = bf1.k; n = bf1.n + bf2.n }
     end
 
-  (** Create a filter from a list of elements. *)
+  (** Create a filter from a list of elements.
+
+      Performance: builds into a single mutable byte buffer rather than
+      threading [add] across the list. [add] copies the underlying
+      [Bytes] on every call to preserve persistence, which makes a naive
+      [List.fold_left add] cost O(n * m/8) bytes of allocation and time.
+      Bulk construction is O(n * k) bit writes plus one O(m/8) allocation,
+      which is roughly an n-fold speedup for large lists. The returned
+      filter is still immutable from the outside; the buffer is private. *)
   let of_list ?(m = 1024) ?(k = 7) lst =
-    List.fold_left (fun bf x -> add x bf) (create ~m ~k ()) lst
+    let m = max 8 m in
+    let k = max 1 k in
+    let byte_count = (m + 7) / 8 in
+    let bits = Bytes.make byte_count '\000' in
+    let n = ref 0 in
+    List.iter (fun x ->
+      set_bits_for ~m ~k bits x;
+      incr n
+    ) lst;
+    { bits; m; k; n = !n }
+
+  (** Create a filter from a [Seq.t] of elements. Same bulk-build
+      performance characteristics as [of_list], without forcing the
+      caller to materialise an intermediate list. *)
+  let of_seq ?(m = 1024) ?(k = 7) seq =
+    let m = max 8 m in
+    let k = max 1 k in
+    let byte_count = (m + 7) / 8 in
+    let bits = Bytes.make byte_count '\000' in
+    let n = ref 0 in
+    Seq.iter (fun x ->
+      set_bits_for ~m ~k bits x;
+      incr n
+    ) seq;
+    { bits; m; k; n = !n }
+
+  (** Add many elements to an existing filter in one pass, producing a
+      single new filter. Avoids the per-element [Bytes.copy] that
+      [List.fold_left (fun bf x -> add x bf)] would incur. *)
+  let add_all lst bf =
+    match lst with
+    | [] -> bf
+    | _ ->
+      let new_bits = Bytes.copy bf.bits in
+      let added = ref 0 in
+      List.iter (fun x ->
+        set_bits_for ~m:bf.m ~k:bf.k new_bits x;
+        incr added
+      ) lst;
+      { bf with bits = new_bits; n = bf.n + !added }
 
   (** Test if all elements in a list might be present. *)
   let mem_all lst bf =
