@@ -98,6 +98,78 @@ test_graph_db: graph_db.ml test_graph_db.ml
 test_sat_solver: test_sat_solver.ml
 	$(OCAML) -o test_sat_solver test_sat_solver.ml
 
+# ----------------------------------------------------------------------
+# Extended test discovery (resolves issue #103).
+#
+# `make test` above runs the unified `test_all` suite plus a few ad-hoc
+# targets. The repo also ships ~40 dedicated `test_*.ml` files that were
+# never wired into the build, so they could rot silently and never showed
+# up in coverage.
+#
+# `make test-extended` discovers and runs ALL of them. Two flavors:
+#
+#   1. "Script" tests use `#use "...";;` toplevel directives, so they
+#      must be loaded by the `ocaml` interpreter, not compiled. We detect
+#      this with a simple grep at make time.
+#
+#   2. "Compiled" tests are self-contained `.ml` files (the test inlines
+#      whatever module helpers it needs) and build with `ocamlopt`. A
+#      couple of tests genuinely depend on the module under test
+#      (e.g. `test_skip_list` opens `Skip_list.SkipList`); those keep
+#      explicit, hand-wired rules above so they always link correctly.
+#
+# CI invokes `make test-extended` in a separate job so a regression in
+# an extended suite does not block the fast `make test` lane.
+# ----------------------------------------------------------------------
+
+ALL_TEST_FILES := $(filter-out test_framework.ml test_all.ml, $(wildcard test_*.ml))
+SCRIPT_TESTS   := $(shell grep -l -E '^[[:space:]]*#use[[:space:]]+"' $(ALL_TEST_FILES) 2>/dev/null)
+COMPILED_TESTS := $(filter-out $(SCRIPT_TESTS), $(ALL_TEST_FILES))
+COMPILED_TEST_BINS := $(COMPILED_TESTS:.ml=)
+
+# Compiled tests share a generic build rule. `test_skip_list`, `test_csp`,
+# `test_graph_db`, and `test_sat_solver` have explicit rules elsewhere
+# (or above) because they need a paired module file or a custom name.
+#
+# Implementation note: we declare the rule with `%: %.ml` for compiled
+# tests by listing them via static-pattern syntax so Make does not pick
+# the broad rule for other targets.
+$(filter-out test_skip_list test_csp test_graph_db test_sat_solver test_compression test_huffman, $(COMPILED_TEST_BINS)): %: %.ml
+	$(OCAML) -o $@ $<
+
+test_csp: csp.ml test_csp.ml
+	$(OCAML) -o test_csp csp.ml test_csp.ml
+
+test_compression: test_framework.ml compression.ml test_compression.ml
+	$(OCAML) -o test_compression test_framework.ml compression.ml test_compression.ml
+
+test_huffman: test_framework.ml huffman.ml test_huffman.ml
+	ocamlfind $(OCAML) -package str -linkpkg test_framework.ml huffman.ml test_huffman.ml -o test_huffman
+
+.PHONY: test-extended test-scripts test-compiled
+
+test-extended: test test-compiled test-scripts
+	@echo ""
+	@echo "=== Extended test summary: $(words $(COMPILED_TEST_BINS)) compiled + $(words $(SCRIPT_TESTS)) script suites + test_all ==="
+
+test-compiled: $(COMPILED_TEST_BINS)
+	@echo ""
+	@echo "=== Running compiled test binaries ($(words $(COMPILED_TEST_BINS)) suites) ==="
+	@fail=0; for t in $(COMPILED_TEST_BINS); do \
+		echo ""; echo "--- $$t ---"; \
+		if ! ./$$t; then echo "FAIL: $$t"; fail=1; fi; \
+	done; \
+	exit $$fail
+
+test-scripts:
+	@echo ""
+	@echo "=== Running script test suites ($(words $(SCRIPT_TESTS)) suites, via ocaml toplevel) ==="
+	@fail=0; for t in $(SCRIPT_TESTS); do \
+		echo ""; echo "--- $$t ---"; \
+		if ! ocaml $$t; then echo "FAIL: $$t"; fail=1; fi; \
+	done; \
+	exit $$fail
+
 run: all
 	@for prog in $(TARGETS_PLAIN); do \
 		echo "=== $$prog ===" ; \
@@ -124,5 +196,5 @@ coverage-html: coverage
 	@echo "Coverage report: _coverage/index.html"
 
 clean:
-	rm -f $(TARGETS) test_all test_all_cov test_skip_list test_graph_db test_sat_solver *.cmi *.cmx *.cmo *.o bisect*.coverage
+	rm -f $(TARGETS) test_all test_all_cov test_skip_list test_graph_db test_sat_solver test_csp test_compression test_huffman $(COMPILED_TEST_BINS) *.cmi *.cmx *.cmo *.o bisect*.coverage
 	rm -rf _coverage

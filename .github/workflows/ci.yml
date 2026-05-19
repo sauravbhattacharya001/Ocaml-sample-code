@@ -73,6 +73,41 @@ jobs:
           eval $(opam env)
           make run
 
+  # Runs every test_*.ml (script + compiled) — see Makefile `test-extended`
+  # target. Kept in its own job so a regression in the extended suite
+  # doesn't block the main `build-and-test` lane while suites are
+  # stabilized. `continue-on-error` makes this advisory; flip to false
+  # once all extended suites are reliably green.
+  extended-tests:
+    name: Extended Test Suites (test_*.ml)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.x"
+          dune-cache: true
+
+      - name: Install dependencies
+        run: |
+          opam install ocamlfind alcotest --yes
+          eval $(opam env)
+
+      - name: Build all programs
+        run: |
+          eval $(opam env)
+          make all
+
+      - name: Run extended test suites
+        run: |
+          eval $(opam env)
+          make test-extended
+
   lint:
     name: Lint & Format Check
     runs-on: ubuntu-latest
