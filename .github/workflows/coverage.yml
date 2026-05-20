@@ -28,69 +28,12 @@ jobs:
           opam install bisect_ppx --yes
           eval $(opam env)
 
-      - name: Build individual modules with coverage
-        run: |
-          eval $(opam env)
-          # Build key source modules with bisect_ppx instrumentation
-          # to get per-file coverage metrics on the actual library code
-          BISECT_FLAGS="-package bisect_ppx -linkpkg"
-
-          # Compile standalone modules that test_all exercises
-          for src in bst.ml fibonacci.ml factor.ml mergesort.ml heap.ml \
-                     graph.ml dijkstra.ml sorting.ml queue.ml trie.ml \
-                     union_find.ml bloom_filter.ml hashmap.ml rbtree.ml \
-                     lru_cache.ml rope.ml skip_list.ml segment_tree.ml \
-                     interval_tree.ml fenwick_tree.ml suffix_array.ml \
-                     matrix.ml huffman.ml calculus.ml json.ml regex.ml \
-                     memoize.ml ring_buffer.ml cuckoo_filter.ml \
-                     compression.ml splay_tree.ml aa_tree.ml astar.ml \
-                     bplus_tree.ml btree.ml cellular_automata.ml \
-                     constraint.ml dancing_links.ml finger_tree.ml \
-                     free_monad.ml geometry.ml order_statistics_tree.ml \
-                     pairing_heap.ml sat_solver.ml treap.ml \
-                     persistent_vector.ml signal_processing.ml \
-                     crypto.ml crdt.ml csp.ml diff.ml graph_db.ml \
-                     raft.ml stm.ml \
-                     deque.ml string_match.ml zipper.ml hamt.ml \
-                     kd_tree.ml binomial_heap.ml fibonacci_heap.ml \
-                     leftist_heap.ml radix_tree.ml scapegoat_tree.ml \
-                     two_three_tree.ml weight_balanced_tree.ml \
-                     van_emde_boas.ml count_min_sketch.ml \
-                     consistent_hashing.ml merkle_tree.ml \
-                     hyperloglog.ml sparse_table.ml polynomial.ml \
-                     autodiff.ml tensor.ml integration.ml \
-                     abstract_interp.ml abstract_machine.ml actor.ml \
-                     adaptive_radix_tree.ml ant_colony.ml argumentation.ml \
-                     auction.ml automata.ml bandit.ml bayesian_net.ml \
-                     bdd.ml bdi_agent.ml behavior_tree.ml blackboard.ml \
-                     bytecode_vm.ml cartesian_tree.ml comonad.ml \
-                     contract_net.ml csv.ml datalog.ml delimited_cont.ml \
-                     earley.ml effects.ml euler_tour_tree.ml forth.ml \
-                     frp.ml fsm.ml gadts.ml game_ai.ml gc_simulator.ml \
-                     genetic.ml gossip.ml hmm.ml http_server.ml \
-                     incremental.ml influence_maximization.ml lambda.ml \
-                     leader_election.ml link_cut_tree.ml logic_circuit.ml \
-                     lsystem.ml maze.ml mdp.ml mini_sql.ml \
-                     minikanren.ml model_checker.ml monad_transformers.ml \
-                     music.ml negotiation.ml network_flow.ml \
-                     neural_network.ml optics.ml parser.ml peg.ml \
-                     persistent_array.ml petri_net.ml planning.ml \
-                     probability.ml process_calculus.ml prolog.ml \
-                     proof_assistant.ml quadtree.ml quickcheck.ml \
-                     random_access_list.ml raytracer.ml \
-                     reactive_streams.ml relational.ml simplex.ml \
-                     spreadsheet.ml stream.ml succinct_bitvector.ml \
-                     suffix_automaton.ml suffix_tree.ml \
-                     symbolic_regression.ml task_scheduler.ml \
-                     term_rewriting.ml theorem_prover.ml \
-                     turing_machine.ml type_infer.ml typeclass.ml \
-                     wavelet_tree.ml yfast_trie.ml zip_tree.ml \
-                     benchmark.ml dining_philosophers.ml hello.ml \
-                     list_last_elem.ml; do
-            if [ -f "$src" ]; then
-              ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "${src%.ml}_cov" 2>/dev/null || true
-            fi
-          done
+      # NOTE: We intentionally do NOT pre-build standalone *_cov binaries
+      # for every .ml here. Earlier revisions of this workflow did so, but
+      # those binaries were never executed in the "Run all tests" step
+      # below (which only matches test_all_cov, test_*_cov, and *_inline_cov),
+      # so it was several minutes of wasted CI per run. The *_inline_cov
+      # build step further down covers the standalone-inline-test case.
 
       - name: Build test suite with coverage instrumentation
         run: |
