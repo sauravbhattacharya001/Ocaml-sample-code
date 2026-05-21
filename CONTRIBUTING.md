@@ -12,6 +12,9 @@ Thanks for your interest in contributing! This repository is a curated collectio
 - [Adding Tests](#adding-tests)
 - [Contributing Documentation](#contributing-documentation)
 - [CI Pipeline](#ci-pipeline)
+- [Benchmarking Performance Changes](#benchmarking-performance-changes)
+- [Dependency Upgrades](#dependency-upgrades)
+- [Pre-Push Checklist](#pre-push-checklist)
 - [Reporting Issues](#reporting-issues)
 - [Security Vulnerabilities](#security-vulnerabilities)
 - [Troubleshooting](#troubleshooting)
@@ -274,6 +277,108 @@ Every push and PR triggers these workflows:
 | **Stale** | `stale.yml` | Marks inactive issues/PRs |
 
 Your PR must pass **CI** before merge. Coverage and CodeQL results appear as PR checks.
+
+## Benchmarking Performance Changes
+
+Any PR that claims a performance improvement (`perf:` commit) MUST include
+before/after numbers from `benchmark.ml`. Vibes are not data.
+
+### Running the framework
+
+```bash
+ocamlfind ocamlopt -package unix -linkpkg benchmark.ml -o benchmark
+./benchmark
+```
+
+### Adding a benchmark for your change
+
+`benchmark.ml` exposes a small `Bench` API (`run`, `compare`, `parameterized`).
+For a perf-oriented PR, copy the function under test into the benchmark
+harness alongside the previous implementation and compare both:
+
+```ocaml
+let () =
+  Bench.compare ~name:"my_function" ~iterations:100_000 [
+    "baseline", (fun () -> ignore (old_impl sample_input));
+    "optimized", (fun () -> ignore (new_impl sample_input));
+  ]
+```
+
+Paste the mean/median/std-dev table directly into the PR description so
+reviewers can see the wins (or regressions) without re-running anything.
+For algorithmic changes, also report the asymptotic complexity change in
+the commit body — micro-numbers alone don't justify a different big-O.
+
+### What counts as a real improvement
+
+- ≥10% mean speedup on a representative input AND no regression on small inputs
+- Memory: peak RSS drop verified with `/usr/bin/time -v` or `Gc.stat ()`
+- Latency tail: p99 must not get worse than the baseline's p99
+
+If the change is purely a code-clarity refactor that *happens* to be a hair
+faster, call it `refactor:` — keep `perf:` for measured wins.
+
+## Dependency Upgrades
+
+This repo has **three** dependency surfaces, and they're upgraded differently:
+
+| Surface | Tool | Cadence | Notes |
+|--------|------|---------|-------|
+| GitHub Actions | Dependabot (Mon) | Auto-grouped minor/patch | Majors land as separate PRs; review individually |
+| npm (Jest) | Dependabot (Tue) | Dev/prod groups | Run `npm test` locally before merging |
+| Docker base | Dependabot (Wed) | Minor/patch only | OCaml *major* bumps are ignored — see below |
+| **opam (OCaml)** | **Manual** | **As needed** | Dependabot has no opam support |
+
+### Upgrading the OCaml toolchain or opam packages
+
+Dependabot can't see `ocaml-sample-code.opam`. To do a sweep manually:
+
+```bash
+opam update
+opam upgrade           # interactive — reject anything risky
+make clean && make all
+make test
+```
+
+If you bump the minimum OCaml version, also update:
+
+1. The `ocaml` constraint in `ocaml-sample-code.opam`
+2. The `ocaml-compiler` matrix in `.github/workflows/ci.yml`
+3. The base image in `Dockerfile`
+4. The Prerequisites section above
+
+### Upgrading the OCaml base image (Docker)
+
+Major OCaml jumps (e.g. `ocaml-5.x` → `ocaml-6.x`) are intentionally
+*ignored* in `.github/dependabot.yml` because they historically break the
+`Makefile` flag set and require coordinated test_all.ml work. Do those by
+hand: bump the `FROM` line, run `docker build .` locally, run the runtime
+stage, fix fallout, then push.
+
+## Pre-Push Checklist
+
+Run this before every push. It mirrors what CI will check, so a green
+local run means a green PR.
+
+```bash
+# 1. Full clean rebuild — catches stale build artifacts
+make clean && make all
+
+# 2. OCaml test suite
+make test
+
+# 3. Docs site tests (only if you touched docs/, tests/, __tests__/, or package.json)
+npm test
+
+# 4. Coverage didn't regress on the files you touched
+make coverage
+
+# 5. No compiler warnings on changed files
+ocamlfind ocamlopt -w +a-4-9-40-42-44-45-48-70 -c your_changed_file.ml
+```
+
+If you added a new `.ml` file, also confirm it's wired into the Makefile
+(`make all` must build it) and, if it's a core module, into `test_all.ml`.
 
 ## Contributing Documentation
 
