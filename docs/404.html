@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | OCaml Sample Code</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .nf-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; padding:2rem; }
+        .nf-code { font-size:6rem; font-weight:700; margin:0; opacity:0.6; }
+        .nf-title { font-size:1.75rem; margin:0.5rem 0 1rem; }
+        .nf-sub { opacity:0.8; max-width:46rem; margin-bottom:2rem; }
+        .nf-actions a { margin:0 0.5rem; padding:0.6rem 1.1rem; border-radius:6px; text-decoration:none; display:inline-block; }
+        .nf-actions a.primary { background:#7aa2f7; color:#1a1b26; }
+        .nf-actions a.secondary { border:1px solid currentColor; }
+        pre.nf-pat { text-align:left; max-width:46rem; padding:1rem 1.25rem; border-radius:8px; background:rgba(127,127,127,0.12); overflow:auto; }
+    </style>
+</head>
+<body>
+    <main class="content" style="margin-left:0;">
+        <div class="nf-wrap">
+            <p class="nf-code">404</p>
+            <h1 class="nf-title">Page not found</h1>
+            <p class="nf-sub">The page you requested does not exist in this documentation site. It may have been renamed, removed, or never existed. Try the search, the overview, or jump straight to the source on GitHub.</p>
+            <pre class="nf-pat"><code>match request with
+| Some page -&gt; render page
+| None      -&gt; Error 404  (* you are here *)</code></pre>
+            <div class="nf-actions">
+                <a href="index.html" class="primary">Home</a>
+                <a href="search.html" class="secondary">Search</a>
+                <a href="https://github.com/sauravbhattacharya001/Ocaml-sample-code" class="secondary">GitHub</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sauravbhattacharya001.github.io/Ocaml-sample-code/sitemap.xml
