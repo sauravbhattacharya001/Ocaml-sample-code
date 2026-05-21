@@ -66,7 +66,11 @@ jobs:
                           test_segment_tree.ml test_signal_processing.ml \
                           test_skip_list.ml test_stm.ml \
                           test_suffix_array.ml test_treap.ml \
-                          test_autodiff.ml; do
+                          test_autodiff.ml test_autonomous_debugger.ml \
+                          test_bitap.ml test_compression.ml \
+                          test_contract_inference.ml test_fuzzing_engine.ml \
+                          test_http_server.ml test_program_synthesis.ml \
+                          test_property_discovery.ml test_union_find.ml; do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
               ocamlfind ocamlopt $BISECT_FLAGS "$test_src" -o "${test_src%.ml}_cov" 2>/dev/null || \
@@ -121,18 +125,19 @@ jobs:
           done
 
       - name: Run all tests with coverage
+        timeout-minutes: 30
         run: |
           eval $(opam env)
           export BISECT_FILE=$(pwd)/bisect
 
-          # Run main test suite
-          ./test_all_cov || true
+          # Run main test suite (capped to avoid runaway harnesses)
+          timeout 600 ./test_all_cov || true
 
-          # Run individual test suites (test_*_cov)
+          # Run individual test suites (test_*_cov) with a per-binary cap
           for cov_bin in test_*_cov; do
             if [ -x "$cov_bin" ] && [ "$cov_bin" != "test_all_cov" ]; then
               echo "=== Running $cov_bin ==="
-              ./"$cov_bin" || true
+              timeout 180 ./"$cov_bin" || true
             fi
           done
 
@@ -140,7 +145,7 @@ jobs:
           for cov_bin in *_inline_cov; do
             if [ -x "$cov_bin" ]; then
               echo "=== Running $cov_bin ==="
-              ./"$cov_bin" || true
+              timeout 120 ./"$cov_bin" || true
             fi
           done
 
