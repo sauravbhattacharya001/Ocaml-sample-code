@@ -4,11 +4,15 @@
 
 **A curated collection of idiomatic OCaml programs demonstrating core functional programming concepts**
 
-[![OCaml](https://img.shields.io/badge/language-OCaml-EC6813?style=flat-square&logo=ocaml&logoColor=white)](https://ocaml.org/)
+[![CI](https://img.shields.io/github/actions/workflow/status/sauravbhattacharya001/Ocaml-sample-code/ci.yml?branch=master&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/sauravbhattacharya001/Ocaml-sample-code/codeql.yml?branch=master&style=flat-square&label=CodeQL&logo=github)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/actions/workflows/codeql.yml)
+[![Pages](https://img.shields.io/github/actions/workflow/status/sauravbhattacharya001/Ocaml-sample-code/pages.yml?branch=master&style=flat-square&label=docs&logo=github)](https://sauravbhattacharya001.github.io/Ocaml-sample-code/)
+[![Coverage](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code/branch/master/graph/badge.svg)](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code)
+[![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A54.14-EC6813?style=flat-square&logo=ocaml&logoColor=white)](https://ocaml.org/)
 [![License: MIT](https://img.shields.io/github/license/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=7aa2f7)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-222?style=flat-square&logo=github)](https://sauravbhattacharya001.github.io/Ocaml-sample-code/)
+[![Last commit](https://img.shields.io/github/last-commit/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=9ece6a)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/commits/master)
+[![Code size](https://img.shields.io/github/languages/code-size/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=bb9af7)](https://github.com/sauravbhattacharya001/Ocaml-sample-code)
 [![GitHub stars](https://img.shields.io/github/stars/sauravbhattacharya001/Ocaml-sample-code?style=flat-square&color=e0af68)](https://github.com/sauravbhattacharya001/Ocaml-sample-code/stargazers)
-[![Coverage](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code/graph/badge.svg)](https://codecov.io/gh/sauravbhattacharya001/Ocaml-sample-code)
 
 [**Browse Examples**](#programs) · [**Documentation Site**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/) · [**Concept Map**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/concept-map.html) · [**Complexity Cheat Sheet**](https://sauravbhattacharya001.github.io/Ocaml-sample-code/complexity.html) · [**Getting Started**](#getting-started)
 
