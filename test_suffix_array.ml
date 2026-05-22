@@ -199,8 +199,58 @@ let test_edge () = suite "Edge Cases" (fun () ->
   assert_list_equal ~msg:"xyz pos" [0;3] (search t sa "xyz");
   assert_list_equal ~msg:"z pos" [2;5] (search t sa "z"))
 
+let test_bwt_roundtrip () = suite "BWT round-trip" (fun () ->
+  List.iter (fun t ->
+    let (sep, b) = bwt_with_sentinel t in
+    assert_equal_int ~msg:("bwt+sentinel length " ^ t) (String.length t + 1) (String.length b);
+    let recovered = inverse_bwt sep b in
+    assert_equal_str ~msg:("roundtrip " ^ t) t recovered
+  ) ["banana"; "a"; "abracadabra"; "mississippi"; "aaaa"; "abcdefg"];
+  let (_, b) = bwt_with_sentinel "" in
+  assert_equal_str ~msg:"empty bwt" "" b;
+  assert_equal_str ~msg:"empty inverse" "" (inverse_bwt (Char.chr 0) ""))
+
+let test_lcs_pair () = suite "LCS two strings" (fun () ->
+  (match longest_common_substring "banana" "ananas" with
+   | Some (s, pa, pb) ->
+     assert_equal_str ~msg:"banana/ananas substr" "anana" s;
+     assert_equal_int ~msg:"pos in banana" 1 pa;
+     assert_equal_int ~msg:"pos in ananas" 0 pb
+   | None -> assert_equal_str ~msg:"banana/ananas" "anana" "None");
+  (match longest_common_substring "abcdef" "zcdeq" with
+   | Some (s, pa, pb) ->
+     assert_equal_str ~msg:"cde substr" "cde" s;
+     assert_equal_int ~msg:"pos a" 2 pa;
+     assert_equal_int ~msg:"pos b" 1 pb
+   | None -> assert_equal_str ~msg:"cde" "cde" "None");
+  assert_none ~msg:"disjoint" (longest_common_substring "abc" "xyz");
+  assert_none ~msg:"empty left" (longest_common_substring "" "abc");
+  assert_none ~msg:"empty right" (longest_common_substring "abc" "");
+  (match longest_common_substring "hello" "hello" with
+   | Some (s, _, _) -> assert_equal_str ~msg:"identical" "hello" s
+   | None -> assert_equal_str ~msg:"identical" "hello" "None"))
+
+let test_lcs_k () = suite "LCS k strings" (fun () ->
+  (match longest_common_substring_k ["abcdef"; "zabcdy"; "qabcdr"] with
+   | Some (s, ps) ->
+     assert_equal_str ~msg:"k=3 substr" "abcd" s;
+     assert_list_equal ~msg:"k=3 positions" [0; 1; 1] ps
+   | None -> assert_equal_str ~msg:"k=3" "abcd" "None");
+  (match longest_common_substring_k ["banana"; "ananas"; "bandana"] with
+   | Some (s, _) ->
+     assert_equal_int ~msg:"k=3 banana family len=3" 3 (String.length s);
+     assert_true ~msg:"k=3 banana family" (s = "ana" || s = "nan")
+   | None -> assert_equal_str ~msg:"k=3 banana" "ana" "None");
+  assert_none ~msg:"empty input" (longest_common_substring_k []);
+  assert_none ~msg:"one empty" (longest_common_substring_k ["abc"; ""]);
+  assert_none ~msg:"no common" (longest_common_substring_k ["ab"; "cd"; "ef"]);
+  (match longest_common_substring_k ["single"] with
+   | Some (s, [0]) -> assert_equal_str ~msg:"singleton" "single" s
+   | _ -> assert_equal_str ~msg:"singleton" "single" "None"))
+
 let () =
   Printf.printf "\n=== Suffix Array Test Suite ===\n\n";
   test_build (); test_lcp (); test_search (); test_count ();
   test_lrs (); test_distinct (); test_kth (); test_bwt (); test_edge ();
+  test_bwt_roundtrip (); test_lcs_pair (); test_lcs_k ();
   test_summary ()
