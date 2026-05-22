@@ -1,10 +1,20 @@
 name: Deploy to GitHub Pages
 
+# Builds the static docs site under ./docs and publishes it to GitHub Pages.
+#
+# Hardening done on 2026-05-21 (gardener):
+#   * Trigger when the workflow file itself changes (catches CI mistakes).
+#   * Run a fast HTML sanity scan + internal-link audit BEFORE deploy so we
+#     never publish a broken navigation or 404-link build.
+#   * Inject `.nojekyll` so files/dirs that start with `_` are served as-is.
+#   * Emit the deployed URL into the workflow run summary.
+
 on:
   push:
     branches: [master]
     paths:
       - 'docs/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -17,14 +27,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Validate docs site
+        run: |
+          set -euo pipefail
+          cd docs
+          echo "::group::Files"
+          find . -maxdepth 2 -type f | sort
+          echo "::endgroup::"
+
+          # index.html must exist or Pages serves a generic 404.
+          if [ ! -f index.html ]; then
+            echo "::error file=docs/index.html::missing index.html at site root"
+            exit 1
+          fi
+
+          # Internal link audit: every relative href/src must resolve to a real file
+          # in docs/. We deliberately ignore external (http(s):), in-page (#...),
+          # mailto:, and protocol-relative (//...) links.
+          fail=0
+          while IFS= read -r html; do
+            # Extract href="..." and src="..." values; tolerate single quotes too.
+            python3 - "$html" <<'PY' || fail=1
+          import os, re, sys
+          path = sys.argv[1]
+          with open(path, encoding='utf-8', errors='replace') as f:
+              html = f.read()
+          # Matches href="..." href='...' src="..." src='...'
+          attrs = re.findall(r'''(?:href|src)\s*=\s*["']([^"'#?]+)(?:[#?][^"']*)?["']''', html, re.IGNORECASE)
+          bad = []
+          base = os.path.dirname(path)
+          for a in attrs:
+              if not a or a.startswith(('http://', 'https://', '//', 'mailto:', 'javascript:', 'data:', 'tel:')):
+                  continue
+              # Skip JS template-literal placeholders like ${var}.
+              if '${' in a:
+                  continue
+              # Resolve relative to the html file's directory
+              target = os.path.normpath(os.path.join(base, a))
+              if not os.path.exists(target):
+                  bad.append(a)
+          if bad:
+              print(f"::error file={path}::broken internal links: {bad}")
+              sys.exit(1)
+          PY
+          done < <(find . -name '*.html')
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::link audit failed"
+            exit 1
+          fi
+          echo "Link audit OK"
+
+      - name: Ensure .nojekyll
+        run: touch docs/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
@@ -34,6 +95,21 @@ jobs:
         with:
           path: docs
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Summary
+        run: |
+          {
+            echo "## 🚀 Deployed"
+            echo ""
+            echo "- URL: ${{ steps.deployment.outputs.page_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
