@@ -4,6 +4,7 @@
     "test": "jest --no-coverage"
   },
   "devDependencies": {
-    "jest": "^30.4.2"
+    "jest": "^30.4.1",
+    "jest-environment-jsdom": "^30.4.1"
   }
 }
