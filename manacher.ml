@@ -25,11 +25,23 @@
    O(1) for is_palindrome queries and O(n) for the bulk queries.
    ============================================================ *)
 
+(** Manacher's algorithm: linear-time palindrome analysis.
+
+    Given a string [s], computes the maximum palindromic radius around
+    every center of [s] in O(|s|) time, then exposes a small library of
+    palindrome utilities built on that radii array.
+
+    The implementation uses the classic transform trick: insert '#'
+    between every original character and pad the ends with distinct
+    sentinels '^' and '$' so even-length and odd-length palindromes are
+    handled uniformly. *)
+
 (* ---- Core algorithm ---- *)
 
-(* Transform "abc" -> "^#a#b#c#$" with distinct sentinels so the
-   palindrome expansion never walks off either end without being
-   stopped by the inequality check. *)
+(** [transform s] returns the sentinel-padded transform
+    ["^#a#b#c#$"] (for [s = "abc"]) used internally by Manacher. The
+    distinct end sentinels ['^'] and ['$'] terminate the expansion
+    loop without explicit bounds checks. *)
 let transform (s : string) : string =
   let n = String.length s in
   let buf = Buffer.create ((2 * n) + 3) in
@@ -42,9 +54,10 @@ let transform (s : string) : string =
   Buffer.add_char buf '$';
   Buffer.contents buf
 
-(* Manacher's main loop: returns the radii array p where p.(i) is
-   the largest r such that t.[i-r..i+r] is a palindrome in the
-   *transformed* string t. *)
+(** [radii s] runs Manacher's main loop and returns the radii array
+    [p] for the {!transform}ed string [t], where [p.(i)] is the
+    largest [r] such that [t.\[i - r .. i + r\]] is a palindrome.
+    Total cost O(|s|). *)
 let radii (s : string) : int array =
   let t = transform s in
   let n = String.length t in
@@ -69,8 +82,9 @@ let radii (s : string) : int array =
 
 (* ---- Derived queries ---- *)
 
-(* Longest palindromic substring of s. Returns (start, length).
-   On ties, the leftmost occurrence wins (deterministic). *)
+(** [longest s] returns [(start, length)] for the longest palindromic
+    substring of [s]. On ties, the leftmost occurrence wins
+    (deterministic). Returns [(0, 0)] for the empty string. *)
 let longest (s : string) : int * int =
   if String.length s = 0 then (0, 0)
   else begin
@@ -88,15 +102,19 @@ let longest (s : string) : int * int =
     (start, !best_len)
   end
 
+(** [longest_substring s] returns the longest palindromic substring of
+    [s] as a fresh string (the [(start, length)] slice produced by
+    {!longest}). *)
 let longest_substring (s : string) : string =
   let (start, len) = longest s in
   String.sub s start len
 
-(* All maximal palindromes (those that cannot be extended on either
-   side while staying a palindrome) as (start, length) pairs sorted
-   by start ascending, then by length descending. Single-character
-   palindromes are included only when they are not part of a longer
-   palindrome at the same center. *)
+(** [all_maximal s] returns every maximal palindrome in [s] (one that
+    cannot be extended on either side while remaining a palindrome) as
+    [(start, length)] pairs, sorted by [start] ascending and then by
+    [length] descending. Single-character palindromes are included
+    only when they are not part of a longer palindrome at the same
+    center. *)
 let all_maximal (s : string) : (int * int) list =
   if String.length s = 0 then []
   else begin
@@ -115,17 +133,15 @@ let all_maximal (s : string) : (int * int) list =
       !acc
   end
 
-(* Total count of palindromic substrings (counted with multiplicity:
-   each (start,length) pair counts once, even if the same string
-   appears at multiple positions). Includes single characters.
+(** [count s] returns the total number of palindromic substrings of
+    [s] counted with multiplicity (each [(start, length)] occurrence
+    counts once, even if the same palindromic string appears at
+    multiple positions). Includes single-character palindromes.
 
-   For a center with radius r in the transformed string, the number
-   of palindromic substrings centered there is ceil(r/2) for centers
-   at odd positions (real characters, odd-length palindromes of
-   length 1, 3, 5, ..., r when r is odd) plus floor(r/2) for centers
-   at even positions (gaps, even-length palindromes of length 2, 4,
-   ..., r when r is even). Equivalently: sum over all centers of
-   (p.(i) + 1) / 2. *)
+    Centers in the transform are weighted [(p.(i) + 1) / 2]: odd
+    radii contribute the odd-length palindromes centered on real
+    characters, even radii contribute the even-length palindromes
+    centered on the gaps between characters. *)
 let count (s : string) : int =
   let p = radii s in
   let total = ref 0 in
@@ -134,9 +150,10 @@ let count (s : string) : int =
   done;
   !total
 
-(* Number of *distinct* palindromic substrings. Implemented with a
-   Hashtbl to keep behaviour stdlib-only (an Eertree would be
-   asymptotically better but requires more machinery). *)
+(** [count_distinct s] returns the number of {e distinct} palindromic
+    substrings of [s]. Uses a [Hashtbl] to stay stdlib-only; an
+    Eertree (palindromic tree) would be asymptotically better but
+    requires significantly more machinery. *)
 let count_distinct (s : string) : int =
   let p = radii s in
   let seen = Hashtbl.create 64 in
@@ -155,9 +172,13 @@ let count_distinct (s : string) : int =
   done;
   Hashtbl.length seen
 
-(* O(1) lookup for whether s.[start..start+len-1] is a palindrome.
-   Returns false for out-of-range slices. The radii array is built
-   once and passed in by the caller for repeated queries. *)
+(** [is_palindrome_at ~radii ~start ~len] is an O(1) lookup that
+    returns [true] iff [s.\[start .. start + len - 1\]] is a
+    palindrome, where [radii] is the array returned by {!radii} on the
+    same original [s]. Returns [false] for out-of-range slices and
+    [true] for empty slices.
+
+    Build the [radii] array once and pass it in for repeated queries. *)
 let is_palindrome_at ~(radii : int array) ~(start : int) ~(len : int) : bool =
   if len <= 0 then true
   else
@@ -171,6 +192,8 @@ let is_palindrome_at ~(radii : int array) ~(start : int) ~(len : int) : bool =
       let center = (2 * start) + len + 1 in
       radii.(center) >= len
 
+(** [is_palindrome s] is [true] iff the whole string [s] is a
+    palindrome. Strings of length 0 or 1 are trivially palindromic. *)
 let is_palindrome (s : string) : bool =
   let n = String.length s in
   if n <= 1 then true
@@ -178,10 +201,11 @@ let is_palindrome (s : string) : bool =
     let r = radii s in
     is_palindrome_at ~radii:r ~start:0 ~len:n
 
-(* Earliest (start, length) such that length >= k and the slice is
-   palindromic. Returns None if no such palindrome exists.
-   Useful for "does this string hide a palindromic run of size k?"
-   detection. *)
+(** [contains_palindrome_at_least s k] returns [Some (start, length)]
+    for the leftmost maximal palindrome in [s] whose length is at
+    least [k], or [None] if no such palindrome exists. Useful for
+    "does this string hide a palindromic run of size k?" detection.
+    For [k <= 0] returns [Some (0, 0)]. *)
 let contains_palindrome_at_least (s : string) (k : int) : (int * int) option =
   if k <= 0 then Some (0, 0)
   else begin

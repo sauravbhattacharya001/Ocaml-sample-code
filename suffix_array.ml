@@ -17,11 +17,27 @@
    - O(n) Kasai's algorithm for LCP array computation
    - O(m log n) binary search for pattern matching *)
 
+(** Suffix array with LCP array, BWT, and generalized multi-string
+    queries.
+
+    A suffix array is a sorted array of all suffixes of a string,
+    represented as the array of their starting indices. Combined with
+    the longest-common-prefix (LCP) array it powers efficient
+    full-text search, longest-repeated-substring queries, distinct
+    substring counting, longest common substring of K strings, and a
+    sentinel-based Burrows-Wheeler transform.
+
+    Complexity summary:
+    - {!build}: O(n log^2 n) via comparison sort with rank pairs.
+    - {!build_lcp}: O(n) via Kasai's algorithm.
+    - Pattern matching ({!search} / {!count} / {!contains}): O(m log n). *)
+
 (* --- Suffix Array Construction --- *)
 
-(* Build a suffix array for the given string.
-   Returns an int array where sa.(i) is the starting index of the
-   i-th lexicographically smallest suffix. *)
+(** [build text] returns the suffix array of [text]: an int array [sa]
+    where [sa.(i)] is the starting index of the i-th
+    lexicographically smallest suffix. Returns [\[||\]] for the empty
+    string. O(n log^2 n). *)
 let build text =
   let n = String.length text in
   if n = 0 then [||]
@@ -56,10 +72,10 @@ let build text =
 
 (* --- LCP Array (Kasai's Algorithm) --- *)
 
-(* Compute the LCP (Longest Common Prefix) array.
-   lcp.(i) = length of the longest common prefix between
-   the i-th and (i-1)-th suffixes in sorted order.
-   lcp.(0) is always 0. *)
+(** [build_lcp text sa] computes the LCP (Longest Common Prefix)
+    array, where [lcp.(i)] is the length of the longest common prefix
+    between the i-th and (i-1)-th suffixes in sorted order.
+    [lcp.(0)] is always 0. O(n) via Kasai's algorithm. *)
 let build_lcp text sa =
   let n = String.length text in
   if n = 0 then [||]
@@ -84,9 +100,10 @@ let build_lcp text sa =
 
 (* --- Pattern Matching --- *)
 
-(* Compare pattern against suffix starting at position s in text.
-   Returns negative if pattern < suffix, 0 if suffix starts with
-   pattern, positive if pattern > suffix. *)
+(** [compare_suffix text s pattern] compares [pattern] against the
+    suffix of [text] starting at [s]. Returns a negative integer if
+    [pattern] is strictly less than the suffix, [0] if the suffix
+    starts with [pattern], and a positive integer otherwise. *)
 let compare_suffix text s pattern =
   let plen = String.length pattern in
   let tlen = String.length text in
@@ -100,7 +117,9 @@ let compare_suffix text s pattern =
   in
   loop 0
 
-(* Find the leftmost position in sa where pattern could match. *)
+(** [lower_bound text sa pattern] returns the leftmost index in [sa]
+    at which [pattern] could match (i.e. the first suffix that is not
+    strictly less than [pattern]). O(m log n). *)
 let lower_bound text sa pattern =
   let n = Array.length sa in
   let lo = ref 0 in
@@ -113,7 +132,9 @@ let lower_bound text sa pattern =
   done;
   !lo
 
-(* Find one past the rightmost position in sa where pattern matches. *)
+(** [upper_bound text sa pattern] returns one past the rightmost
+    index in [sa] at which [pattern] matches (i.e. the first suffix
+    that is strictly greater than [pattern]). O(m log n). *)
 let upper_bound text sa pattern =
   let n = Array.length sa in
   let lo = ref 0 in
@@ -127,8 +148,10 @@ let upper_bound text sa pattern =
   done;
   !lo
 
-(* Find all occurrences of pattern in text using the suffix array.
-   Returns a sorted list of starting positions. O(m log n) *)
+(** [search text sa pattern] returns every starting position of
+    [pattern] in [text] (via the suffix array [sa]), sorted in
+    ascending order. O(m log n + occ). Returns [\[\]] for an empty
+    pattern or empty text. *)
 let search text sa pattern =
   let plen = String.length pattern in
   let n = Array.length sa in
@@ -143,21 +166,26 @@ let search text sa pattern =
     List.sort compare !results
   end
 
-(* Count occurrences of pattern. O(m log n) *)
+(** [count text sa pattern] returns the number of occurrences of
+    [pattern] in [text] using the precomputed suffix array. O(m log n). *)
 let count text sa pattern =
   let plen = String.length pattern in
   let n = Array.length sa in
   if plen = 0 || n = 0 then 0
   else upper_bound text sa pattern - lower_bound text sa pattern
 
-(* Check if pattern exists in text. O(m log n) *)
+(** [contains text sa pattern] is [true] iff [pattern] occurs in
+    [text]. O(m log n). *)
 let contains text sa pattern =
   count text sa pattern > 0
 
 (* --- Substring Queries --- *)
 
-(* Find the longest repeated substring in the text.
-   Returns (substring, position, length) or None if no repetition. *)
+(** [longest_repeated_substring text sa lcp] returns
+    [Some (substring, position, length)] for the longest substring of
+    [text] that occurs at least twice, or [None] if no character is
+    repeated. The position is one specific occurrence of the
+    repeated substring (not necessarily the leftmost). O(n). *)
 let longest_repeated_substring text sa lcp =
   let n = Array.length lcp in
   if n <= 1 then None
@@ -174,8 +202,9 @@ let longest_repeated_substring text sa lcp =
     else Some (String.sub text !max_pos !max_len, !max_pos, !max_len)
   end
 
-(* Count the number of distinct substrings in the text.
-   Uses the formula: n*(n+1)/2 - sum(lcp) *)
+(** [count_distinct_substrings text sa lcp] returns the number of
+    distinct non-empty substrings of [text], computed in O(n) as
+    [n * (n + 1) / 2 - sum lcp]. *)
 let count_distinct_substrings text _sa lcp =
   let n = String.length text in
   if n = 0 then 0
@@ -185,8 +214,9 @@ let count_distinct_substrings text _sa lcp =
     total - lcp_sum
   end
 
-(* Find the k-th lexicographically smallest distinct substring.
-   Returns None if k is out of range (1-indexed). *)
+(** [kth_substring text sa lcp k] returns [Some s] where [s] is the
+    [k]-th lexicographically smallest distinct non-empty substring of
+    [text] (1-indexed), or [None] if [k] is out of range. *)
 let kth_substring text sa lcp k =
   let n = Array.length sa in
   if k < 1 || n = 0 then None
@@ -209,21 +239,25 @@ let kth_substring text sa lcp k =
 
 (* --- Burrows-Wheeler Transform --- *)
 
-(* Compute the BWT string from the suffix array.
-   bwt[i] = text[(sa[i] - 1 + n) mod n] *)
+(** [bwt text sa] returns the cyclic Burrows-Wheeler transform of
+    [text] derived from its suffix array: [bwt.\[i\] = text.\[(sa.(i) - 1 + n) mod n\]].
+    Note: this cyclic variant requires the primary index to invert.
+    For an exactly invertible BWT see {!bwt_with_sentinel}. *)
 let bwt text sa =
   let n = String.length text in
   String.init n (fun i ->
     let j = (sa.(i) - 1 + n) mod n in
     text.[j])
 
-(* BWT variant that appends a sentinel byte strictly smaller than every
-   byte in [text] (raises [Invalid_argument] if every byte 0..254 already
-   appears). The returned (sentinel, bwt) pair is canonical and the BWT
-   is exactly invertible by [inverse_bwt] without a primary index.
+(** [bwt_with_sentinel text] computes the sentinel-based BWT used by
+    bzip2-style pipelines and FM-indexes. It appends a byte strictly
+    smaller than every byte already in [text] (chosen from the unused
+    range [0..254]) and returns [(sentinel, bwt)] where [bwt] is the
+    transform over [text ^ sentinel]. The result is exactly
+    invertible by {!inverse_bwt} without a primary index.
 
-   This is the standard sentinel-based BWT used by bzip2-style pipelines
-   and by FM-indexes. *)
+    @raise Invalid_argument if every byte in [0..254] already appears
+    in [text] (no free byte for the sentinel). *)
 let bwt_with_sentinel text =
   let n = String.length text in
   if n = 0 then (Char.chr 0, "")
@@ -250,10 +284,12 @@ let bwt_with_sentinel text =
     (sep, b)
   end
 
-(* Invert a sentinel-tagged BWT produced by [bwt_with_sentinel]. The
-   sentinel byte is stripped before returning, so [inverse_bwt sep
-   (snd (bwt_with_sentinel s)) = s] for any [s] that has at least one
-   free byte value. O(n + sigma). *)
+(** [inverse_bwt sentinel bwt] inverts a sentinel-tagged BWT produced
+    by {!bwt_with_sentinel}. The sentinel byte is stripped before
+    returning, so [inverse_bwt sep (snd (bwt_with_sentinel s)) = s]
+    for any [s] that has at least one free byte value. O(n + sigma).
+
+    @raise Invalid_argument if [sentinel] does not occur in [bwt]. *)
 let inverse_bwt sentinel bwt =
   let n = String.length bwt in
   if n = 0 then ""
@@ -314,16 +350,24 @@ let pick_separators strings =
        reserve at least N low bytes (e.g. \\001..\\00N) outside your input";
   List.rev !seps
 
-(* Build a generalized suffix array over a list of strings. Each input is
-   joined with a unique low-byte separator that does not occur in any
-   input. Returns:
-     - concat: the joined text (with separators)
-     - sa:     the suffix array over [concat]
-     - lcp:    the LCP array over [sa]
-     - owner:  owner.(p) is the 0-based index of the source string that
-               position [p] in [concat] belongs to, or -1 for separators.
-     - offset: offset.(p) is the position within its source string, or -1
-               for separators. *)
+(** [generalized_build strings] builds a generalized suffix array
+    over a list of input strings.
+
+    Each input is joined into a single text with a unique low-byte
+    separator that does not occur in any input. Returns the tuple:
+    - [concat]: the joined text (with separators interleaved);
+    - [sa]: the suffix array over [concat];
+    - [lcp]: the LCP array over [sa];
+    - [owner]: [owner.(p)] is the 0-based index of the source string
+      that position [p] in [concat] belongs to, or [-1] for separator
+      positions;
+    - [offset]: [offset.(p)] is the position within its source
+      string, or [-1] for separator positions.
+
+    Empty strings in the input list are filtered out.
+
+    @raise Invalid_argument if there are not enough free byte values
+    in [0..255] to assign one unique separator per input. *)
 let generalized_build strings =
   let strings = List.filter (fun s -> String.length s > 0) strings in
   match strings with
@@ -353,12 +397,15 @@ let generalized_build strings =
     let lcp = build_lcp concat sa in
     (concat, sa, lcp, owner, offset)
 
-(* Find the longest substring that occurs in every input string.
-   Returns None if [strings] is empty, contains an empty string, or the
-   inputs share no common character. Otherwise returns
-   (substring, positions) where positions.(i) is the start index of the
-   substring inside [List.nth strings i]. O(N) over total length, plus a
-   linear sliding-window walk. *)
+(** [longest_common_substring_k strings] returns
+    [Some (substring, positions)] where [substring] is a longest
+    substring that occurs in every input string and [positions.(i)]
+    is its start index inside the i-th input (matching the input
+    order). Returns [None] if [strings] is empty, contains an empty
+    string, or the inputs share no common substring.
+
+    Runs in O(N) over total input length (modulo the
+    suffix-array build, which dominates). *)
 let longest_common_substring_k strings =
   let k = List.length strings in
   if k = 0 then None
@@ -442,8 +489,10 @@ let longest_common_substring_k strings =
     end
   end
 
-(* Convenience wrapper: longest common substring of two strings.
-   Returns (substring, pos_in_a, pos_in_b) or None. *)
+(** [longest_common_substring a b] returns
+    [Some (substring, pos_in_a, pos_in_b)] for a longest common
+    substring of [a] and [b], or [None] if they share no character.
+    Convenience wrapper over {!longest_common_substring_k}. *)
 let longest_common_substring a b =
   match longest_common_substring_k [a; b] with
   | Some (s, [pa; pb]) -> Some (s, pa, pb)
@@ -451,6 +500,8 @@ let longest_common_substring a b =
 
 (* --- Pretty Printing --- *)
 
+(** [pp text sa] prints the suffix array of [text] in human-readable
+    form: rank, position, and a truncated rendering of each suffix. *)
 let pp text sa =
   let n = Array.length sa in
   Printf.printf "Suffix Array (%d suffixes):\n" n;
@@ -464,6 +515,8 @@ let pp text sa =
     Printf.printf "  %4d  %4d  %s\n" i sa.(i) display
   done
 
+(** [pp_with_lcp text sa lcp] prints the suffix array of [text]
+    alongside its LCP array. Suffixes are truncated to fit. *)
 let pp_with_lcp text sa lcp =
   let n = Array.length sa in
   Printf.printf "Suffix Array with LCP (%d suffixes):\n" n;

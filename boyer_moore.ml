@@ -21,12 +21,20 @@
 (* prefix-match), per-byte alphabet table over the full 0..255 range, and   *)
 (* "build once, query many" automaton-style design.                          *)
 
+(** Boyer-Moore exact string search.
+
+    Builds the bad-character and good-suffix tables once via
+    {!BoyerMoore.compile}, then matches against any number of texts in
+    sublinear average time (O(n + m) worst case).
+
+    Sibling to {!module:Kmp} (linear worst case via failure function),
+    {!module:AhoCorasick} (multi-pattern), and the Z-algorithm /
+    Manacher modules. *)
 module BoyerMoore = struct
 
-  (* ---------------------------------------------------------------- *)
-  (* Bad-character table: for each byte b in 0..255, store the        *)
-  (* rightmost index in the pattern where b occurs, or -1 if absent.  *)
-  (* ---------------------------------------------------------------- *)
+  (** [build_bad_char_table pattern] returns a 256-entry array where
+      entry [b] is the rightmost index in [pattern] at which byte [b]
+      occurs, or [-1] if [b] does not occur in [pattern]. O(m + 256). *)
   let build_bad_char_table pattern =
     let m = String.length pattern in
     let tbl = Array.make 256 (-1) in
@@ -35,17 +43,12 @@ module BoyerMoore = struct
     done;
     tbl
 
-  (* ---------------------------------------------------------------- *)
-  (* Good-suffix preprocessing.                                       *)
-  (*                                                                  *)
-  (* Produces two arrays of length m+1:                               *)
-  (*   shift.(i)  — distance to shift when a mismatch occurs at       *)
-  (*                pattern position i-1 (so pattern.[i..m-1] matched *)
-  (*                successfully).                                    *)
-  (*   border.(i) — width of widest border of pattern.[i..m-1].       *)
-  (*                                                                  *)
-  (* This is the standard Knuth/Gusfield "Case 1 + Case 2" table.     *)
-  (* ---------------------------------------------------------------- *)
+  (** [build_good_suffix_table pattern] returns the good-suffix shift
+      table (length [m + 1]) used by Boyer-Moore. Encodes both the
+      "strong" rule (Case 1: shift to next occurrence of the matched
+      suffix in the pattern) and the "weak" rule (Case 2: align the
+      longest prefix of the pattern that matches a suffix of the
+      matched run). Computed in O(m). *)
   let build_good_suffix_table pattern =
     let m = String.length pattern in
     let border = Array.make (m + 1) 0 in
@@ -73,9 +76,9 @@ module BoyerMoore = struct
     done;
     shift
 
-  (* ---------------------------------------------------------------- *)
-  (* Compiled automaton: pattern + both preprocessing tables.         *)
-  (* ---------------------------------------------------------------- *)
+  (** Precomputed Boyer-Moore automaton bundling the pattern, its
+      length, and both heuristic tables. Reuse across many texts to
+      amortise preprocessing cost. *)
   type automaton = {
     pattern    : string;
     m          : int;
@@ -83,6 +86,8 @@ module BoyerMoore = struct
     good_suff  : int array;     (* length m+1                        *)
   }
 
+  (** [compile pattern] precomputes the bad-character and good-suffix
+      tables. O(m + 256) time and space. *)
   let compile pattern =
     let m = String.length pattern in
     {
@@ -92,10 +97,13 @@ module BoyerMoore = struct
       good_suff = build_good_suffix_table pattern;
     }
 
-  (* ---------------------------------------------------------------- *)
-  (* Core search: invokes [on_match start] for each occurrence; if    *)
-  (* the callback returns false, the scan stops early.                *)
-  (* ---------------------------------------------------------------- *)
+  (** [scan auto text on_match] streams matches of the compiled
+      [auto] over [text] in left-to-right order. The callback receives
+      each match start offset and returns [true] to continue scanning
+      or [false] to stop early.
+
+      Empty-pattern convention: a single match is reported at offset 0
+      and the scan halts. *)
   let scan auto text on_match =
     let m = auto.m and n = String.length text in
     if m = 0 then begin
@@ -121,29 +129,38 @@ module BoyerMoore = struct
       done
     end
 
-  (* ---------------------------------------------------------------- *)
-  (* Public, allocation-light convenience API.                        *)
-  (* ---------------------------------------------------------------- *)
+  (** [find_all auto text] returns the list of every start offset of
+      the compiled pattern in [text], in increasing order. *)
   let find_all auto text =
     let acc = ref [] in
     scan auto text (fun i -> acc := i :: !acc; true);
     List.rev !acc
 
+  (** [find_first auto text] returns [Some i] for the first occurrence
+      or [None] if the pattern is absent. *)
   let find_first auto text =
     let result = ref None in
     scan auto text (fun i -> result := Some i; false);
     !result
 
+  (** [contains auto text] is an O(n) existence check using
+      short-circuit scanning. *)
   let contains auto text =
     find_first auto text <> None
 
+  (** [count auto text] returns the number of (non-overlapping in the
+      Boyer-Moore sense after each match shift) occurrences. *)
   let count auto text =
     let n = ref 0 in
     scan auto text (fun _ -> incr n; true);
     !n
 
-  (* Functional one-shot helpers (compile + scan in one call).        *)
+  (** [search ~pattern ~text] compiles internally and returns every
+      occurrence. Prefer {!compile} + {!find_all} when the pattern is
+      reused. *)
   let search ~pattern ~text = find_all (compile pattern) text
+
+  (** [occurs ~pattern ~text] is the one-shot existence check. *)
   let occurs ~pattern ~text = contains (compile pattern) text
 
 end

@@ -28,13 +28,19 @@
 
 module Rabin_karp = struct
 
+  (** Hash base for the polynomial rolling hash (size of the byte
+      alphabet plus one). *)
   let base = 257
+
+  (** Hash modulus. A large prime that comfortably fits in OCaml's
+      63-bit native int, so all rolling-hash arithmetic stays in plain
+      [int] with no external dependencies. *)
   let prime = 1_000_000_007
 
-  (* ---------------------------------------------------------------- *)
-  (* Compute the polynomial hash of [s.[lo..lo+len-1]] from scratch.  *)
-  (* hash(s) = sum_{i=0..len-1} byte(s.[lo+i]) * base^(len-1-i) mod p *)
-  (* ---------------------------------------------------------------- *)
+  (** [hash_slice s lo len] computes the polynomial rolling hash of
+      [s.\[lo .. lo + len - 1\]] from scratch:
+      {[ sum_{i=0..len-1} byte(s.\[lo+i\]) * base^(len-1-i) mod prime ]}
+      O(len). *)
   let hash_slice s lo len =
     let h = ref 0 in
     for i = 0 to len - 1 do
@@ -42,13 +48,12 @@ module Rabin_karp = struct
     done;
     !h
 
+  (** [hash s] is the polynomial rolling hash of the entire string [s]. *)
   let hash s = hash_slice s 0 (String.length s)
 
-  (* ---------------------------------------------------------------- *)
-  (* Precompute base^(len-1) mod prime.  This is the multiplier used  *)
-  (* to remove the high-order byte when rolling the hash forward by   *)
-  (* one position.  Returns 1 when len = 0.                           *)
-  (* ---------------------------------------------------------------- *)
+  (** [high_power len] precomputes [base ^ (len - 1) mod prime], the
+      multiplier used to remove the high-order byte when rolling the
+      hash window forward by one position. Returns [1] when [len = 0]. *)
   let high_power len =
     let h = ref 1 in
     for _ = 1 to len - 1 do
@@ -56,9 +61,9 @@ module Rabin_karp = struct
     done;
     !h
 
-  (* ---------------------------------------------------------------- *)
-  (* Compiled-pattern handle.                                         *)
-  (* ---------------------------------------------------------------- *)
+  (** Compiled-pattern handle: stores the pattern, its length, its
+      precomputed hash and the high-order-byte multiplier used by the
+      rolling-hash step. *)
   type compiled = {
     pattern  : string;
     plen     : int;
@@ -66,6 +71,9 @@ module Rabin_karp = struct
     high_pow : int;   (* base^(plen-1) mod prime *)
   }
 
+  (** [compile pattern] precomputes the rolling-hash state for
+      [pattern] so it can be matched against many texts without
+      re-hashing. O(m). *)
   let compile pattern =
     let plen = String.length pattern in
     { pattern;
@@ -74,11 +82,10 @@ module Rabin_karp = struct
       high_pow = high_power plen;
     }
 
-  (* ---------------------------------------------------------------- *)
-  (* Verify a candidate match position by direct byte comparison.     *)
-  (* Used whenever the rolling hash matches phash, to guard against   *)
-  (* collisions.                                                      *)
-  (* ---------------------------------------------------------------- *)
+  (** [slice_equals pattern text start] verifies a candidate match by
+      direct byte comparison. Used after every rolling-hash collision
+      to rule out false positives. Returns [false] if the candidate
+      window does not fit in [text]. *)
   let slice_equals pattern text start =
     let m = String.length pattern in
     let n = String.length text in
@@ -91,11 +98,14 @@ module Rabin_karp = struct
       in
       loop 0
 
-  (* ---------------------------------------------------------------- *)
-  (* Core scan driver: walks the text once with a rolling hash window *)
-  (* of length plen, invoking [on_match start] for every confirmed    *)
-  (* occurrence.                                                      *)
-  (* ---------------------------------------------------------------- *)
+  (** [iter_matches compiled text on_match] streams every confirmed
+      occurrence of the compiled pattern in [text] in left-to-right
+      order, invoking [on_match start] for each match offset.
+      Expected O(n + m) with negligible verification overhead under a
+      uniform-random hash; worst case O(n * m) on adversarial inputs.
+
+      Empty-pattern convention: the empty pattern matches at every
+      position [0..String.length text] inclusive. *)
   let iter_matches { pattern; plen; phash; high_pow } text on_match =
     let n = String.length text in
     if plen = 0 then begin
@@ -122,11 +132,16 @@ module Rabin_karp = struct
       done
     end
 
+  (** [find_all compiled text] returns every start offset of the
+      compiled pattern in [text], in increasing order. *)
   let find_all compiled text =
     let acc = ref [] in
     iter_matches compiled text (fun start -> acc := start :: !acc);
     List.rev !acc
 
+  (** [find_first compiled text] returns [Some i] for the first
+      occurrence or [None] if absent. Stops scanning at the first
+      confirmed match. *)
   let find_first compiled text =
     let result = ref None in
     (try
@@ -136,34 +151,32 @@ module Rabin_karp = struct
     with Exit -> ());
     !result
 
+  (** [contains compiled text] is the existence-only variant. *)
   let contains compiled text =
     match find_first compiled text with
     | Some _ -> true
     | None -> false
 
+  (** [count compiled text] returns the total number of confirmed
+      occurrences. *)
   let count compiled text =
     let c = ref 0 in
     iter_matches compiled text (fun _ -> incr c);
     !c
 
-  (* ---------------------------------------------------------------- *)
-  (* Convenience one-shot wrappers; suitable when the pattern is used *)
-  (* only once.                                                       *)
-  (* ---------------------------------------------------------------- *)
+  (** [search ~pattern ~text] compiles internally and returns the first
+      occurrence. *)
   let search ~pattern ~text = find_first (compile pattern) text
+
+  (** [occurs ~pattern ~text] is the one-shot existence check. *)
   let occurs ~pattern ~text = contains (compile pattern) text
+
+  (** [search_all ~pattern ~text] returns every occurrence. *)
   let search_all ~pattern ~text = find_all (compile pattern) text
 
-  (* ---------------------------------------------------------------- *)
-  (* Multi-pattern search.  All patterns MUST share the same length   *)
-  (* (this is the canonical Rabin-Karp multi-pattern setup — it lets  *)
-  (* a single rolling hash drive the whole scan).  Raises             *)
-  (* [Invalid_argument] otherwise.                                    *)
-  (*                                                                  *)
-  (* Returns an associative list of (pattern, [match positions]) in   *)
-  (* the same order as the input patterns.  Patterns absent from the  *)
-  (* text get an empty list.                                          *)
-  (* ---------------------------------------------------------------- *)
+  (** Compiled multi-pattern handle for equal-length pattern sets.
+      Stores the patterns array, the shared pattern length, and a
+      hash-bucket map from hash value to candidate pattern indices. *)
   type multi_compiled = {
     patterns : string array;
     plen_m   : int;
@@ -171,6 +184,14 @@ module Rabin_karp = struct
     high_pow_m : int;
   }
 
+  (** [compile_multi patterns] precomputes a shared rolling-hash setup
+      for a list of patterns that all have the same length (the
+      canonical Rabin-Karp multi-pattern arrangement: one rolling hash
+      drives the entire scan).
+
+      @raise Invalid_argument if the patterns do not all share a
+      length. The empty pattern list yields an inert handle that
+      matches nothing. *)
   let compile_multi patterns =
     match patterns with
     | [] -> { patterns = [||]; plen_m = 0;
@@ -195,6 +216,12 @@ module Rabin_karp = struct
           high_pow_m = high_power plen;
         }
 
+  (** [find_all_multi mc text] runs the compiled multi-pattern handle
+      against [text] in a single linear pass.
+
+      Returns an associative list of [(pattern, positions)] in the
+      same order as the original patterns. Patterns that do not occur
+      get an empty list. *)
   let find_all_multi mc text =
     let n = String.length text in
     let plen = mc.plen_m in
@@ -237,13 +264,15 @@ module Rabin_karp = struct
         (Array.mapi (fun idx p -> (p, List.rev acc.(idx))) mc.patterns)
     end
 
-  (* ---------------------------------------------------------------- *)
-  (* Bonus: index every length-k substring of [text] by its hash.     *)
-  (* Useful for plagiarism / duplicate-substring detection: returns   *)
-  (* a list of (hash, [start position ...]) for substrings that occur *)
-  (* at least [min_count] times.  Hash collisions are NOT verified —  *)
-  (* callers should byte-compare candidate groups themselves.         *)
-  (* ---------------------------------------------------------------- *)
+  (** [duplicate_substrings ?min_count ~k text] indexes every length-[k]
+      substring of [text] by its rolling hash and returns every
+      [(hash, positions)] group with at least [min_count] members
+      (default [2]).
+
+      Useful for plagiarism / duplicate-substring detection. Note that
+      hash collisions are NOT verified by byte comparison — callers
+      should disambiguate candidate groups themselves if exact
+      duplicates are required. Returns [\[\]] for [k <= 0] or [k > |text|]. *)
   let duplicate_substrings ?(min_count = 2) ~k text =
     let n = String.length text in
     if k <= 0 || k > n then []

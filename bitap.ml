@@ -38,12 +38,28 @@
 (* Limits: patterns above BITAP_MAX are rejected with Invalid_argument.     *)
 (* For longer patterns, fall back to kmp.ml / boyer_moore.ml.               *)
 
+(** Bitap / Shift-Or string search (bitwise NFA).
+
+    Encodes a pattern's partial-match NFA as a single OCaml int and
+    slides it across the text one bitwise step per character. For
+    patterns up to {!Bitap.bitap_max} characters this gives effectively
+    O(n) exact matching with extremely tight inner loops.
+
+    Also provides Wu-Manber-style approximate matching via
+    {!Bitap.find_all_approx} (Hamming distance, up to [k] mismatches).
+
+    Sibling to {!module:Kmp}, {!module:BoyerMoore}, {!module:Rabin_karp},
+    {!module:AhoCorasick}, the Z-algorithm and Manacher modules. *)
 module Bitap = struct
 
-  (* On a 64-bit OCaml runtime native ints are 63-bit; we reserve one bit   *)
-  (* for the high "match" flag so the safe usable pattern length is 62.    *)
+  (** Maximum pattern length safely encodable in a single OCaml native
+      int. On a 64-bit runtime OCaml native ints are 63 bits and one bit
+      is reserved for the high "match" flag, leaving 62 usable bits. *)
   let bitap_max = 62
 
+  (** Compiled-pattern handle. The character mask uses Shift-Or
+      convention: bit i of [mask.(c)] is [0] iff character [c] occurs
+      at position [i] in the pattern. *)
   type compiled = {
     pattern : string;
     m       : int;
@@ -56,6 +72,9 @@ module Bitap = struct
     accept  : int;
   }
 
+  (** [compile pattern] precomputes the per-character mask table.
+
+      @raise Invalid_argument if [String.length pattern > bitap_max]. *)
   let compile pattern =
     let m = String.length pattern in
     if m = 0 then
@@ -75,14 +94,13 @@ module Bitap = struct
       { pattern; m; mask; accept = 1 lsl (m - 1) }
     end
 
-  (* ---------------------------------------------------------------- *)
-  (* Exact search via Shift-Or.                                       *)
-  (*                                                                  *)
-  (* State invariant: after processing text[0..j], bit i of `state`   *)
-  (* is 0 iff pattern[0..i] is a suffix of text[0..j]. A match ending *)
-  (* at position j occurs exactly when bit (m-1) is 0, which is       *)
-  (* equivalent to `state land accept = 0`.                           *)
-  (* ---------------------------------------------------------------- *)
+  (** [find_all c text] returns every start offset at which the
+      compiled pattern occurs in [text], in increasing order.
+
+      Uses the Shift-Or recurrence:
+      {[ state := ((state lsl 1) lor mask.(text.\[j\])) land all_ones ]}
+      Bit [i] of [state] is [0] iff [pattern.\[0..i\]] is a suffix of
+      the text read so far. *)
   let find_all c text =
     let m = c.m in
     let n = String.length text in
@@ -105,43 +123,47 @@ module Bitap = struct
       List.rev !acc
     end
 
+  (** [find_first c text] returns the smallest start offset of the
+      compiled pattern in [text], or [None] if absent. *)
   let find_first c text =
     match find_all c text with
     | [] -> None
     | x :: _ -> Some x
 
+  (** [contains c text] is the existence-only variant. *)
   let contains c text =
     match find_first c text with Some _ -> true | None -> false
 
+  (** [count c text] returns the total number of (possibly overlapping)
+      matches. *)
   let count c text = List.length (find_all c text)
 
-  (* ---------------------------------------------------------------- *)
-  (* One-shot wrappers. Match kmp.ml / boyer_moore.ml signatures so   *)
-  (* callers can swap algorithms without touching call sites.         *)
-  (* ---------------------------------------------------------------- *)
+  (** [search ~pattern ~text] one-shot wrapper: compile and return the
+      first occurrence. Matches the signature of {!Kmp.search} so
+      callers can swap algorithms freely. *)
   let search  ~pattern ~text = find_first (compile pattern) text
+
+  (** [occurs ~pattern ~text] one-shot existence check. *)
   let occurs  ~pattern ~text = contains   (compile pattern) text
+
+  (** [search_all ~pattern ~text] one-shot helper returning every
+      occurrence. *)
   let search_all ~pattern ~text = find_all (compile pattern) text
 
-  (* ---------------------------------------------------------------- *)
-  (* Approximate matching: Wu–Manber bitap with up to k mismatches.   *)
-  (*                                                                  *)
-  (* We maintain k+1 parallel state words r.(0)..r.(k). r.(d) tracks  *)
-  (* matches with at most d errors. Recurrence (Shift-Or form):       *)
-  (*                                                                  *)
-  (*   r.(0) <- ((r.(0)   << 1) land mask_all) lor mask.(c)           *)
-  (*   r.(d) <- ((r.(d)   << 1) land mask_all) lor mask.(c)           *)
-  (*           land (r.(d-1) << 1)                  (* substitution *)*)
-  (*           land  r.(d-1)                        (* current row  *)*)
-  (*           land (r.(d-1) << 1)                  (* (deletion off,*)
-  (*                                                   we're Hamming) *)
-  (*                                                                  *)
-  (* We're doing Hamming distance (substitutions only), which is the  *)
-  (* useful default for fuzzy DNA / log scanning. Returns the list of *)
-  (* (end_position, errors) pairs in ascending end_position order;    *)
-  (* among equal positions, the smallest error count wins (so each j  *)
-  (* appears at most once).                                           *)
-  (* ---------------------------------------------------------------- *)
+  (** [find_all_approx ~pattern ~text ~k] returns every approximate
+      occurrence of [pattern] in [text] allowing up to [k] character
+      substitutions (Hamming distance).
+
+      Each result is a [(end_position, errors)] pair where
+      [end_position] is the 0-based index of the last matched byte and
+      [errors] is the number of substitutions used. Results are in
+      ascending [end_position] order and each position appears at most
+      once (smallest error count wins on ties).
+
+      Implementation: Wu-Manber [k]-row Shift-Or NFA. When [k = 0] this
+      degrades to the exact {!find_all} path.
+
+      @raise Invalid_argument if [k < 0]. *)
   let find_all_approx ~pattern ~text ~k =
     if k < 0 then invalid_arg "Bitap.find_all_approx: k must be >= 0";
     let c = compile pattern in

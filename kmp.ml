@@ -21,17 +21,26 @@
 (* invariant maintenance, byte-level indexing, and the standard             *)
 (* "build automaton, then drive it across the text" pipeline.               *)
 
+(** Knuth-Morris-Pratt exact string matching.
+
+    Compile a pattern once with {!Kmp.compile} and then match it against
+    many texts in O(n + m) worst-case time, where n is the text length
+    and m is the pattern length. The compiled handle caches the
+    failure / LPS array so per-text work is purely linear in n.
+
+    Also exposes the failure function itself and helpers built on it
+    ({!Kmp.period}, {!Kmp.is_periodic}) since the LPS array has uses
+    beyond matching (periodicity, borders, string rotations). *)
 module Kmp = struct
 
-  (* ---------------------------------------------------------------- *)
-  (* Failure function (a.k.a. LPS / pi array).                        *)
-  (*                                                                  *)
-  (* For pattern p of length m, returns an int array f of length m    *)
-  (* such that f.(i) is the length of the longest proper prefix of    *)
-  (* p.[0..i] which is also a suffix of p.[0..i].                     *)
-  (*                                                                  *)
-  (* For the empty pattern this returns an empty array.               *)
-  (* ---------------------------------------------------------------- *)
+  (** [failure pattern] returns the KMP failure function (a.k.a. LPS /
+      pi array) for [pattern].
+
+      For a pattern [p] of length [m], the returned array [f] of length
+      [m] satisfies: [f.(i)] is the length of the longest proper prefix
+      of [p.\[0..i\]] that is also a suffix of [p.\[0..i\]].
+
+      Runs in O(m) time. For the empty pattern this returns [\[||\]]. *)
   let failure pattern =
     let m = String.length pattern in
     let f = Array.make (max m 1) 0 in
@@ -49,22 +58,29 @@ module Kmp = struct
       f
     end
 
-  (* ---------------------------------------------------------------- *)
-  (* Compiled-pattern handle: caches the failure function so the same *)
-  (* pattern can be matched against many texts cheaply.               *)
-  (* ---------------------------------------------------------------- *)
+  (** Compiled-pattern handle. Caches the failure function so the same
+      pattern can be matched against many texts without redundant work. *)
   type compiled = {
     pattern : string;
     failure : int array;
   }
 
+  (** [compile pattern] precomputes the failure function for [pattern]
+      and returns a reusable {!compiled} handle. O(m) in the pattern
+      length. *)
   let compile pattern = { pattern; failure = failure pattern }
 
-  (* ---------------------------------------------------------------- *)
-  (* Core scan driver: walks the text once, threading the longest     *)
-  (* prefix-match length through the failure function on mismatch,    *)
-  (* invoking [on_match start] whenever a full occurrence is found.   *)
-  (* ---------------------------------------------------------------- *)
+  (** [iter_matches compiled text on_match] walks [text] once, invoking
+      [on_match start] for every occurrence of the compiled pattern at
+      byte offset [start].
+
+      Streams matches in left-to-right order; suitable when you want to
+      avoid allocating an intermediate list (e.g. very large texts or
+      early termination via an exception raised from [on_match]).
+
+      Empty-pattern convention: the empty pattern matches at every
+      position [0..String.length text] inclusive, mirroring the
+      semantics of {!String.contains} / standard substring search. *)
   let iter_matches { pattern; failure = f } text on_match =
     let m = String.length pattern in
     let n = String.length text in
@@ -87,11 +103,18 @@ module Kmp = struct
       done
     end
 
+  (** [find_all compiled text] returns all start offsets of the
+      compiled pattern in [text], in increasing order. Allocates the
+      result list; use {!iter_matches} to stream without allocation. *)
   let find_all compiled text =
     let acc = ref [] in
     iter_matches compiled text (fun start -> acc := start :: !acc);
     List.rev !acc
 
+  (** [find_first compiled text] returns [Some i] where [i] is the
+      smallest start offset of the compiled pattern in [text], or
+      [None] if the pattern does not occur. Stops scanning at the first
+      match. *)
   let find_first compiled text =
     let result = ref None in
     (try
@@ -101,29 +124,39 @@ module Kmp = struct
     with Exit -> ());
     !result
 
+  (** [contains compiled text] is [true] iff the compiled pattern
+      occurs at least once in [text]. *)
   let contains compiled text =
     match find_first compiled text with
     | Some _ -> true
     | None -> false
 
+  (** [count compiled text] returns the total number of (possibly
+      overlapping) occurrences of the compiled pattern in [text]. *)
   let count compiled text =
     let c = ref 0 in
     iter_matches compiled text (fun _ -> incr c);
     !c
 
-  (* ---------------------------------------------------------------- *)
-  (* Convenience one-shot wrappers that compile internally; suitable  *)
-  (* when the pattern is used only once.                              *)
-  (* ---------------------------------------------------------------- *)
+  (** [search ~pattern ~text] is a one-shot wrapper that compiles
+      [pattern] internally and returns the first occurrence (or
+      [None]). Prefer {!compile} + {!find_first} when matching the
+      same pattern against multiple texts. *)
   let search ~pattern ~text = find_first (compile pattern) text
+
+  (** [occurs ~pattern ~text] is a one-shot existence check. *)
   let occurs ~pattern ~text = contains (compile pattern) text
+
+  (** [search_all ~pattern ~text] is a one-shot helper returning every
+      occurrence of [pattern] in [text]. *)
   let search_all ~pattern ~text = find_all (compile pattern) text
 
-  (* ---------------------------------------------------------------- *)
-  (* Bonus: smallest period of [pattern] derivable from the failure   *)
-  (* function.  For "abcabcab" returns 3, for "abcdef" returns 6.     *)
-  (* Returns 0 for the empty pattern.                                 *)
-  (* ---------------------------------------------------------------- *)
+  (** [period pattern] returns the smallest period [p] such that
+      [pattern.\[i\] = pattern.\[i + p\]] for all valid [i + p], derived
+      from the failure function in O(m).
+
+      Examples: [period "abcabcab" = 3], [period "abcdef" = 6],
+      [period "" = 0]. *)
   let period pattern =
     let m = String.length pattern in
     if m = 0 then 0
@@ -131,6 +164,9 @@ module Kmp = struct
       let f = failure pattern in
       m - f.(m - 1)
 
+  (** [is_periodic pattern] is [true] iff [pattern] is a non-trivial
+      power of a shorter string (i.e. its smallest period strictly
+      divides its length). [false] for the empty pattern. *)
   let is_periodic pattern =
     let m = String.length pattern in
     if m = 0 then false
