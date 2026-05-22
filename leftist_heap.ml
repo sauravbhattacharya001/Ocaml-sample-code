@@ -1,39 +1,88 @@
-(* leftist_heap.ml — Leftist Heap (weight-biased mergeable priority queue)
- *
- * A leftist heap is a heap-ordered binary tree where the "rank" (length of
- * the rightmost path) of the left child is always >= the right child.
- * This guarantees O(log n) merge, insert, and delete-min.
- *
- * Usage:
- *   let h = LeftistHeap.empty |> LeftistHeap.insert 5 |> LeftistHeap.insert 3
- *   let min_val = LeftistHeap.find_min h    (* Some 3 *)
- *   let h' = LeftistHeap.delete_min h       (* heap without 3 *)
- *)
+(** Leftist Heap — a weight-/rank-biased mergeable priority queue.
+
+    A leftist heap is a heap-ordered binary tree where the {e rank}
+    (length of the right spine) of each node's left child is always
+    ≥ that of its right child. The right spine therefore has length
+    O(log n), which gives:
+
+    - {!LeftistHeap.merge}      : O(log n)
+    - {!LeftistHeap.insert}     : O(log n)
+    - {!LeftistHeap.find_min}   : O(1)
+    - {!LeftistHeap.delete_min} : O(log n)
+
+    The structure is persistent: every operation returns a new heap and
+    leaves its inputs intact.
+
+    {1 Example}
+    {[
+      let h = LeftistHeap.empty
+              |> LeftistHeap.insert 5
+              |> LeftistHeap.insert 3 in
+      let min_val = LeftistHeap.find_min h  (* Some 3 *)
+      let h'      = LeftistHeap.delete_min h  (* heap without 3 *)
+    ]}
+
+    Elements are compared with the structural [<] operator, so the
+    element type must be comparable that way (most ground types are). *)
 
 module LeftistHeap : sig
   type 'a t
+  (** A persistent leftist min-heap of ['a]s. *)
 
   val empty : 'a t
+  (** The empty heap. *)
+
   val is_empty : 'a t -> bool
+  (** [is_empty h] is [true] iff [h] contains no elements. O(1). *)
+
   val insert : 'a -> 'a t -> 'a t
+  (** [insert x h] returns a new heap containing every element of [h]
+      plus [x]. O(log n). *)
+
   val merge : 'a t -> 'a t -> 'a t
+  (** [merge h1 h2] is the leftist heap containing the multiset union
+      of [h1] and [h2]. O(log n). *)
+
   val find_min : 'a t -> 'a option
+  (** [find_min h] is the smallest element of [h], or [None] when [h]
+      is empty. O(1). *)
+
   val delete_min : 'a t -> 'a t
+  (** [delete_min h] returns [h] without its smallest element, or [h]
+      unchanged when [h] is empty. O(log n). *)
+
   val of_list : 'a list -> 'a t
+  (** [of_list xs] builds a heap from [xs] by repeated {!insert}.
+      O(n log n). *)
+
   val to_sorted_list : 'a t -> 'a list
+  (** [to_sorted_list h] returns the elements of [h] in ascending order
+      (heap-sort). O(n log n). *)
+
   val size : 'a t -> int
+  (** [size h] counts the elements in [h]. O(n) — leftist heaps do not
+      cache size. *)
+
   val to_string : ('a -> string) -> 'a t -> string
+  (** [to_string f h] pretty-prints [h] as ["LeftistHeap[a, b, c, ...]"]
+      with elements in sorted order, using [f] to render each one. *)
 end = struct
+  (** Internal representation. [Node (rank, value, left, right)] has
+      [rank = 1 + rank(right)]; the leftist invariant guarantees
+      [rank left >= rank right]. *)
   type 'a t =
     | Leaf
-    | Node of int * 'a * 'a t * 'a t  (* rank, value, left, right *)
+    | Node of int * 'a * 'a t * 'a t
 
   let empty = Leaf
 
   let is_empty = function Leaf -> true | _ -> false
 
+  (** Rank of a node = length of its right spine. *)
   let rank = function Leaf -> 0 | Node (r, _, _, _) -> r
 
+  (** Build a node, swapping children when needed to keep the leftist
+      invariant ([rank left >= rank right]). *)
   let make_node x left right =
     if rank left >= rank right then
       Node (rank right + 1, x, left, right)

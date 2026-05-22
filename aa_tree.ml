@@ -1,52 +1,57 @@
-(* AA Tree - A balanced binary search tree (Arne Andersson, 1993)
-   
-   AA trees are a simplified variant of red-black trees where:
-   - Red nodes can only appear as right children
-   - This eliminates half the restructuring cases
-   - Uses a "level" instead of color
-   
-   Invariants:
-   1. Leaf nodes have level 1
-   2. Left children have level = parent level - 1
-   3. Right children have level = parent level or parent level - 1
-   4. Right grandchildren have level < grandparent level
-   5. Every node with level > 1 has two children
-   
-   All operations are O(log n). The beauty is that balancing needs only
-   two simple operations: skew (right rotation) and split (left rotation).
+(** AA Tree — a balanced binary search tree (Arne Andersson, 1993).
+
+    AA trees are a simplified variant of red–black trees where:
+    - red nodes can only appear as right children, which eliminates half
+      the restructuring cases;
+    - balance is tracked via a per-node {!level} rather than a colour.
+
+    {1 Invariants}
+    + Leaf nodes have level [1].
+    + Left children have level = parent level − 1.
+    + Right children have level = parent level or parent level − 1.
+    + Right grand-children have level < grand-parent level.
+    + Every node with level > 1 has two children.
+
+    All operations are O(log n). Balancing needs only two simple
+    rotations: {!skew} (right rotation) and {!split} (left rotation).
 *)
 
+(** The AA tree itself. [Leaf] is the empty tree; [Node] carries an
+    AA-balance [level], its [left] / [right] subtrees, and a [value]. *)
 type 'a tree =
   | Leaf
   | Node of { level: int; left: 'a tree; value: 'a; right: 'a tree }
 
+(** [level t] is the AA balance level of [t] (0 for [Leaf]). *)
 let level = function
   | Leaf -> 0
   | Node n -> n.level
 
-(* Skew: fix left horizontal link (left child at same level)
-   
-       T           L
-      / \         / \
-     L   R  =>  A    T
-    / \              / \
-   A   B            B   R
-   
-   When L.level = T.level, rotate right *)
+(** [skew t] fixes a left horizontal link (left child at the same level
+    as its parent) by rotating right. Idempotent on already-balanced
+    trees. O(1).
+{v
+      T           L
+     / \         / \
+    L   R  =>  A   T
+   / \            / \
+  A   B          B   R
+v} *)
 let skew = function
   | Node ({ left = Node l; _ } as t) when l.level = t.level ->
     Node { l with right = Node { t with left = l.right } }
   | t -> t
 
-(* Split: fix consecutive right horizontal links
-   
-     T               R
-    / \             /   \
-   A   R    =>     T     X
-      / \         / \
-     B   X       A   B
-   
-   When T.level = X.level (right-right same level), rotate left and bump level *)
+(** [split t] fixes two consecutive right horizontal links by rotating
+    left and bumping the new root's level. Idempotent on already-balanced
+    trees. O(1).
+{v
+    T               R
+   / \             / \
+  A   R    =>     T   X
+     / \         / \
+    B   X       A   B
+v} *)
 let split = function
   | Node ({ right = Node ({ right = Node rr; _ } as r); _ } as t)
     when t.level = rr.level ->
@@ -54,7 +59,8 @@ let split = function
                   left = Node { t with right = r.left } }
   | t -> t
 
-(* Insert a value into the AA tree *)
+(** [insert x t] returns a new tree containing [x]. Duplicates are
+    silently ignored (the tree behaves as a set). O(log n). *)
 let rec insert x = function
   | Leaf -> Node { level = 1; left = Leaf; value = x; right = Leaf }
   | Node n ->
@@ -65,7 +71,7 @@ let rec insert x = function
     in
     node |> skew |> split
 
-(* Check membership *)
+(** [mem x t] is [true] iff [x] occurs in [t]. O(log n). *)
 let rec mem x = function
   | Leaf -> false
   | Node n ->
@@ -73,19 +79,23 @@ let rec mem x = function
     else if x > n.value then mem x n.right
     else true
 
-(* Find minimum value *)
+(** [min_value t] is the smallest element of [t].
+    @raise Failure if [t] is empty. O(log n). *)
 let rec min_value = function
   | Leaf -> failwith "min_value: empty tree"
   | Node { left = Leaf; value; _ } -> value
   | Node { left; _ } -> min_value left
 
-(* Find maximum value *)
+(** [max_value t] is the largest element of [t].
+    @raise Failure if [t] is empty. O(log n). *)
 let rec max_value = function
   | Leaf -> failwith "max_value: empty tree"
   | Node { right = Leaf; value; _ } -> value
   | Node { right; _ } -> max_value right
 
-(* Decrease the level of a node if needed after deletion *)
+(** [decrease_level t] lowers the level of [t] (and the level of its
+    right child if necessary) so that the AA invariants still hold after
+    a {!delete}. Internal helper. O(1). *)
 let decrease_level = function
   | Node n ->
     let should_be = min (level n.left) (level n.right) + 1 in
@@ -98,7 +108,8 @@ let decrease_level = function
       Node { n with level = should_be; right = right' }
   | t -> t
 
-(* Delete a value from the AA tree *)
+(** [delete x t] removes [x] from [t]. If [x] is absent the tree is
+    returned unchanged. O(log n). *)
 let rec delete x = function
   | Leaf -> Leaf
   | Node n ->
@@ -132,30 +143,34 @@ let rec delete x = function
       | Node n -> Node { n with right = split n.right }
       | t -> t)
 
-(* Convert tree to sorted list (in-order traversal) *)
+(** [to_list t] is an in-order traversal of [t], producing the elements
+    in ascending order. O(n). *)
 let rec to_list = function
   | Leaf -> []
   | Node n -> to_list n.left @ [n.value] @ to_list n.right
 
-(* Build tree from a list *)
+(** [of_list xs] inserts every element of [xs] into the empty tree,
+    left-to-right. O(n log n). *)
 let of_list xs = List.fold_left (fun t x -> insert x t) Leaf xs
 
-(* Count nodes *)
+(** [size t] is the number of elements stored in [t]. O(n). *)
 let rec size = function
   | Leaf -> 0
   | Node n -> 1 + size n.left + size n.right
 
-(* Height of tree *)
+(** [height t] is the length of the longest root-to-leaf path in [t].
+    For an AA tree of size [n] this is bounded by 2·log₂(n+1). O(n). *)
 let rec height = function
   | Leaf -> 0
   | Node n -> 1 + max (height n.left) (height n.right)
 
-(* Check if tree is empty *)
+(** [is_empty t] is [true] iff [t] contains no elements. O(1). *)
 let is_empty = function
   | Leaf -> true
   | Node _ -> false
 
-(* Fold over tree in order *)
+(** [fold_inorder f acc t] folds [f] over the elements of [t] in
+    ascending order: [f (... (f (f acc x1) x2) ...) xn]. O(n). *)
 let rec fold_inorder f acc = function
   | Leaf -> acc
   | Node n ->
@@ -163,7 +178,9 @@ let rec fold_inorder f acc = function
     let acc = f acc n.value in
     fold_inorder f acc n.right
 
-(* Iterator: find successor of a value *)
+(** [successor x t] is the smallest element of [t] strictly greater than
+    [x], or [None] if [x] is at or above the maximum. O(log n).
+    [x] need not be present in [t]. *)
 let rec successor x = function
   | Leaf -> None
   | Node n ->
@@ -173,7 +190,9 @@ let rec successor x = function
       | None -> Some n.value
     else successor x n.right
 
-(* Iterator: find predecessor of a value *)
+(** [predecessor x t] is the largest element of [t] strictly less than
+    [x], or [None] if [x] is at or below the minimum. O(log n).
+    [x] need not be present in [t]. *)
 let rec predecessor x = function
   | Leaf -> None
   | Node n ->
@@ -183,7 +202,9 @@ let rec predecessor x = function
       | None -> Some n.value
     else predecessor x n.left
 
-(* Range query: find all values in [lo, hi] *)
+(** [range lo hi t] returns, in ascending order, every element [v] of
+    [t] with [lo <= v <= hi]. O(log n + k) where [k] is the size of the
+    output. *)
 let rec range lo hi = function
   | Leaf -> []
   | Node n ->
@@ -192,7 +213,8 @@ let rec range lo hi = function
     let right_part = if n.value < hi then range lo hi n.right else [] in
     left_part @ self @ right_part
 
-(* Validate AA tree invariants *)
+(** [validate t] is [true] iff [t] satisfies all AA-tree invariants
+    (used for testing / property checks). O(n). *)
 let rec validate = function
   | Leaf -> true
   | Node n ->
@@ -207,7 +229,8 @@ let rec validate = function
     in
     left_ok && right_ok && rgc_ok && validate n.left && validate n.right
 
-(* Pretty-print the tree structure *)
+(** [pp_tree indent t] prints [t] sideways to [stdout] with [indent]
+    as the leading whitespace for the root. Useful for debugging. *)
 let rec pp_tree indent = function
   | Leaf -> ()
   | Node n ->

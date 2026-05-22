@@ -74,31 +74,56 @@ let rec merge h1 h2 =
 
 let find_min = function
   | [] -> failwith "find_min: empty heap"
-  | trees ->
+  | t :: rest ->
     List.fold_left
       (fun acc t -> if t.root < acc then t.root else acc)
-      (List.hd trees).root
-      (List.tl trees)
+      t.root rest
+
+(* --- Remove minimum element (and return it) in one O(log n) pass --- *)
+(* Previously [delete_min] was implemented as
+     find_min_tree (* O(log n) *)
+     |> List.filter (!=)   (* second O(log n) scan, builds a new list *)
+     |> List.rev           (* third pass over the children *)
+     |> merge              (* fourth pass *)
+   The [List.filter (!=)] in particular relied on physical equality of
+   the tree record and silently degraded when the same tree was reachable
+   via two paths (e.g. after [merge h h]). We now do find + remove in a
+   single traversal that yields both the min tree and the residual forest
+   by value-equivalent index, and we expose [pop_min] so callers — most
+   notably [to_sorted_list] — don't pay for find_min + delete_min on
+   every iteration. *)
+
+let extract_min_tree = function
+  | [] -> failwith "extract_min_tree: empty heap"
+  | t0 :: rest0 as trees ->
+    (* One pass to locate the minimum root and remember its index. *)
+    let rec find_idx i best_i best = function
+      | [] -> best_i, best
+      | t :: rest ->
+        if t.root < best.root then find_idx (i + 1) i t rest
+        else find_idx (i + 1) best_i best rest
+    in
+    let idx, min_tree = find_idx 1 0 t0 rest0 in
+    (* Drop the i-th element while preserving order. *)
+    let rec drop_at i = function
+      | [] -> []
+      | _ :: tl when i = 0 -> tl
+      | x :: tl -> x :: drop_at (i - 1) tl
+    in
+    min_tree, drop_at idx trees
+
+let pop_min heap =
+  let min_tree, rest = extract_min_tree heap in
+  (* Reverse children to get increasing-rank order, then merge with rest *)
+  min_tree.root, merge rest (List.rev min_tree.children)
 
 (* --- Remove minimum element --- *)
 (* 1. Find the tree with the minimum root
-   2. Remove it from the forest
+   2. Remove it from the forest (fused with step 1 in [extract_min_tree])
    3. Reverse its children (they form a valid binomial heap)
    4. Merge the reversed children back into the remaining forest *)
 
-let delete_min = function
-  | [] -> failwith "delete_min: empty heap"
-  | trees ->
-    (* Find the tree with minimum root *)
-    let min_tree =
-      List.fold_left
-        (fun acc t -> if t.root < acc.root then t else acc)
-        (List.hd trees) (List.tl trees)
-    in
-    (* Remove min_tree from the forest *)
-    let rest = List.filter (fun t -> t != min_tree) trees in
-    (* Reverse children to get increasing-rank order, then merge *)
-    merge rest (List.rev min_tree.children)
+let delete_min heap = snd (pop_min heap)
 
 (* --- Construct from list --- *)
 
@@ -106,13 +131,17 @@ let of_list lst =
   List.fold_left (fun h x -> insert x h) [] lst
 
 (* --- Convert to sorted list --- *)
+(* Uses [pop_min] so each iteration costs one O(log n) pass instead of
+   the previous two (find_min + delete_min). Also tail-recursive. *)
 
-let rec to_sorted_list heap =
-  match heap with
-  | [] -> []
-  | _ ->
-    let m = find_min heap in
-    m :: to_sorted_list (delete_min heap)
+let to_sorted_list heap =
+  let rec aux acc = function
+    | [] -> List.rev acc
+    | h ->
+      let m, rest = pop_min h in
+      aux (m :: acc) rest
+  in
+  aux [] heap
 
 (* --- Size: count total elements --- *)
 
