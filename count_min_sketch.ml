@@ -15,10 +15,36 @@ module CountMinSketch = struct
   }
 
   (* ---- Hash functions ---- *)
-  (* Double hashing: h_i(x) = (h1(x) + i * h2(x)) mod w *)
+  (* Double hashing: h_i(x) = (h1(x) + i * h2(x)) mod w                    *)
+  (*                                                                       *)
+  (* The Kirsch-Mitzenmacher construction requires h1 and h2 to be         *)
+  (* (near-)independent. The previous implementation used:                 *)
+  (*                                                                       *)
+  (*   hash1 x = Hashtbl.hash x                                            *)
+  (*   hash2 x = Hashtbl.hash (x, 0x9e3779b9)                              *)
+  (*                                                                       *)
+  (* which is *not* independent: hash2 is just hash1 of a tuple that       *)
+  (* embeds x verbatim, so for many input types (ints, short strings)      *)
+  (* hash1 and hash2 share substantial mutual information. With CMS this   *)
+  (* causes correlated row collisions and inflates the realized            *)
+  (* overestimation above the analytical ε·N guarantee. This is the same   *)
+  (* root cause as bloom_filter issue #102.                                *)
+  (*                                                                       *)
+  (* Fix: use Hashtbl.seeded_hash with two distinct, well-mixed seeds.     *)
+  (* seeded_hash folds the seed into its internal state before consuming   *)
+  (* the value, so changing the seed produces avalanche-style decorrelat-  *)
+  (* ion rather than a fixed offset.                                       *)
 
-  let hash1 x = Hashtbl.hash x
-  let hash2 x = Hashtbl.hash (x, 0x9e3779b9)
+  let cms_seed_1 = 0xc2b2ae3d  (* MurmurHash3 finalizer constant, odd *)
+  let cms_seed_2 = 0x85ebca77  (* MurmurHash3 finalizer constant, odd *)
+
+  let hash1 x = Hashtbl.seeded_hash cms_seed_1 x
+  let hash2 x =
+    (* Force a non-zero stride: if h2 = 0, every probe in a single row
+       lands on the same column and the row degenerates to a 1-counter
+       estimator for x. *)
+    let h = Hashtbl.seeded_hash cms_seed_2 x in
+    if h = 0 then 0x27d4eb2f else h
 
   let hash_i w h1 h2 i =
     ((h1 + i * h2) mod w + w) mod w
