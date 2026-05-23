@@ -702,11 +702,14 @@ New to OCaml? These resources complement the examples in this repo:
 
 ## Testing & Coverage
 
-The repository includes a comprehensive test suite (`test_all.ml`) covering all core algorithms:
+The repository includes a comprehensive test suite (`test_all.ml`) covering all core algorithms, plus ~40 per-module suites (`test_*.ml`) run by `make test-extended`. See **[TESTING.md](TESTING.md)** for the full guide — layout, fast vs extended lanes, script vs compiled tests, coverage, and CI gating.
 
 ```bash
-# Run tests
+# Run tests (fast lane)
 make test
+
+# Run every per-module suite
+make test-extended
 
 # Run tests with coverage (requires bisect_ppx)
 opam install bisect_ppx ocamlfind

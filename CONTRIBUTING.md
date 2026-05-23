@@ -9,7 +9,7 @@ Thanks for your interest in contributing! This repository is a curated collectio
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Style Guide](#style-guide)
-- [Adding Tests](#adding-tests)
+- [Adding Tests](#adding-tests) (deep dive: [TESTING.md](TESTING.md))
 - [Contributing Documentation](#contributing-documentation)
 - [CI Pipeline](#ci-pipeline)
 - [Benchmarking Performance Changes](#benchmarking-performance-changes)
