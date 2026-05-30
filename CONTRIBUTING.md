@@ -18,6 +18,8 @@ Thanks for your interest in contributing! This repository is a curated collectio
 - [Reporting Issues](#reporting-issues)
 - [Security Vulnerabilities](#security-vulnerabilities)
 - [Troubleshooting](#troubleshooting)
+- [Release Process](#release-process)
+- [Memory Profiling](#memory-profiling)
 - [Code of Conduct](#code-of-conduct)
 
 ## Project Architecture
@@ -448,6 +450,60 @@ make coverage
 # Validate a single file compiles
 ocamlfind ocamlopt -package str -linkpkg your_file.ml -o /dev/null
 ```
+
+## Release Process
+
+Releases follow [semantic versioning](https://semver.org/):
+
+- **Major** (v2.0.0) — breaking changes to the Makefile build system, minimum OCaml version bump, or removal of existing examples
+- **Minor** (v1.1.0) — new examples, new interactive docs pages, new test coverage
+- **Patch** (v1.0.1) — bug fixes, typo corrections, CI improvements
+
+### How Releases Are Cut
+
+1. Version tags (`vX.Y.Z`) on `master` trigger the `release.yml` workflow
+2. The workflow builds a Docker image tagged with the version and generates a changelog from conventional commit messages since the last tag
+3. Contributors don't need to cut releases — maintainers tag when a batch of changes warrants it
+
+### Changelog Expectations
+
+The auto-generated changelog groups commits by type (`feat:`, `fix:`, `docs:`, etc.). This is why conventional commit messages matter — they become user-facing release notes. A commit like `update stuff` forces manual changelog editing.
+
+## Memory Profiling
+
+For data structure contributions, understanding memory behavior is as important as raw speed. OCaml's GC makes allocation cheap but not free.
+
+### Using `Gc.stat` for allocation tracking
+
+```ocaml
+let profile_memory name f =
+  Gc.compact ();
+  let before = Gc.stat () in
+  let result = f () in
+  let after = Gc.stat () in
+  Printf.printf "%s: %.0f words allocated, %d minor collections, %d major collections\n"
+    name
+    (after.minor_words -. before.minor_words)
+    (after.minor_collections - before.minor_collections)
+    (after.major_collections - before.major_collections);
+  result
+```
+
+### When to profile memory
+
+- Any persistent data structure (finger trees, HAMTs, zippers) — report words-per-element
+- Streaming/incremental algorithms — verify no unexpected retention
+- Anything claiming to be "cache-friendly" — show GC pressure is actually lower
+
+### Interpreting results
+
+| Metric | Healthy | Concerning |
+|--------|---------|------------|
+| Minor collections per op | 0 | >1 |
+| Major collections per 1M ops | <10 | >100 |
+| Live words after `compact` | Proportional to data size | Growing unbounded |
+
+Include memory profiles in PR descriptions for data-structure work alongside the `benchmark.ml` numbers.
 
 ## Code of Conduct
 
