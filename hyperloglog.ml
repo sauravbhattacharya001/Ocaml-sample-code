@@ -154,10 +154,11 @@ end = struct
     let w = hash_val lsr hll.precision in
     let bits_remaining = 30 - hll.precision in
     let rho = count_leading_zeros ~bits_available:bits_remaining w in
-    let new_registers = Array.copy hll.registers in
-    if rho > new_registers.(idx) then
+    if rho <= hll.registers.(idx) then hll
+    else
+      let new_registers = Array.copy hll.registers in
       new_registers.(idx) <- rho;
-    { hll with registers = new_registers }
+      { hll with registers = new_registers }
 
   let add hll element =
     let (h1, h2) = full_hash element in
@@ -165,6 +166,28 @@ end = struct
     let combined = h1 lxor (h2 lsl 3) in
     let combined = combined land 0x3FFFFFFF in
     add_hash hll combined
+
+  let add_all hll elements =
+    let new_registers = Array.copy hll.registers in
+    let changed = ref false in
+    List.iter (fun element ->
+      let (h1, h2) = full_hash element in
+      let combined = (h1 lxor (h2 lsl 3)) land 0x3FFFFFFF in
+      let idx = combined land (hll.num_registers - 1) in
+      let w = combined lsr hll.precision in
+      let bits_remaining = 30 - hll.precision in
+      let rho = count_leading_zeros ~bits_available:bits_remaining w in
+      if rho > new_registers.(idx) then begin
+        new_registers.(idx) <- rho;
+        changed := true
+      end
+    ) elements;
+    if !changed then { hll with registers = new_registers }
+    else hll
+
+  let of_list ?(precision=14) elements =
+    let hll = create ~precision () in
+    add_all hll elements
 
   let cardinality hll =
     let m = float_of_int hll.num_registers in
