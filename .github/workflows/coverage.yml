@@ -53,23 +53,27 @@ jobs:
           for test_src in test_aa_tree.ml test_astar.ml \
                           test_bloom_filter.ml test_bplus_tree.ml \
                           test_btree.ml test_cellular_automata.ml \
-                          test_constraint.ml test_crdt.ml test_crypto.ml \
-                          test_csp.ml test_dancing_links.ml test_diff.ml \
+                          test_circuit_breaker.ml test_constraint.ml \
+                          test_count_min_sketch.ml test_crdt.ml \
+                          test_crypto.ml test_csp.ml \
+                          test_dancing_links.ml test_diff.ml \
                           test_finger_tree.ml test_free_monad.ml \
                           test_geometry.ml test_graph_db.ml \
-                          test_huffman.ml test_interval_tree.ml \
-                          test_json.ml test_lru_cache.ml test_matrix.ml \
+                          test_horspool.ml test_huffman.ml \
+                          test_interval_tree.ml test_json.ml \
+                          test_lru_cache.ml test_matrix.ml \
                           test_memoize.ml test_order_statistics_tree.ml \
                           test_pairing_heap.ml test_persistent_vector.ml \
                           test_queue.ml test_raft.ml test_ring_buffer.ml \
                           test_rope.ml test_sat_solver.ml \
                           test_segment_tree.ml test_signal_processing.ml \
                           test_skip_list.ml test_stm.ml \
-                          test_suffix_array.ml test_treap.ml \
-                          test_autodiff.ml test_autonomous_debugger.ml \
-                          test_bitap.ml test_compression.ml \
-                          test_contract_inference.ml test_fuzzing_engine.ml \
-                          test_http_server.ml test_program_synthesis.ml \
+                          test_suffix_array.ml test_sunday.ml \
+                          test_treap.ml test_autodiff.ml \
+                          test_autonomous_debugger.ml test_bitap.ml \
+                          test_compression.ml test_contract_inference.ml \
+                          test_fuzzing_engine.ml test_http_server.ml \
+                          test_program_synthesis.ml \
                           test_property_discovery.ml test_union_find.ml; do
             if [ -f "$test_src" ]; then
               # Each test file includes its module source inline or via #use
@@ -116,7 +120,22 @@ jobs:
                      symbolic_regression.ml task_scheduler.ml \
                      term_rewriting.ml theorem_prover.ml \
                      turing_machine.ml type_infer.ml typeclass.ml \
-                     wavelet_tree.ml yfast_trie.ml zip_tree.ml; do
+                     wavelet_tree.ml yfast_trie.ml zip_tree.ml \
+                     aho_corasick.ml anomaly_detector.ml \
+                     argumentation.ml auction.ml benchmark.ml \
+                     boyer_moore.ml bst.ml circuit_breaker.ml \
+                     code_archaeology.ml code_experiment.ml \
+                     code_lineage.ml code_mentor.ml code_profiler.ml \
+                     code_transform.ml csv.ml cuckoo_filter.ml \
+                     dependency_auditor.ml dijkstra.ml \
+                     dining_philosophers.ml factor.ml fenwick_tree.ml \
+                     fibonacci.ml formal_verification.ml graph.ml \
+                     hashmap.ml hello.ml horspool.ml kmp.ml \
+                     learning_path.ml list_last_elem.ml manacher.ml \
+                     mergesort.ml rabin_karp.ml rbtree.ml \
+                     refactoring_autopilot.ml regex.ml sorting.ml \
+                     splay_tree.ml sunday.ml \
+                     type_inference_debugger.ml z_algorithm.ml; do
             if [ -f "$src" ]; then
               out="${src%.ml}_inline_cov"
               ocamlfind ocamlopt $BISECT_FLAGS "$src" -o "$out" 2>/dev/null || \
