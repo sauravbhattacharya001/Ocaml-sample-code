@@ -1,0 +1,164 @@
+# Repository label definitions — synced by .github/workflows/label-sync.yml
+# Single source of truth for all labels used in this repository.
+
+# === Category: Code Domain ===
+- name: data-structures
+  color: "1D76DB"
+  description: "Data structure implementations (trees, heaps, lists, maps)"
+
+- name: algorithms
+  color: "0E8A16"
+  description: "Algorithm implementations (sorting, search, graph)"
+
+- name: parsing
+  color: "5319E7"
+  description: "Parsers, lexers, grammars (PEG, Earley, regex)"
+
+- name: concurrency
+  color: "D93F0B"
+  description: "Concurrent and parallel programming (STM, CSP, actors)"
+
+- name: distributed-systems
+  color: "B60205"
+  description: "Distributed system algorithms (Raft, CRDT, gossip)"
+
+- name: formal-methods
+  color: "006B75"
+  description: "Formal verification, SAT/SMT, theorem proving"
+
+- name: type-theory
+  color: "D4C5F9"
+  description: "Type systems, GADTs, monads, lambda calculus"
+
+- name: interpreters
+  color: "FBCA04"
+  description: "Language interpreters, VMs, term rewriting"
+
+- name: numerical
+  color: "0075CA"
+  description: "Numerical computing, math, linear algebra"
+
+- name: ai-ml
+  color: "E99695"
+  description: "AI and machine learning implementations"
+
+- name: multi-agent
+  color: "F9D0C4"
+  description: "Multi-agent systems, BDI, negotiation"
+
+- name: devtools
+  color: "C2E0C6"
+  description: "Developer tools, profilers, code analysis"
+
+- name: graphics
+  color: "7057FF"
+  description: "Graphics, raytracing, visualization"
+
+- name: systems
+  color: "BFD4F2"
+  description: "Systems programming, FSM, simulators"
+
+- name: security
+  color: "E11D48"
+  description: "Cryptography and security implementations"
+
+# === Category: File Type ===
+- name: ocaml
+  color: "EC6813"
+  description: "OCaml source code changes"
+
+- name: tests
+  color: "BFD4F2"
+  description: "Test file changes"
+
+- name: documentation
+  color: "0075CA"
+  description: "Documentation changes"
+
+- name: ci
+  color: "EDEDED"
+  description: "CI/CD workflow changes"
+
+- name: docker
+  color: "0DB7ED"
+  description: "Docker/container changes"
+
+- name: build
+  color: "FEF2C0"
+  description: "Build system changes (Makefile, opam)"
+
+- name: dependencies
+  color: "0366D6"
+  description: "Dependency updates"
+
+# === Category: Issue Type ===
+- name: bug
+  color: "D73A4A"
+  description: "Something isn't working"
+
+- name: enhancement
+  color: "A2EEEF"
+  description: "New feature or improvement"
+
+- name: performance
+  color: "F97316"
+  description: "Performance-related issue"
+
+- name: refactor
+  color: "C5DEF5"
+  description: "Code refactoring or cleanup"
+
+# === Category: Priority ===
+- name: "priority/critical"
+  color: "B60205"
+  description: "Must fix immediately"
+
+- name: "priority/high"
+  color: "D93F0B"
+  description: "Important, fix soon"
+
+- name: "priority/low"
+  color: "0E8A16"
+  description: "Nice to have, low urgency"
+
+# === Category: PR Size ===
+- name: "size/XS"
+  color: "3CBF00"
+  description: "Extra small change (≤10 lines)"
+
+- name: "size/S"
+  color: "5DD84B"
+  description: "Small change (≤50 lines)"
+
+- name: "size/M"
+  color: "FBCA04"
+  description: "Medium change (≤200 lines)"
+
+- name: "size/L"
+  color: "F97316"
+  description: "Large change (≤500 lines)"
+
+- name: "size/XL"
+  color: "D73A4A"
+  description: "Extra large change (>500 lines)"
+
+# === Category: Triage ===
+- name: "needs-triage"
+  color: "EDEDED"
+  description: "Awaiting triage — not yet categorized"
+
+- name: "good first issue"
+  color: "7057FF"
+  description: "Good for newcomers"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+- name: "wontfix"
+  color: "FFFFFF"
+  description: "This will not be worked on"
+
+- name: "duplicate"
+  color: "CFD3D7"
+  description: "This issue or PR already exists"

@@ -77,5 +77,14 @@ jobs:
               });
               console.log(`Added labels: ${labelsToAdd.join(', ')}`);
             } else {
-              console.log('No matching labels found');
+              // No rules matched — add needs-triage so nothing slips through
+              if (!existingLabels.includes('needs-triage')) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: ['needs-triage'],
+                });
+                console.log('No keyword match — added needs-triage');
+              }
             }

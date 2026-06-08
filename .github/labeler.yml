@@ -282,7 +282,12 @@ build:
       - any-glob-to-any-file:
           - 'Makefile'
           - '.editorconfig'
+          - '*.opam'
+          - 'dune*'
+          - '.ocamlformat'
 
 dependencies:
   - changed-files:
-      - any-glob-to-any-file: '.github/dependabot.yml'
+      - any-glob-to-any-file:
+          - '.github/dependabot.yml'
+          - '*.opam'
